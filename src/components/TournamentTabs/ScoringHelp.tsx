@@ -9,9 +9,10 @@ import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 interface ScoringHelpProps {
   scoringMode?: string | null;
   className?: string;
+  isSmall?: boolean;
 }
 
-export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className }) => {
+export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className, isSmall }) => {
   const uiText = useTranslations('PublicUI.TournamentView');
   const [isExpanded, setIsExpanded] = useState(false);
   const isAppgMode = isAppg120ScoringMode(scoringMode);
@@ -23,7 +24,7 @@ export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className
       {isAppgMode ? (
         <>
           <p onClick={() => setIsExpanded(!isExpanded)} className={styles.helpToggle}>
-            <strong>{uiText('aPPG120ScoringMode')}</strong>{' '}
+            <strong className={`${isSmall && styles.toggleSmall}`}>{uiText('aPPG120ScoringMode')}</strong>{' '}
             {isExpanded ? <X size={18} /> : <Info size={18} />}
           </p>
           {isExpanded && (
@@ -58,7 +59,7 @@ export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className
       ) : isAverage120Mode ? (
         <>
           <p onClick={() => setIsExpanded(!isExpanded)} className={styles.helpToggle}>
-            <strong>{uiText('average120ScoringMode')}</strong>{' '}
+            <strong className={`${isSmall && styles.toggleSmall}`}>{uiText('average120ScoringMode')}</strong>{' '}
             {isExpanded ? <X size={18} /> : <Info size={18} />}
           </p>
           {isExpanded && <p className={styles.helpContent}>{uiText('average120ScoringExplanation')}</p>}
@@ -66,7 +67,7 @@ export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className
       ) : is120minMode ? (
         <>
           <p onClick={() => setIsExpanded(!isExpanded)} className={styles.helpToggle}>
-            <strong>{uiText('120minScoringMode')}</strong>{' '}
+            <strong className={`${isSmall && styles.toggleSmall}`}>{uiText('120minScoringMode')}</strong>{' '}
             {isExpanded ? <X size={18} /> : <Info size={18} />}
           </p>
           {isExpanded && (
@@ -79,13 +80,12 @@ export const ScoringHelp: React.FC<ScoringHelpProps> = ({ scoringMode, className
       ) : (
         <>
           <p onClick={() => setIsExpanded(!isExpanded)} className={styles.helpToggle}>
-            <strong>{uiText('victoryPointsMode')}</strong>{' '}
+            <strong className={`${isSmall && styles.toggleSmall}`}>{uiText('victoryPointsMode')}</strong>{' '}
             {isExpanded ? <X size={18} /> : <Info size={18} />}
           </p>
           {isExpanded && (
             <p className={styles.helpContent}>
-              {uiText('standardCompetitiveTournamentTeamsEarn3PointsForA')}{' '}
-              <strong>{uiText('totalPoints')}</strong>
+              {uiText('standardCompetitiveTournamentTeamsEarn3PointsForA')} <strong>{uiText('totalPoints')}</strong>
               {uiText('thenGoalDifferenceAndGoalsScored120minGamesMean')}
             </p>
           )}

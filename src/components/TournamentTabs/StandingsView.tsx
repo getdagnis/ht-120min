@@ -1081,7 +1081,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </table>
           <Tooltip id="appg-breakdown-tooltip" className="tooltip" />
         </div>
-        <ScoringHelp scoringMode={tournament?.scoring_mode} className={styles.standingsScoringHelp} />
+        <ScoringHelp scoringMode={tournament?.scoring_mode} className={styles.standingsScoringHelp} isSmall />
         {canJoinTournament && onJoinWithHattrick && (
           <div className={styles.standingsJoinCta}>
             <Button

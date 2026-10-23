@@ -182,7 +182,7 @@ export const useAuth = () => {
   const fetchProfile = useCallback(async (uid: number) => {
     setLoading(true);
     try {
-      // 1. Fetch Profile
+      // #1 fetch manager profile
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -197,7 +197,7 @@ export const useAuth = () => {
         }
       }
 
-      // 2. Fetch Active Tournaments for the user
+      // #2 fetch user's active tournaments
       const { data: teamsDataRaw, error: teamsError } = await supabase
         .from('teams')
         .select(`
@@ -333,7 +333,7 @@ export const useAuth = () => {
           delegatedRows = managedPayload.tournaments || [];
         }
       } catch {
-        // The organizer query remains the compatibility fallback for older sessions.
+        // the organizer query remains the compatibility fallback for older sessions
       }
 
       const managedRows = Array.from(
