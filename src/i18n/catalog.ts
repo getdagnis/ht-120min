@@ -115,7 +115,7 @@ export function keysForSection(section: CatalogSection) {
 export function applyCatalogValues<T extends object>(source: T, overrides: CatalogValues): T {
   const output = structuredClone(source) as Record<string, unknown>;
   for (const [path, value] of Object.entries(overrides)) {
-    if (!(path in englishCatalog) || !value.trim()) continue;
+    if (!(path in englishCatalog) || !value.trim() || value.trim() === path) continue;
     const parts = path.split('.');
     let target: Record<string, unknown> = output;
     for (const part of parts.slice(0, -1)) {

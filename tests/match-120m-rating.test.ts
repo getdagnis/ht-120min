@@ -24,7 +24,7 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
   assert.deepEqual(calculateMatch120mRating(setup()), {
-    score: 100, grade: 'A+', formula_version: 1, has_set_pieces_skill: true, has_specialties: true,
+    score: 100, grade: 'A+', formula_version: 3, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
@@ -115,39 +115,69 @@ test('unrecognized or incomplete core data remains unscored', () => {
 test('120m coaching colors attacks only above average defence and midfield at the combined threshold', () => {
   const balanced = setup({
     ratings: {
-      leftDefence: raw(3), centralDefence: raw(3), rightDefence: raw(3),
+      leftDefence: raw(6), centralDefence: raw(6), rightDefence: raw(6),
       leftAttack: raw(3), centralAttack: raw(3), rightAttack: raw(3), midfield: raw(3),
     },
   });
   assert.deepEqual(analyzeMatch120mCoaching(balanced).sectorScores, {});
 
-  const attackAbove = setup({ ratings: { ...balanced.ratings, leftAttack: raw(3.01) } });
+  const attackAbove = setup({ ratings: { ...balanced.ratings, leftAttack: raw(6.01) } });
   assert.equal(analyzeMatch120mCoaching(attackAbove).sectorScores.leftAttack, 4);
 
   const midfieldAtBoundary = setup({
-    ratings: { ...balanced.ratings, leftAttack: raw(1), centralAttack: raw(1), rightAttack: raw(1), midfield: raw(5) },
+    ratings: { ...balanced.ratings, leftAttack: raw(3), centralAttack: raw(3), rightAttack: raw(3), midfield: raw(9) },
   });
   assert.equal(analyzeMatch120mCoaching(midfieldAtBoundary).sectorScores.midfield, undefined);
   const midfieldOver = setup({
-    ratings: { ...midfieldAtBoundary.ratings, midfield: raw(5.01) },
+    ratings: { ...midfieldAtBoundary.ratings, midfield: raw(9.01) },
   });
   assert.equal(analyzeMatch120mCoaching(midfieldOver).sectorScores.midfield, 4);
 });
 
-test('120m coaching flags three Quick or Head players and only rewards Quick defensive cover', () => {
+test('120m coaching always flags defence below 5 and attacks at 8, with a stronger 11.25 warning', () => {
+  const weakDefence = setup({ ratings: { ...setup().ratings, leftDefence: raw(4.99) } });
+  const weakDefenceAnalysis = analyzeMatch120mCoaching(weakDefence);
+  assert.equal(weakDefenceAnalysis.sectorScores.leftDefence, 4);
+  assert.ok(weakDefenceAnalysis.recommendations.includes('adviceWeakDefence'));
+
+  const dangerousAttack = setup({ ratings: { ...setup().ratings, leftAttack: raw(8) } });
+  const dangerousAnalysis = analyzeMatch120mCoaching(dangerousAttack);
+  assert.equal(dangerousAnalysis.sectorScores.leftAttack, 4);
+  assert.ok(dangerousAnalysis.recommendations.includes('adviceDangerousAttack'));
+
+  const veryHighAttack = setup({ ratings: { ...setup().ratings, leftAttack: raw(11.25) } });
+  const veryHighAnalysis = analyzeMatch120mCoaching(veryHighAttack);
+  assert.equal(veryHighAnalysis.sectorScores.leftAttack, 4);
+  assert.ok(veryHighAnalysis.recommendations.includes('adviceVeryHighAttack'));
+  assert.ok(!veryHighAnalysis.recommendations.includes('adviceDangerousAttack'));
+});
+
+test('120m coaching flags three Quick, Head, or Unpredictable players and only rewards Quick defensive cover', () => {
   const base = setup({ specialtyPositions: [
     { specialtyId: 2, roleIds: [101, 102, 103] },
     { specialtyId: 5, roleIds: [104, 105, 106] },
+    { specialtyId: 4, roleIds: [107, 108, 109] },
   ] });
   const analysis = analyzeMatch120mCoaching(base, [{ specialtyId: 2, roleIds: [110] }]);
   assert.ok(analysis.quickDefensiveRoles.includes(101));
   assert.equal(analysis.sectorScores.rightDefence, undefined);
   assert.ok(analysis.recommendations.includes('reduceQuick'));
   assert.ok(analysis.recommendations.includes('reduceHead'));
+  assert.ok(analysis.recommendations.includes('reduceUnpredictable'));
+  assert.ok(!analysis.recommendations.includes('setDefensiveStyle'));
 
   const technical = setup({ specialtyPositions: [{ specialtyId: 1, roleIds: [101] }] });
   const technicalAnalysis = analyzeMatch120mCoaching(technical, [{ specialtyId: 2, roleIds: [110] }]);
   assert.deepEqual(technicalAnalysis.quickDefensiveRoles, []);
+});
+
+test('three Unpredictable players reduce the 120m score; two do not', () => {
+  const baseline = calculateMatch120mRating(setup());
+  const two = calculateMatch120mRating(setup({ specialtyPositions: [{ specialtyId: 4, roleIds: [101, 102] }] }));
+  const three = calculateMatch120mRating(setup({ specialtyPositions: [{ specialtyId: 4, roleIds: [101, 102, 103] }] }));
+  assert.ok(baseline && two && three);
+  assert.equal(two.score, baseline.score);
+  assert.equal(three.score, baseline.score - 6);
 });
 
 test('only 120-minute scoring modes are eligible', () => {

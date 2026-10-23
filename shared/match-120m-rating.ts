@@ -3,7 +3,7 @@ import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndica
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
 
-export const MATCH_120M_FORMULA_VERSION = 1;
+export const MATCH_120M_FORMULA_VERSION = 3;
 export type Match120mGrade = `${'A' | 'B' | 'C' | 'D-' | 'E-' | 'F'}${'+' | '' | '-'}`;
 
 export interface Match120mRating {
@@ -27,6 +27,7 @@ export interface Match120mCoachingAnalysis {
   mindsetScore: RatingIndicatorScore | null;
   quickCount: number | null;
   headCount: number | null;
+  unpredictableCount: number | null;
   quickDefensiveRoles: number[];
   recommendations: string[];
 }
@@ -101,12 +102,14 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
   const specialties = performance.specialtyPositions;
   const quickCount = specialties?.find((entry) => entry.specialtyId === 2)?.roleIds.length ?? 0;
   const headCount = specialties?.find((entry) => entry.specialtyId === 5)?.roleIds.length ?? 0;
+  const unpredictableCount = specialties?.find((entry) => entry.specialtyId === 4)?.roleIds.length ?? 0;
   const attackPenalty = maxAttack >= 8 ? 8 : maxAttack >= 7 ? 3 : maxAttack >= 6 ? 2 : maxAttack >= 5 ? 1 : 0;
   const attackingFormation = formation === '3-4-3' || formation === '2-5-3';
-  let score = defencePoints * 0.25 + tacticPoints * 0.25 + formationPoints[formation] * 0.25
-    + midfieldPoints * 0.15 + setPiecesPoints * 0.1
+  let score = defencePoints * 0.29 + tacticPoints * 0.25 + formationPoints[formation] * 0.18
+    + midfieldPoints * 0.18 + setPiecesPoints * 0.1
     + (getMatchMindsetIndicator(performance.styleOfPlay) ? 5 : 0)
-    - specialtyPenalty(quickCount) - specialtyPenalty(headCount) - attackPenalty
+    - specialtyPenalty(quickCount) - specialtyPenalty(headCount)
+    - (unpredictableCount >= 3 ? specialtyPenalty(unpredictableCount) : 0) - attackPenalty
     - (attackingFormation ? 5 : 0);
   if (attackingFormation && (tacticPoints === 0 || maxAttack >= 8)) score = Math.min(score, 10);
   score = Math.round(Math.max(0, Math.min(100, score)));
@@ -157,18 +160,26 @@ export function analyzeMatch120mCoaching(
       if (sector === 'midfield') {
         if (midfield + averageAttack > 2 * averageDefence) sectorScores[sector] = 4;
       } else if (sector.endsWith('Attack')) {
-        if (ownValues[sector] > averageDefence) sectorScores[sector] = 4;
+        if (ownValues[sector] >= 8 || ownValues[sector] > averageDefence) sectorScores[sector] = 4;
+      } else if (ownValues[sector] < 5) {
+        sectorScores[sector] = 4;
       }
     }
     if (midfield + averageAttack > 2 * averageDefence) recommendations.push('balanceMidfield');
-    if (attacks.some((value) => value !== null && value > averageDefence)) recommendations.push('lowerAttack');
+    if (defences.some((value) => value !== null && value < 5)) recommendations.push('adviceWeakDefence');
+    const highestAttack = Math.max(...attacks.map((value) => value ?? 0));
+    if (highestAttack >= 11.25) recommendations.push('adviceVeryHighAttack');
+    else if (highestAttack >= 8) recommendations.push('adviceDangerousAttack');
+    else if (attacks.some((value) => value !== null && value > averageDefence)) recommendations.push('lowerAttack');
   }
 
   const specialties = performance?.specialtyPositions;
   const quickCount = countSpecialty(specialties, 2);
   const headCount = countSpecialty(specialties, 5);
+  const unpredictableCount = countSpecialty(specialties, 4);
   if ((quickCount ?? 0) >= 3) recommendations.push('reduceQuick');
   if ((headCount ?? 0) >= 3) recommendations.push('reduceHead');
+  if ((unpredictableCount ?? 0) >= 3) recommendations.push('reduceUnpredictable');
 
   const quickOpponents = opposingSpecialties?.find((entry) => entry.specialtyId === 2)?.roleIds ?? [];
   const defensiveRoleToAttackRole: Record<number, number> = {
@@ -195,9 +206,8 @@ export function analyzeMatch120mCoaching(
   if (formationScore !== null && formationScore !== 1) recommendations.push('chooseDefensiveFormation');
   if (tacticScore !== null && tacticScore !== 1) recommendations.push('choosePressing');
   if (setPiecesScore !== 1) recommendations.push('improveSetPieces');
-  if (!getMatchMindsetIndicator(performance?.styleOfPlay)) recommendations.push('setDefensiveStyle');
   if (rating && rating.grade !== 'A' && rating.grade !== 'A+' && recommendations.length === 0) recommendations.push('fineTuneLineup');
 
   return { rating, sectorScores, formationScore, tacticScore, setPiecesScore, mindsetScore,
-    quickCount, headCount, quickDefensiveRoles, recommendations: [...new Set(recommendations)] };
+    quickCount, headCount, unpredictableCount, quickDefensiveRoles, recommendations: [...new Set(recommendations)] };
 }

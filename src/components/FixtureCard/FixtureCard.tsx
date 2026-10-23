@@ -9,7 +9,12 @@ import { skillDisplay } from '../../utils/hattrick-skill';
 import { getMatchMindsetIndicator } from '../../utils/rating-indicators';
 import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
-import { analyzeMatch120mCoaching, normalizeMatch120mGrade, type Match120mCoachingAnalysis, type Match120mRatedSector } from '../../../shared/match-120m-rating';
+import {
+  analyzeMatch120mCoaching,
+  normalizeMatch120mGrade,
+  type Match120mCoachingAnalysis,
+  type Match120mRatedSector,
+} from '../../../shared/match-120m-rating';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
@@ -138,10 +143,19 @@ const SPECIALTY_NAMES: Record<number, string> = {
   8: 'Support',
 };
 
-function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Match120mRatedSector, analysis: Match120mCoachingAnalysis) {
+function specialtyMarkersForSector(
+  groups: SpecialtyPositionGroup[],
+  sector: Match120mRatedSector,
+  analysis: Match120mCoachingAnalysis,
+) {
   const roleRanges: Record<Match120mRatedSector, number[]> = {
-    leftAttack: [110], centreAttack: [111, 112, 113], rightAttack: [106], midfield: [107, 108, 109],
-    leftDefence: [105], centreDefence: [102, 103, 104], rightDefence: [101],
+    leftAttack: [110],
+    centreAttack: [111, 112, 113],
+    rightAttack: [106],
+    midfield: [107, 108, 109],
+    leftDefence: [105],
+    centreDefence: [102, 103, 104],
+    rightDefence: [101],
   };
   const roles = new Set(roleRanges[sector]);
   const markers = new Map<number, { specialtyId: number; count: number; roles: number[] }>();
@@ -153,12 +167,23 @@ function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Mat
     if (marker) {
       marker.count += specialtyRoles.length;
       marker.roles.push(...specialtyRoles);
-    } else markers.set(group.specialtyId, { specialtyId: group.specialtyId, count: specialtyRoles.length, roles: specialtyRoles });
+    } else
+      markers.set(group.specialtyId, {
+        specialtyId: group.specialtyId,
+        count: specialtyRoles.length,
+        roles: specialtyRoles,
+      });
   }
   return [...markers.values()].map((marker) => ({
     ...marker,
-    excessive: marker.specialtyId === 2 ? (analysis.quickCount ?? 0) >= 3
-      : marker.specialtyId === 5 ? (analysis.headCount ?? 0) >= 3 : false,
+    excessive:
+      marker.specialtyId === 2
+        ? (analysis.quickCount ?? 0) >= 3
+        : marker.specialtyId === 5
+          ? (analysis.headCount ?? 0) >= 3
+          : marker.specialtyId === 4
+            ? (analysis.unpredictableCount ?? 0) >= 3
+            : false,
     green: marker.specialtyId === 2 && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)),
   }));
 }
@@ -168,7 +193,12 @@ function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
   return styles[`ratingIndicator${score}`];
 }
 
-function IndicatorTip({ score, tone, content, children }: {
+function IndicatorTip({
+  score,
+  tone,
+  content,
+  children,
+}: {
   score?: RatingIndicatorScore | null;
   tone?: string;
   content?: string;
@@ -176,11 +206,16 @@ function IndicatorTip({ score, tone, content, children }: {
 }) {
   const id = React.useId();
   const indicatorClass = ratingIndicatorClass(score);
-  if (!indicatorClass || !content) return <strong className={indicatorClass}>{children}</strong>;
+  if ((!indicatorClass && !tone) || !content) return <strong className={indicatorClass}>{children}</strong>;
   return (
     <>
-      <strong className={indicatorClass} data-tooltip-id={id} data-tooltip-content={content}
-        data-tooltip-tone={tone ?? score} tabIndex={0}>
+      <strong
+        className={indicatorClass}
+        data-tooltip-id={id}
+        data-tooltip-content={content}
+        data-tooltip-tone={tone ?? score}
+        tabIndex={0}
+      >
         {children}
       </strong>
       <Tooltip id={id} content="" />
@@ -188,7 +223,17 @@ function IndicatorTip({ score, tone, content, children }: {
   );
 }
 
-function TacticValue({ tactic, skill, score, tip }: { tactic: string | null | undefined; skill?: number | null; score: RatingIndicatorScore | null; tip: string }) {
+function TacticValue({
+  tactic,
+  skill,
+  score,
+  tip,
+}: {
+  tactic: string | null | undefined;
+  skill?: number | null;
+  score: RatingIndicatorScore | null;
+  tip: string;
+}) {
   const showSkill =
     tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
   return (
@@ -199,27 +244,53 @@ function TacticValue({ tactic, skill, score, tip }: { tactic: string | null | un
   );
 }
 
-function GameStyle({ styleOfPlay, analysis, text }: { styleOfPlay: number | null | undefined; analysis: Match120mCoachingAnalysis; text: (key: string) => string }) {
+function GameStyle({
+  styleOfPlay,
+  analysis,
+  text,
+}: {
+  styleOfPlay: number | null | undefined;
+  analysis: Match120mCoachingAnalysis;
+  text: (key: string) => string;
+}) {
   const uiText = useTranslations('PublicUI.GameStyle');
   const mindset = getMatchMindsetIndicator(styleOfPlay);
   if (!mindset) return null;
 
   return (
     <span>
-      {uiText('style')} <IndicatorTip score={analysis.mindsetScore} content={analysis.mindsetScore ? text('defensiveStyle') : ''}>{mindset.label}</IndicatorTip>
+      {uiText('style')}{' '}
+      <IndicatorTip score={analysis.mindsetScore} content={analysis.mindsetScore ? text('defensiveStyle') : ''}>
+        {mindset.label}
+      </IndicatorTip>
     </span>
   );
 }
 
 function gradeAdvice(analysis: Match120mCoachingAnalysis, grade: string, text: (key: string) => string) {
-  if (grade === 'A+') return text('ratingAPlus');
-  const advice = analysis.recommendations.map(text).map((tip) => `• ${tip}`).join('\n');
-  if (grade === 'A') return text('ratingAlreadyA');
-  if (grade === 'A-') return text('ratingAMinus').replace('{advice}', advice);
-  if (grade === 'B+') return text('ratingBPlus').replace('{advice}', advice);
-  if (grade === 'B') return text('ratingB').replace('{advice}', advice);
-  if (grade === 'F-') return text('ratingFMinus').replace('{advice}', advice);
-  return text('ratingAdvice').replace('{grade}', grade).replace('{advice}', advice);
+  const heading =
+    grade === 'A+'
+      ? text('ratingAPlus')
+      : grade === 'A'
+        ? text('ratingAlreadyA')
+        : grade === 'A-'
+          ? text('ratingAMinus')
+          : grade === 'B+'
+            ? text('ratingBPlus')
+            : grade === 'B'
+              ? text('ratingB')
+              : grade === 'F-'
+                ? text('ratingFMinus')
+                : text('ratingAdvice').replace('{grade}', grade);
+  const advice = analysis.recommendations
+    .map(text)
+    .map((tip) => `• ${tip}`)
+    .join('\n');
+  const sections = [heading];
+  if (grade !== 'A+' && grade !== 'A' && advice) {
+    sections.push(`${text('ratingImprove')}:\n${advice}`);
+  }
+  return sections.join('\n\n');
 }
 
 function formationAdvice(formation: string, text: (key: string) => string) {
@@ -265,12 +336,21 @@ function RatingsPitch({
           className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
         >
           {row.map(([label, value, sector]) => {
-            const markers = sector
-              ? specialtyMarkersForSector(specialtyPositions, sector, analysis)
-              : [];
+            const markers = sector ? specialtyMarkersForSector(specialtyPositions, sector, analysis) : [];
             const score = sector ? analysis.sectorScores[sector] : null;
-            const sectorTip = sector && score === 4
-              ? uiText(sector === 'midfield' ? 'midfieldNeedsBalance' : 'attackExceedsDefence') : '';
+            const sectorValue = Number(value);
+            const sectorTip =
+              sector && score === 4
+                ? sector === 'midfield'
+                  ? uiText('midfieldNeedsBalance')
+                  : sector.endsWith('Defence')
+                    ? uiText('weakDefence')
+                    : sectorValue >= 11.25
+                      ? uiText('veryHighAttack')
+                      : sectorValue >= 8
+                        ? uiText('dangerousAttack')
+                        : uiText('attackExceedsDefence')
+                : '';
             return (
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
@@ -285,15 +365,37 @@ function RatingsPitch({
                     >
                       {markers.map(({ specialtyId, count, excessive, green }) => (
                         <span key={specialtyId}>
-                          {count > 1 && `${count}×`}
-                          <IndicatorTip score={excessive ? 4 : green ? 1 : null}
-                            content={excessive ? uiText(specialtyId === 2 ? 'tooManyQuick' : 'tooManyHead')
-                              : green ? uiText('quickDefensiveCover') : ''}>
-                            <i className={styles.ratingsSpecialtyIcon}
-                            data-specialty-id={specialtyId}
-                            aria-label={SPECIALTY_NAMES[specialtyId]}
-                            role="img"
-                          />
+                          {count > 1 && (
+                            <span
+                              className={
+                                excessive ? styles.ratingIndicator4 : green ? styles.ratingIndicator1 : undefined
+                              }
+                            >
+                              {count}×
+                            </span>
+                          )}
+                          <IndicatorTip
+                            score={excessive ? 4 : green ? 1 : null}
+                            content={
+                              excessive
+                                ? uiText(
+                                    specialtyId === 2
+                                      ? 'tooManyQuick'
+                                      : specialtyId === 5
+                                        ? 'tooManyHead'
+                                        : 'tooManyUnpredictable',
+                                  )
+                                : green
+                                  ? uiText('quickDefensiveCover')
+                                  : ''
+                            }
+                          >
+                            <i
+                              className={styles.ratingsSpecialtyIcon}
+                              data-specialty-id={specialtyId}
+                              aria-label={SPECIALTY_NAMES[specialtyId]}
+                              role="img"
+                            />
                           </IndicatorTip>
                         </span>
                       ))}
@@ -625,9 +727,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             const canManage = ratingsActions?.[side] || false;
             const predictedPerformance = preview ? predicted120mPerformance(preview) : null;
             const predictedAnalysis = predictedPerformance
-              ? analyzeMatch120mCoaching(predictedPerformance,
+              ? analyzeMatch120mCoaching(
+                  predictedPerformance,
                   preview?.specialtyPositionsKnown && opposingPreview?.specialtyPositionsKnown
-                    ? opposingPreview.specialtyPositions : undefined)
+                    ? opposingPreview.specialtyPositions
+                    : undefined,
+                )
               : null;
             const predictedGrade = predictedAnalysis?.rating?.grade ?? null;
             if (!preview && !canManage && !notice) return null;
@@ -657,33 +762,56 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {preview ? (
                   <>
                     {predictedGrade && (
-                      <IndicatorTip tone={`grade-${predictedGrade[0].toLowerCase()}`} content={gradeAdvice(predictedAnalysis!, predictedGrade, (key) => ratingText(key as never))}>
+                      <IndicatorTip
+                        tone={`grade-${predictedGrade[0].toLowerCase()}`}
+                        content={gradeAdvice(predictedAnalysis!, predictedGrade, (key) => ratingText(key as never))}
+                      >
                         <span className={`${styles.ratingBadge} ${styles[`ratingGrade${predictedGrade[0]}`]}`}>
                           {uiText('predicted120mRating')} {predictedGrade}
                         </span>
                       </IndicatorTip>
                     )}
-                    <RatingsPitch ratings={preview.ratings} analysis={predictedAnalysis!} specialtyPositions={preview.specialtyPositions} />
+                    <RatingsPitch
+                      ratings={preview.ratings}
+                      analysis={predictedAnalysis!}
+                      specialtyPositions={preview.specialtyPositions}
+                    />
                     <div className={styles.ratingsMetadata}>
                       <span>
                         {uiText('formation')}{' '}
-                        <IndicatorTip score={predictedAnalysis?.formationScore}
-                          content={formationAdvice(preview.formation, (key) => ratingText(key as never))}>
+                        <IndicatorTip
+                          score={predictedAnalysis?.formationScore}
+                          content={formationAdvice(preview.formation, (key) => ratingText(key as never))}
+                        >
                           {preview.formation}
                         </IndicatorTip>
                       </span>
                       <span>
                         {uiText('tactic')}{' '}
-                        <TacticValue tactic={preview.tactic} skill={preview.tacticSkill}
+                        <TacticValue
+                          tactic={preview.tactic}
+                          skill={preview.tacticSkill}
                           score={predictedAnalysis?.tacticScore ?? null}
-                          tip={ratingText(predictedAnalysis?.tacticScore === 1 ? 'pressingBest' : 'aimPressing')} />
+                          tip={ratingText(predictedAnalysis?.tacticScore === 1 ? 'pressingBest' : 'aimPressing')}
+                        />
                       </span>
-                      <GameStyle styleOfPlay={preview.coachModifier}
-                        analysis={predictedAnalysis!} text={(key) => ratingText(key as never)} />
+                      <GameStyle
+                        styleOfPlay={preview.coachModifier}
+                        analysis={predictedAnalysis!}
+                        text={(key) => ratingText(key as never)}
+                      />
                       <span>
                         {uiText('setPiecesTaker')}{' '}
-                        <IndicatorTip score={predictedAnalysis?.setPiecesScore}
-                          content={ratingText(preview.setPiecesSkill === null ? 'setPiecesNotSet' : preview.setPiecesSkill <= 3 ? 'setPiecesBrilliant' : 'aimSetPieces')}>
+                        <IndicatorTip
+                          score={predictedAnalysis?.setPiecesScore}
+                          content={ratingText(
+                            preview.setPiecesSkill === null
+                              ? 'setPiecesNotSet'
+                              : preview.setPiecesSkill <= 3
+                                ? 'setPiecesBrilliant'
+                                : 'aimSetPieces',
+                          )}
+                        >
                           {preview.setPieces}
                         </IndicatorTip>
                       </span>
@@ -792,8 +920,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
                 {displayedGrade && (
-                  <IndicatorTip tone={`grade-${displayedGrade[0].toLowerCase()}`}
-                    content={gradeAdvice(analysis, displayedGrade, (key) => ratingText(key as never))}>
+                  <IndicatorTip
+                    tone={`grade-${displayedGrade[0].toLowerCase()}`}
+                    content={gradeAdvice(analysis, displayedGrade, (key) => ratingText(key as never))}
+                  >
                     <span className={`${styles.ratingBadge} ${styles[`ratingGrade${displayedGrade[0]}`]}`}>
                       120m rating: {displayedGrade}
                     </span>
@@ -808,22 +938,41 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 <div className={styles.ratingsMetadata}>
                   <span>
                     {uiText('formation')}{' '}
-                    <IndicatorTip score={analysis.formationScore} content={formationAdvice(performance?.formation ?? '', (key) => ratingText(key as never))}>
+                    <IndicatorTip
+                      score={analysis.formationScore}
+                      content={formationAdvice(performance?.formation ?? '', (key) => ratingText(key as never))}
+                    >
                       {performance?.formation || '—'}
                     </IndicatorTip>
                   </span>
                   <span>
                     {uiText('tactic')}{' '}
                     <strong>
-                      <TacticValue tactic={performance?.tacticName} skill={performance?.tacticSkill}
-                        score={analysis.tacticScore} tip={ratingText(analysis.tacticScore === 1 ? 'pressingBest' : 'aimPressing')} />
+                      <TacticValue
+                        tactic={performance?.tacticName}
+                        skill={performance?.tacticSkill}
+                        score={analysis.tacticScore}
+                        tip={ratingText(analysis.tacticScore === 1 ? 'pressingBest' : 'aimPressing')}
+                      />
                     </strong>
                   </span>
-                  <GameStyle styleOfPlay={performance?.styleOfPlay} analysis={analysis} text={(key) => ratingText(key as never)} />
+                  <GameStyle
+                    styleOfPlay={performance?.styleOfPlay}
+                    analysis={analysis}
+                    text={(key) => ratingText(key as never)}
+                  />
                   <span>
                     {uiText('setPiecesTaker')}{' '}
-                    <IndicatorTip score={analysis.setPiecesScore}
-                      content={ratingText(taker?.skill === null ? 'setPiecesNotSet' : (taker?.skill ?? 99) <= 3 ? 'setPiecesBrilliant' : 'aimSetPieces')}>
+                    <IndicatorTip
+                      score={analysis.setPiecesScore}
+                      content={ratingText(
+                        taker?.skill === null
+                          ? 'setPiecesNotSet'
+                          : (taker?.skill ?? 99) <= 3
+                            ? 'setPiecesBrilliant'
+                            : 'aimSetPieces',
+                      )}
+                    >
                       {skillDisplay(taker?.skill)}
                     </IndicatorTip>
                   </span>
