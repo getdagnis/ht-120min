@@ -267,7 +267,11 @@ function GameStyle({
   );
 }
 
-function gradeAdvice(analysis: Match120mCoachingAnalysis, grade: string, text: (key: string) => string) {
+function gradeAdvice(
+  analysis: Match120mCoachingAnalysis,
+  grade: string,
+  text: (key: string, values?: { grade: string }) => string,
+) {
   const heading =
     grade === 'A+'
       ? text('ratingAPlus')
@@ -281,7 +285,7 @@ function gradeAdvice(analysis: Match120mCoachingAnalysis, grade: string, text: (
               ? text('ratingB')
               : grade === 'F-'
                 ? text('ratingFMinus')
-                : text('ratingAdvice').replace('{grade}', grade);
+                : text('ratingAdvice', { grade });
   const advice = analysis.recommendations
     .map(text)
     .map((tip) => `• ${tip}`)
@@ -764,7 +768,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     {predictedGrade && (
                       <IndicatorTip
                         tone={`grade-${predictedGrade[0].toLowerCase()}`}
-                        content={gradeAdvice(predictedAnalysis!, predictedGrade, (key) => ratingText(key as never))}
+                        content={gradeAdvice(predictedAnalysis!, predictedGrade, (key, values) =>
+                          ratingText(key as never, values as never),
+                        )}
                       >
                         <span className={`${styles.ratingBadge} ${styles[`ratingGrade${predictedGrade[0]}`]}`}>
                           {uiText('predicted120mRating')} {predictedGrade}
@@ -922,7 +928,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {displayedGrade && (
                   <IndicatorTip
                     tone={`grade-${displayedGrade[0].toLowerCase()}`}
-                    content={gradeAdvice(analysis, displayedGrade, (key) => ratingText(key as never))}
+                    content={gradeAdvice(analysis, displayedGrade, (key, values) =>
+                      ratingText(key as never, values as never),
+                    )}
                   >
                     <span className={`${styles.ratingBadge} ${styles[`ratingGrade${displayedGrade[0]}`]}`}>
                       120m rating: {displayedGrade}
