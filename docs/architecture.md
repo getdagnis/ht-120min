@@ -60,6 +60,11 @@ Server implementation is under `src/server/api/`. The App Router adapter preserv
 dispatching them to the current handlers. Any source imported by that server tree must use explicit runtime `.js`
 extensions for relative imports.
 
+Webpack resolves those `.js` specifiers to TypeScript source through `extensionAlias` in `next.config.ts`.
+Turbopack does not support that mapping, so its source loader in `scripts/dev/turbopack-ts-imports.cjs`
+removes `.js` from relative imports only when a matching `.ts` or `.tsx` source file exists. This changes
+the in-memory Turbopack input; it does not rewrite source files or affect Node-compatible API imports.
+
 The [public data architecture plan](../plans/public-data-architecture-plan.md) introduces current durable publications
 and immutable historical audit revisions. Owner reports 088 applied/merged. Home has a locally implemented,
 opt-in directory/activity/Weekly builder, fenced worker and shared Data Cache path, with 089 transaction

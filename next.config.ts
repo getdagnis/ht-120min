@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactStrictMode: true,
+  agentRules: false,
+  turbopack: {
+    rules: {
+      '*.ts': { condition: { not: 'foreign' }, loaders: ['./scripts/dev/turbopack-ts-imports.cjs'] },
+      '*.tsx': { condition: { not: 'foreign' }, loaders: ['./scripts/dev/turbopack-ts-imports.cjs'] },
+    },
+  },
   webpack(config) {
     config.resolve.extensionAlias = {
       ...(config.resolve.extensionAlias || {}),
