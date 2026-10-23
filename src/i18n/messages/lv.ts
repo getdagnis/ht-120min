@@ -1015,7 +1015,7 @@ const messages = {
       ratingAlreadyA: "",
       ratingAMinus: "",
       ratingBPlus: "",
-      ratingB: "",
+      ratingB: "B ir labs sākums!",
       ratingFMinus: "",
       balanceMidfield: "",
       lowerAttack: "",

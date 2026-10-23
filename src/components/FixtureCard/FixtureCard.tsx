@@ -290,7 +290,7 @@ function gradeAdvice(analysis: Match120mCoachingAnalysis, grade: string, text: (
   if (grade !== 'A+' && grade !== 'A' && advice) {
     sections.push(`${text('ratingImprove')}:\n${advice}`);
   }
-  return sections.join('\n\n');
+  return sections.join(' ');
 }
 
 function formationAdvice(formation: string, text: (key: string) => string) {
