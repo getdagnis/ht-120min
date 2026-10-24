@@ -1,0 +1,115 @@
+.overlay
+  position: fixed
+  display: flex
+  justify-items: center
+  align-items: center
+  inset: 0
+  width: 100vw
+  min-height: 100vh
+  background: var(--modal-overlay)
+  backdrop-filter: blur(0.125rem)
+  color: var(--text)
+  text-align: center
+  font-size: 1.1rem
+  overflow-y: auto
+  z-index: 11100
+
+.content
+  display: flex
+  flex-direction: column
+  justify-content: center
+  align-items: center
+  width: min(640px, 100%)
+  margin: 0 auto
+  padding: 2rem 2rem 2rem
+  box-sizing: border-box
+  border-radius: var(--radius-lg)
+  background: var(--modal-bg)
+  border: 1px solid var(--borderWeak)
+
+.close
+  display: block
+  position: absolute
+  top: 1rem
+  right: 2.5rem
+  margin-left: auto
+  border: 0
+  background: none
+  color: inherit
+  font-size: 3.25rem
+  cursor: pointer
+
+.subTitle
+  margin: 1.5rem auto
+  max-width: 28rem
+
+.team
+  display: flex
+  justify-content: center
+  align-items: center
+  width: 100%
+  gap: .5rem
+  margin: 2rem 0 0
+
+.team img
+  object-fit: contain
+
+.fieldset
+  display: grid
+  grid-template-columns: 1fr 1fr
+  margin: 1rem 0
+  padding: 1rem
+  border: 0
+  gap: 1rem
+
+  @media (max-width: 620px)
+    padding: 0.5rem
+
+.fieldset legend
+  margin-bottom: .5rem
+  font-weight: 700
+
+.option
+  display: flex
+  justify-content: center
+  align-items: center
+  padding: 1rem
+  border: 2px solid var(--border-transp)
+  min-width: fit-content
+  border-radius: var(--radius-lg)
+  font-size: 1rem
+  min-height: 5rem
+  width: 100%
+  margin: auto
+  cursor: pointer
+
+  &:hover
+    background: var(--lighter)
+    border-color: var(--white)
+
+  &:active
+    border-color: var(--accent-2)
+    background: var(--bg-accent)
+
+  input[type="radio"]
+    display: none
+
+.actions
+  display: flex
+  flex-wrap: wrap
+  gap: .75rem
+  margin-top: 1.5rem
+
+.teamCount
+  margin-top: .5rem
+  text-transform: uppercase
+  color: var(--text40)
+  font-weight: 600
+  letter-spacing: 1px
+  font-size: 0.75rem
+
+.content textarea
+  display: block
+  width: 100%
+  box-sizing: border-box
+  font: inherit

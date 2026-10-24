@@ -10,6 +10,7 @@ import {
   House,
   Globe,
   SoccerBall,
+  ClipboardText,
   GearSix,
   SignOut,
   User,
@@ -30,6 +31,7 @@ import { ForgeMatchesSection } from './ForgeMatches';
 import { ForgeLeagues } from './ForgeLeagues';
 import { FlagHunters } from './FlagHunters';
 import { ForgeLocales } from './ForgeLocales';
+import { ForgeSurveys } from './ForgeSurveys';
 import { mostViewedTournament, tournamentActivityRoute } from '../../utils/forge-activity-routes';
 import { mergeForgeDirectoryUsers, type ChallengeableDirectoryUser } from '../../utils/forge-team-directory';
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
@@ -298,6 +300,7 @@ const sidebarItems = [
   { to: '/', label: 'Dashboard', icon: <House size={18} weight="bold" /> },
   { to: '/matches', label: 'Match booking', icon: <SoccerBall size={18} weight="bold" /> },
   { to: '/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
+  { to: '/surveys', label: 'Surveys', icon: <ClipboardText size={18} weight="bold" /> },
   { to: '/locales', label: 'Locales', icon: <Globe size={18} weight="bold" /> },
   { to: '/leagues', label: 'Leagues', icon: <Globe size={18} weight="bold" /> },
   { to: '/flag-hunters', label: 'Flag Hunters', icon: <Globe size={18} weight="bold" /> },
@@ -3112,6 +3115,7 @@ export const ForgePage: React.FC = () => {
           <Route index element={<ForgeDashboard adminUserId={auth.userId} adminManagerName={auth.managerName} />} />
         )}
         {auth.role === 'admin' && <Route path="stats" element={<ForgeStatsSection />} />}
+        {auth.role === 'admin' && <Route path="surveys" element={<ForgeSurveys />} />}
         {auth.role === 'admin' && <Route path="matches" element={<ForgeMatchesSection />} />}
         {auth.role === 'admin' && <Route path="faq" element={<ForgeFaqEditor />} />}
         <Route path="locales" element={<ForgeLocales isAdmin={auth.role === 'admin'} />} />

@@ -125,6 +125,7 @@ import { TournamentShareMenu } from '../../components/TournamentShareMenu/Tourna
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TournamentBadgeChips } from '../../components/TournamentBadgeChips/TournamentBadgeChips';
+import { ManagerSurveyMock } from '../../components/ManagerSurveyMock/ManagerSurveyMock';
 import { getDescriptionPools } from '../../constants/description-pools';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { TOURNAMENT_ROLE_LABELS, type TournamentRole } from '../../../shared/tournament-roles';
@@ -681,7 +682,8 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
 export const TournamentView: React.FC<{
   initialData?: TournamentInitialData;
   collectionLinks?: { slug: string; title: string }[];
-}> = ({ initialData, collectionLinks = [] }) => {
+  surveyTestTeams?: { id: string; name: string; logo_url?: string }[];
+}> = ({ initialData, collectionLinks = [], surveyTestTeams = [] }) => {
   const uiText = useTranslations('PublicUI.TournamentView');
   const t = useTranslations('TournamentView');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
@@ -6184,6 +6186,7 @@ export const TournamentView: React.FC<{
 
   return (
     <div className={styles.view}>
+      {tournament && surveyTestTeams.length > 0 && <ManagerSurveyMock teams={surveyTestTeams} />}
       {loadError && (
         <div className={styles.refreshError} role="alert">
           <p>{loadError}</p>
