@@ -7,7 +7,7 @@ type SurveyTeam = { id: string; name: string; logo_url?: string };
 const priorities = [
   { value: 'flags', label: '🇲🇵 Collecting new flags' },
   { value: '120m', label: '⏱ 120-minute matches' },
-  { value: 'both', label: '🖇 Both are equally important to this teams' },
+  { value: 'both', label: '🖇 Both are equally important to this team' },
   { value: 'fun', label: "🥂 It's here for challenge, fun and no-hassle friendlies" },
 ] as const;
 const importance = [
@@ -20,9 +20,9 @@ const importance = [
 export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
   const [open, setOpen] = useState(true);
   const [teamIndex, setTeamIndex] = useState(0);
-  const [step, setStep] = useState<'teams' | 'comments' | 'thanks'>('teams');
-  const [answers, setAnswers] = useState<Record<string, { priority?: string; importance?: string }>>({});
-  const [comments, setComments] = useState('');
+  const [step, setStep] = useState<'teams' | 'manager' | 'thanks'>('teams');
+  const [answers, setAnswers] = useState<Record<string, { priority?: string; comments?: string }>>({});
+  const [managerImportance, setManagerImportance] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -63,7 +63,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
   if (!open || teams.length === 0) return null;
   const team = teams[teamIndex];
   const answer = answers[team.id] ?? {};
-  const setAnswer = (update: { priority?: string; importance?: string }) =>
+  const setAnswer = (update: { priority?: string; comments?: string }) =>
     setAnswers((current) => ({
       ...current,
       [team.id]: { ...current[team.id], ...update },
@@ -87,10 +87,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
         >
           ×
         </button>
-        <h1 id="manager-survey-title">
-          <br />
-          Welcome back, mr_bots!
-        </h1>
+        <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
         {step === 'thanks' ? (
           <>
             <p>Happy to have you around! Have a great tournament!</p>
@@ -98,12 +95,12 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
           </>
         ) : (
           <>
-            <p className={styles.subTitle}>
-              Please answer this question to store as your team preference. This will be taken in account when pairing
-              your teams against future opponents.
-            </p>
             {step === 'teams' ? (
               <>
+                <p className={styles.subTitle}>
+                  Please answer this question to store as your team preference. This will be taken in account when
+                  pairing your teams against future opponents.
+                </p>
                 <div className={styles.team}>
                   {team.logo_url && <img src={team.logo_url} alt="" width={48} height={48} />}
                   <strong>{team.name}</strong>
@@ -111,33 +108,29 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                 <fieldset className={styles.fieldset}>
                   <legend>When a choice has to be made, what matters more for this team?</legend>
                   {priorities.map((option) => (
-                    <label className={styles.option} key={option.value}>
+                    <label
+                      className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? 'inactive' : ''}`}
+                      key={option.value}
+                    >
                       <input
                         type="radio"
                         name={`priority-${team.id}`}
                         checked={answer.priority === option.value}
-                        onChange={() => setAnswer({ priority: option.value, importance: undefined })}
+                        onChange={() => setAnswer({ priority: option.value })}
                       />
                       {option.label}
                     </label>
                   ))}
                 </fieldset>
-                {answer.priority && answer.priority !== '120m' && (
-                  <fieldset className={styles.fieldset}>
-                    <legend>How important are 120-minute matches to you?</legend>
-                    {importance.map((option) => (
-                      <label className={styles.option} key={option}>
-                        <input
-                          type="radio"
-                          name={`importance-${team.id}`}
-                          checked={answer.importance === option}
-                          onChange={() => setAnswer({ importance: option })}
-                        />{' '}
-                        {option}
-                      </label>
-                    ))}
-                  </fieldset>
-                )}
+                <label htmlFor={`survey-team-comments-${team.id}`}>
+                  Note to admin about <strong>{team.name}</strong>:
+                </label>
+                <textarea
+                  id={`survey-team-comments-${team.id}`}
+                  value={answer.comments ?? ''}
+                  onChange={(event) => setAnswer({ comments: event.target.value })}
+                  rows={2}
+                />
                 <div className={styles.actions}>
                   {teamIndex > 0 && (
                     <Button variant="outline" onClick={() => setTeamIndex(teamIndex - 1)}>
@@ -145,8 +138,8 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                     </Button>
                   )}
                   <Button
-                    disabled={!answer.priority || (answer.priority !== '120m' && !answer.importance)}
-                    onClick={() => (teamIndex + 1 < teams.length ? setTeamIndex(teamIndex + 1) : setStep('comments'))}
+                    disabled={!answer.priority}
+                    onClick={() => (teamIndex + 1 < teams.length ? setTeamIndex(teamIndex + 1) : setStep('manager'))}
                   >
                     {teamIndex + 1 < teams.length ? 'Next team' : 'Continue'}
                   </Button>
@@ -157,18 +150,30 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
               </>
             ) : (
               <>
-                <label htmlFor="survey-comments">Additional comments</label>
-                <textarea
-                  id="survey-comments"
-                  value={comments}
-                  onChange={(event) => setComments(event.target.value)}
-                  rows={5}
-                />
+                <fieldset className={styles.fieldset}>
+                  <legend>How important are 120-minute matches to you?</legend>
+                  {importance.map((option) => (
+                    <label
+                      className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? 'inactive' : ''}`}
+                      key={option}
+                    >
+                      <input
+                        type="radio"
+                        name="manager-importance"
+                        checked={managerImportance === option}
+                        onChange={() => setManagerImportance(option)}
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </fieldset>
                 <div className={styles.actions}>
                   <Button variant="outline" onClick={() => setStep('teams')}>
                     Back
                   </Button>
-                  <Button onClick={() => setStep('thanks')}>Submit</Button>
+                  <Button disabled={!managerImportance} onClick={() => setStep('thanks')}>
+                    Submit
+                  </Button>
                 </div>
               </>
             )}
