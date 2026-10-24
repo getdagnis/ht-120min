@@ -90,7 +90,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
           </button>
           {step === 'thanks' ? (
             <>
-              <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
+              <h1 id="manager-survey-title">Thank you, mr_bots!</h1>
               <p>Happy to have you around! Have a great tournament!</p>
               <Button onClick={() => setOpen(false)}>Done</Button>
             </>
