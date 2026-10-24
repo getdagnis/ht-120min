@@ -88,9 +88,9 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
           >
             ×
           </button>
-          <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
           {step === 'thanks' ? (
             <>
+              <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
               <p>Happy to have you around! Have a great tournament!</p>
               <Button onClick={() => setOpen(false)}>Done</Button>
             </>
@@ -98,6 +98,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
             <>
               {step === 'teams' ? (
                 <>
+                  <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
                   <p className={styles.subTitle}>
                     Please answer this question to store as your team preference. This will be taken in account when
                     pairing your teams against future opponents.
@@ -107,10 +108,10 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                     <strong>{team.name}</strong>
                   </div>
                   <fieldset className={styles.fieldset}>
-                    <legend>When a choice has to be made, what matters more for this team?</legend>
+                    <legend>When a choice has to be made, what matters most for this team?</legend>
                     {priorities.map((option) => (
                       <label
-                        className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? 'inactive' : ''}`}
+                        className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? styles.inactive : ''}`}
                         key={option.value}
                       >
                         <input
@@ -151,11 +152,12 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                 </>
               ) : (
                 <>
+                  <h1 id="manager-survey-title">Last one!</h1>
                   <fieldset className={styles.fieldset}>
-                    <legend>How important are 120-minute matches to you?</legend>
+                    <legend>In general, how important are 120-minute matches to you?</legend>
                     {importance.map((option) => (
                       <label
-                        className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? 'inactive' : ''}`}
+                        className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? styles.inactive : ''}`}
                         key={option}
                       >
                         <input

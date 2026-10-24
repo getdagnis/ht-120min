@@ -99,13 +99,20 @@
   width: 100%
   margin: auto
   cursor: pointer
+  transition: all 0.1s ease-in-out, filter 1s ease-in-out
 
   &:hover
     background: var(--lighter)
     border-color: var(--white)
 
   &:active, &.selected
-    border-color: var(--accent-2)
+    border-color: var(--accent)
+    background: var(--bg-accent)
+    transition: none
+
+  &.inactive
+    filter: grayscale(1)
+    border-color: var(--borderWeak)
     background: var(--bg-accent)
 
   input[type="radio"]
