@@ -77,108 +77,110 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
       aria-modal="true"
       aria-labelledby="manager-survey-title"
     >
-      <div className={styles.content}>
-        <button
-          ref={closeRef}
-          className={styles.close}
-          type="button"
-          onClick={() => setOpen(false)}
-          aria-label="Close survey"
-        >
-          ×
-        </button>
-        <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
-        {step === 'thanks' ? (
-          <>
-            <p>Happy to have you around! Have a great tournament!</p>
-            <Button onClick={() => setOpen(false)}>Done</Button>
-          </>
-        ) : (
-          <>
-            {step === 'teams' ? (
-              <>
-                <p className={styles.subTitle}>
-                  Please answer this question to store as your team preference. This will be taken in account when
-                  pairing your teams against future opponents.
-                </p>
-                <div className={styles.team}>
-                  {team.logo_url && <img src={team.logo_url} alt="" width={48} height={48} />}
-                  <strong>{team.name}</strong>
-                </div>
-                <fieldset className={styles.fieldset}>
-                  <legend>When a choice has to be made, what matters more for this team?</legend>
-                  {priorities.map((option) => (
-                    <label
-                      className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? 'inactive' : ''}`}
-                      key={option.value}
+      <div className={styles.contentWrapper}>
+        <div className={styles.content}>
+          <button
+            ref={closeRef}
+            className={styles.close}
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close survey"
+          >
+            ×
+          </button>
+          <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
+          {step === 'thanks' ? (
+            <>
+              <p>Happy to have you around! Have a great tournament!</p>
+              <Button onClick={() => setOpen(false)}>Done</Button>
+            </>
+          ) : (
+            <>
+              {step === 'teams' ? (
+                <>
+                  <p className={styles.subTitle}>
+                    Please answer this question to store as your team preference. This will be taken in account when
+                    pairing your teams against future opponents.
+                  </p>
+                  <div className={styles.team}>
+                    {team.logo_url && <img src={team.logo_url} alt="" width={48} height={48} />}
+                    <strong>{team.name}</strong>
+                  </div>
+                  <fieldset className={styles.fieldset}>
+                    <legend>When a choice has to be made, what matters more for this team?</legend>
+                    {priorities.map((option) => (
+                      <label
+                        className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? 'inactive' : ''}`}
+                        key={option.value}
+                      >
+                        <input
+                          type="radio"
+                          name={`priority-${team.id}`}
+                          checked={answer.priority === option.value}
+                          onChange={() => setAnswer({ priority: option.value })}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <label htmlFor={`survey-team-comments-${team.id}`}>
+                    Adittional comments about <strong>{team.name}</strong> preferences:
+                  </label>
+                  <textarea
+                    id={`survey-team-comments-${team.id}`}
+                    value={answer.comments ?? ''}
+                    onChange={(event) => setAnswer({ comments: event.target.value })}
+                    rows={2}
+                  />
+                  <div className={styles.actions}>
+                    {teamIndex > 0 && (
+                      <Button variant="outline" onClick={() => setTeamIndex(teamIndex - 1)}>
+                        Previous team
+                      </Button>
+                    )}
+                    <Button
+                      disabled={!answer.priority}
+                      onClick={() => (teamIndex + 1 < teams.length ? setTeamIndex(teamIndex + 1) : setStep('manager'))}
                     >
-                      <input
-                        type="radio"
-                        name={`priority-${team.id}`}
-                        checked={answer.priority === option.value}
-                        onChange={() => setAnswer({ priority: option.value })}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </fieldset>
-                <label htmlFor={`survey-team-comments-${team.id}`}>
-                  Note to admin about <strong>{team.name}</strong>:
-                </label>
-                <textarea
-                  id={`survey-team-comments-${team.id}`}
-                  value={answer.comments ?? ''}
-                  onChange={(event) => setAnswer({ comments: event.target.value })}
-                  rows={2}
-                />
-                <div className={styles.actions}>
-                  {teamIndex > 0 && (
-                    <Button variant="outline" onClick={() => setTeamIndex(teamIndex - 1)}>
-                      Previous team
+                      {teamIndex + 1 < teams.length ? 'Next team' : 'Continue'}
                     </Button>
-                  )}
-                  <Button
-                    disabled={!answer.priority}
-                    onClick={() => (teamIndex + 1 < teams.length ? setTeamIndex(teamIndex + 1) : setStep('manager'))}
-                  >
-                    {teamIndex + 1 < teams.length ? 'Next team' : 'Continue'}
-                  </Button>
-                </div>
-                <p className={styles.teamCount}>
-                  {teams.length > 0 && teamIndex + 1}/{teams.length} teams
-                </p>
-              </>
-            ) : (
-              <>
-                <fieldset className={styles.fieldset}>
-                  <legend>How important are 120-minute matches to you?</legend>
-                  {importance.map((option) => (
-                    <label
-                      className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? 'inactive' : ''}`}
-                      key={option}
-                    >
-                      <input
-                        type="radio"
-                        name="manager-importance"
-                        checked={managerImportance === option}
-                        onChange={() => setManagerImportance(option)}
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </fieldset>
-                <div className={styles.actions}>
-                  <Button variant="outline" onClick={() => setStep('teams')}>
-                    Back
-                  </Button>
-                  <Button disabled={!managerImportance} onClick={() => setStep('thanks')}>
-                    Submit
-                  </Button>
-                </div>
-              </>
-            )}
-          </>
-        )}
+                  </div>
+                  <p className={styles.teamCount}>
+                    {teams.length > 0 && teamIndex + 1}/{teams.length} teams
+                  </p>
+                </>
+              ) : (
+                <>
+                  <fieldset className={styles.fieldset}>
+                    <legend>How important are 120-minute matches to you?</legend>
+                    {importance.map((option) => (
+                      <label
+                        className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? 'inactive' : ''}`}
+                        key={option}
+                      >
+                        <input
+                          type="radio"
+                          name="manager-importance"
+                          checked={managerImportance === option}
+                          onChange={() => setManagerImportance(option)}
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <div className={styles.actions}>
+                    <Button variant="outline" onClick={() => setStep('teams')}>
+                      Back
+                    </Button>
+                    <Button disabled={!managerImportance} onClick={() => setStep('thanks')}>
+                      Submit
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

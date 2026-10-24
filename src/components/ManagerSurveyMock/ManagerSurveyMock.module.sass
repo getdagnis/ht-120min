@@ -1,18 +1,25 @@
 .overlay
   position: fixed
   display: flex
-  justify-items: center
-  align-items: center
+  justify-items: flex-start
+  align-items: flex-start
+  padding: 1rem
   inset: 0
   width: 100vw
-  min-height: 100vh
+  height: 100vh
   background: var(--modal-overlay)
   backdrop-filter: blur(0.125rem)
   color: var(--text)
   text-align: center
   font-size: 1.1rem
-  overflow-y: auto
+  overflow-y: scroll
   z-index: 11100
+
+.contentWrapper
+  display: flex
+  align-items: center
+  width: 100%
+  min-height: 100%
 
 .content
   display: flex
@@ -20,12 +27,16 @@
   justify-content: center
   align-items: center
   width: min(640px, 100%)
+  height: fit-content
   margin: 0 auto
   padding: 2rem 3rem
   box-sizing: border-box
   border-radius: var(--radius-lg)
   background: var(--modal-bg)
   border: 1px solid var(--borderWeak)
+
+  @media (max-width: 620px)
+    padding: 1rem
 
 .close
   display: block
@@ -38,6 +49,13 @@
   color: inherit
   font-size: 3.25rem
   cursor: pointer
+
+  @media (max-width: 620px)
+    top: 1rem
+    right: 2rem
+    font-weight: 300
+    font-size: 2.5rem
+    color: var(--text60)
 
 .subTitle
   margin: 1.5rem auto
@@ -109,11 +127,12 @@
 
 .content label
   font-size: 1rem
+  margin-bottom: 0.25rem
 
 .content textarea
   display: block
   width: 100%
   box-sizing: border-box
   font-size: 1rem
-  border-radius: var(--radius-lg)
+  border-radius: var(--radius-md)
   resize: none
