@@ -1,0 +1,73 @@
+.surveyTitle
+  margin: 0 0 0.5rem
+  font-size: 1rem
+
+.resultList
+  display: flex
+  flex-direction: column
+  font-size: 0.875rem
+  line-height: 1.35
+
+.managerResult
+  padding: 0.6rem 0
+  border-top: 1px solid var(--border)
+
+  h3
+    margin: 0
+    font-size: 0.95rem
+
+.managerHeading
+  display: flex
+  align-items: baseline
+  flex-wrap: wrap
+  gap: 0.5rem
+  margin-bottom: 0.35rem
+
+  time
+    color: var(--text60)
+    font-size: 0.75rem
+
+.teamAnswers
+  display: flex
+  flex-direction: column
+  gap: 0.35rem
+  list-style: none
+  margin: 0
+  padding: 0
+
+.teamAnswer
+  display: grid
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr)
+  gap: 0.5rem
+
+.comments
+  margin: 0.1rem 0 0
+  color: var(--text60)
+  font-size: 0.8rem
+
+.managerAnswer
+  margin: 0.4rem 0 0
+  font-size: 0.8rem
+
+.controlGroup
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 0.5rem
+
+  strong
+    flex-basis: 100%
+
+.answerCounts
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  progress
+    display: block
+    width: 100%
+
+@media (max-width: 620px)
+  .teamAnswer
+    grid-template-columns: 1fr
+    gap: 0.15rem
