@@ -27,17 +27,22 @@ test('question and answer pool excludes familiar flags, including all UK leagues
   assert.throws(() => flagQuizOptions(1, seeded(1))); // Sweden is excluded.
 });
 
-test('every eligible country gets six unique choices with same-initial and nearby distractors', () => {
+test('same-initial distractor count varies from zero to three', () => {
+  for (let count = 0; count <= 3; count++) {
+    const choices = flagQuizOptions(126, () => count / 4);
+    assert.equal(choices.filter((choice) => choice.leagueId !== 126 && choice.name[0] === 'I').length, count);
+  }
+});
+
+test('every eligible country gets six unique choices with at most three same-initial distractors', () => {
   for (const country of FLAG_QUIZ_COUNTRIES) {
     for (let seed = 1; seed <= 10; seed++) {
       const choices = flagQuizOptions(country.leagueId, seeded(seed));
       assert.equal(choices.length, 6);
       assert.equal(new Set(choices.map((c) => c.leagueId)).size, 6);
       assert.ok(choices.some((c) => c.leagueId === country.leagueId));
-      const matchingCount = Math.min(2, FLAG_QUIZ_COUNTRIES.filter((c) => c.leagueId !== country.leagueId && c.leagueName[0] === country.leagueName[0]).length);
       const wrong = choices.filter((c) => c.leagueId !== country.leagueId);
-      assert.ok(wrong.filter((c) => c.name[0] === country.leagueName[0]).length >= matchingCount);
-      assert.ok(wrong.every((c) => c.name[0] === country.leagueName[0] || Math.abs(c.leagueId - country.leagueId) <= 20));
+      assert.ok(wrong.filter((c) => c.name[0] === country.leagueName[0]).length <= 3);
       assert.ok(choices.every((c) => FLAG_QUIZ_COUNTRIES.some((valid) => valid.leagueId === c.leagueId)));
     }
   }

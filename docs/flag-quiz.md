@@ -15,11 +15,12 @@ and Czech Republic maps to Hattrick's Czechia. Australia is absent from the
 current Hattrick source. The current stored question remains unchanged through
 its UTC 12-hour window; historical questions and answers remain untouched.
 Short English league names are the option labels. Each world-details entry carries
-its continent or world grouping. Up to two same-initial distractors are chosen
-where available. The remaining three or four distractors use countries within
-±10 LeagueID, prioritizing the closest countries from the same continent. At
-least three same-continent choices are used when that many are available within
-the distance limit; remaining slots use the closest available LeagueIDs. If the
+its continent or world grouping. A uniformly random count from zero to three
+same-initial distractors is chosen, or zero to the number available if fewer than
+three exist. Other distractors have different initials and use countries within
+±10 LeagueID, prioritizing the closest countries from the same continent. Up to
+three same-continent choices are used when available within the distance limit;
+remaining slots use the closest available LeagueIDs. If the
 exclusions leave fewer than six choices, the closest countries beyond ±10 fill
 the remaining slots.
 
