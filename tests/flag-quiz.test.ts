@@ -13,6 +13,20 @@ test('flag pool excludes Oceania and special leagues', () => {
   assert.throws(() => flagQuizOptions(1000, seeded(1)));
 });
 
+test('question and answer pool excludes familiar flags, including all UK leagues', () => {
+  const excluded = [
+    'Australia', 'Belgium', 'Brazil', 'Canada', 'Czechia', 'Denmark',
+    'England', 'Finland', 'France', 'Germany', 'Greece', 'Iceland',
+    'India', 'Italy', 'Jamaica', 'Japan', 'Netherlands',
+    'Northern Ireland', 'Norway', 'Poland', 'Portugal', 'Romania',
+    'Russia', 'Scotland', 'Spain', 'Sweden', 'Switzerland', 'Turkey',
+    'Ukraine', 'USA', 'Wales',
+  ];
+  assert.ok(excluded.every((name) => !FLAG_QUIZ_COUNTRIES.some((country) => country.leagueName === name)));
+  assert.ok(FLAG_QUIZ_COUNTRIES.some((country) => country.leagueName === 'Ireland'));
+  assert.throws(() => flagQuizOptions(1, seeded(1))); // Sweden is excluded.
+});
+
 test('every eligible country gets six unique choices with same-initial and nearby distractors', () => {
   for (const country of FLAG_QUIZ_COUNTRIES) {
     for (let seed = 1; seed <= 10; seed++) {

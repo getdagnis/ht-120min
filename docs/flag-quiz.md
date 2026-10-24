@@ -9,12 +9,19 @@ question across all tournaments; guesses are immutable.
 
 `shared/worlddetails.ts` is the country source. The quiz excludes entries without
 a country and excludes Oceania (LeagueID 15), regardless of its display emoji.
+Question and answer selection also exclude the familiar flags listed in
+`shared/flag-quiz.ts`; UK covers England, Scotland, Wales, and Northern Ireland,
+and Czech Republic maps to Hattrick's Czechia. Australia is absent from the
+current Hattrick source. The current stored question remains unchanged through
+its UTC 12-hour window; historical questions and answers remain untouched.
 Short English league names are the option labels. Each world-details entry carries
 its continent or world grouping. Up to two same-initial distractors are chosen
 where available. The remaining three or four distractors use countries within
 ±10 LeagueID, prioritizing the closest countries from the same continent. At
 least three same-continent choices are used when that many are available within
-the distance limit; remaining slots use the closest available LeagueIDs.
+the distance limit; remaining slots use the closest available LeagueIDs. If the
+exclusions leave fewer than six choices, the closest countries beyond ±10 fill
+the remaining slots.
 
 `flag_quiz_questions` owns frozen question windows, emoji, options/order and the
 correct LeagueID. `flag_quiz_answers` owns each manager's selected LeagueID and

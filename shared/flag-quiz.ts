@@ -1,7 +1,18 @@
 import { HATTRICK_WORLD_DETAILS } from './worlddetails.js';
 
+// Australia is absent from current world details; keep it excluded if added later.
+const EXCLUDED_FLAG_QUIZ_COUNTRIES = new Set([
+  'Australia', 'Belgium', 'Brazil', 'Canada', 'Czechia', 'Denmark',
+  'England', 'Finland', 'France', 'Germany', 'Greece', 'Iceland',
+  'India', 'Italy', 'Jamaica', 'Japan', 'Netherlands',
+  'Northern Ireland', 'Norway', 'Poland', 'Portugal', 'Romania',
+  'Russia', 'Scotland', 'Spain', 'Sweden', 'Switzerland', 'Turkey',
+  'Ukraine', 'USA', 'Wales',
+]);
+
 export const FLAG_QUIZ_COUNTRIES = Object.values(HATTRICK_WORLD_DETAILS)
-  .filter((country) => country.countryId !== null && country.leagueId !== 15);
+  .filter((country) => country.countryId !== null && country.leagueId !== 15 &&
+    !EXCLUDED_FLAG_QUIZ_COUNTRIES.has(country.leagueName));
 
 export interface FlagQuizOption { leagueId: number; name: string }
 export interface FlagQuizQuestion {
@@ -57,6 +68,12 @@ export function flagQuizOptions(correctLeagueId: number, random: () => number): 
       .filter((country) => !sameContinentChoices.includes(country))
       .slice(0, rankedChoiceCount - sameContinentChoices.length),
   ];
+  if (rankedChoices.length < rankedChoiceCount) {
+    rankedChoices.push(...wrong
+      .filter((country) => !matching.includes(country) && !nearby.includes(country))
+      .sort((left, right) => Math.abs(left.leagueId - correctLeagueId) - Math.abs(right.leagueId - correctLeagueId))
+      .slice(0, rankedChoiceCount - rankedChoices.length));
+  }
   const choices = [correct, ...matching, ...rankedChoices];
   if (choices.length !== 6) throw new Error('Not enough flag quiz options.');
   return shuffle(choices, random).map((country) => ({ leagueId: country.leagueId, name: country.leagueName }));
