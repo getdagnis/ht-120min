@@ -273,9 +273,11 @@ function hasFullRawVisitorCoverage(bucketKey: string, rawStart: string, unit: Fo
 
 function trendBucketLabel(key: string, unit: ForgeTrendUnit) {
   const date = new Date(`${key}${unit === 'month' ? '-01' : ''}T00:00:00.000Z`);
-  if (unit === 'month') return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-  if (unit === 'week') return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', timeZone: 'UTC' });
+  if (unit === 'month')
+    return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'Europe/Riga' });
+  if (unit === 'week')
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Riga' });
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', timeZone: 'Europe/Riga' });
 }
 
 function getTrendSince(clock: number | null, interval: ForgeTrendInterval) {
@@ -469,15 +471,16 @@ async function loadManagerRegistrationDates(userIds: number[]) {
     .select('hattrick_user_id, created_at')
     .in('hattrick_user_id', ids);
   if (error || !data) return {} as Record<number, string>;
-  return Object.fromEntries(data.map((profile) => [profile.hattrick_user_id, profile.created_at])) as Record<number, string>;
+  return Object.fromEntries(data.map((profile) => [profile.hattrick_user_id, profile.created_at])) as Record<
+    number,
+    string
+  >;
 }
 
 function formatRegistrationDate(value?: string | null) {
   if (!value) return null;
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? null
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }
 
 function ForgeAuthorLink({
@@ -1254,10 +1257,12 @@ function ForgeDashboard({
 
   const searchTerm = statsSearch.trim().toLocaleLowerCase();
   const searchUserId = searchTerm
-    ? (stats?.visitors || []).find((visitor) => visitor.userId !== null && (
-      visitor.managerName?.toLocaleLowerCase().includes(searchTerm)
-      || String(visitor.userId).includes(searchTerm)
-    ))?.userId ?? null
+    ? ((stats?.visitors || []).find(
+        (visitor) =>
+          visitor.userId !== null &&
+          (visitor.managerName?.toLocaleLowerCase().includes(searchTerm) ||
+            String(visitor.userId).includes(searchTerm)),
+      )?.userId ?? null)
     : null;
 
   useEffect(() => {
@@ -1288,7 +1293,9 @@ function ForgeDashboard({
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [searchUserId, since]);
 
   const loadMoreVisits = async () => {
@@ -1421,45 +1428,60 @@ function ForgeDashboard({
     return items.sort((left, right) => right.at.localeCompare(left.at));
   }, [latestUsers, stats?.recentActivity]);
 
-  const visibleVisitors = (stats?.visitors || []).filter((visitor) =>
-    !searchTerm || [
-      visitor.managerName,
-      visitor.userId,
-      visitor.visitorId,
-      visitor.firstSeen,
-      visitor.lastSeen,
-      ...visitor.countries,
-      ...visitor.platforms,
-      ...visitor.browsers,
-      ...visitor.routes,
-      ...(visitor.userId ? (visitorTournaments[visitor.userId] || []).map((tournament) => tournament.name) : []),
-    ].some((value) => String(value ?? '').toLocaleLowerCase().includes(searchTerm)),
+  const visibleVisitors = (stats?.visitors || []).filter(
+    (visitor) =>
+      !searchTerm ||
+      [
+        visitor.managerName,
+        visitor.userId,
+        visitor.visitorId,
+        visitor.firstSeen,
+        visitor.lastSeen,
+        ...visitor.countries,
+        ...visitor.platforms,
+        ...visitor.browsers,
+        ...visitor.routes,
+        ...(visitor.userId ? (visitorTournaments[visitor.userId] || []).map((tournament) => tournament.name) : []),
+      ].some((value) =>
+        String(value ?? '')
+          .toLocaleLowerCase()
+          .includes(searchTerm),
+      ),
   );
   const managerNameById = new Map(
     (stats?.visitors || [])
       .filter((visitor) => visitor.userId !== null && visitor.managerName)
       .map((visitor) => [visitor.userId as number, visitor.managerName as string]),
   );
-  const visitsForSearch = searchUserId ? searchedVisits : (stats?.visits || []);
-  const visibleVisits = visitsForSearch.filter((visit) =>
-    !searchTerm || (searchUserId !== null && visit.userId === searchUserId) || [
-      visit.managerName,
-      visit.userId,
-      visit.visitorId,
-      visit.countryCode,
-      visit.language,
-      visit.platform,
-      visit.browser,
-      visit.referrer,
-      visit.firstSeen,
-      visit.lastSeen,
-      ...visit.pages.map((page) => page.route),
-      ...visit.pages.map((page) => page.visitedAt),
-      ...visit.actions,
-    ].some((value) => String(value ?? '').toLocaleLowerCase().includes(searchTerm)),
+  const visitsForSearch = searchUserId ? searchedVisits : stats?.visits || [];
+  const visibleVisits = visitsForSearch.filter(
+    (visit) =>
+      !searchTerm ||
+      (searchUserId !== null && visit.userId === searchUserId) ||
+      [
+        visit.managerName,
+        visit.userId,
+        visit.visitorId,
+        visit.countryCode,
+        visit.language,
+        visit.platform,
+        visit.browser,
+        visit.referrer,
+        visit.firstSeen,
+        visit.lastSeen,
+        ...visit.pages.map((page) => page.route),
+        ...visit.pages.map((page) => page.visitedAt),
+        ...visit.actions,
+      ].some((value) =>
+        String(value ?? '')
+          .toLocaleLowerCase()
+          .includes(searchTerm),
+      ),
   );
   const visibleFeed = searchTerm
-    ? feed.filter((item) => [item.title, item.who, item.details, item.at].some((value) => value.toLocaleLowerCase().includes(searchTerm)))
+    ? feed.filter((item) =>
+        [item.title, item.who, item.details, item.at].some((value) => value.toLocaleLowerCase().includes(searchTerm)),
+      )
     : feed.slice(0, 30);
 
   const chatFeed = useMemo(
@@ -1562,13 +1584,12 @@ function ForgeDashboard({
             </Button>
           </div>
 
-          <SectionCard
-            title="Recent visitors"
-            className={`${styles.surfaceCard} ${styles.dashboardRecentVisitors}`}
-          >
+          <SectionCard title="Recent visitors" className={`${styles.surfaceCard} ${styles.dashboardRecentVisitors}`}>
             {loading && <p className={styles.smallNote}>Loading visitors...</p>}
             {!loading && visibleVisitors.length === 0 && (
-              <p className={styles.smallNote}>{searchTerm ? 'No visitors match this search.' : 'No visitors in this period.'}</p>
+              <p className={styles.smallNote}>
+                {searchTerm ? 'No visitors match this search.' : 'No visitors in this period.'}
+              </p>
             )}
             <div className={styles.dashboardVisitorList}>
               {visibleVisitors.slice(0, recentVisitorLimit).map((visitor) => (
@@ -1620,16 +1641,17 @@ function ForgeDashboard({
             {error && <p className={styles.errorText}>{error}</p>}
             {!loading && !(searchUserId && searchingVisits) && visibleVisits.length === 0 && (
               <p className={styles.smallNote}>
-                {searchTerm
-                  ? 'No visits match this search.'
-                  : 'No visits in this period.'}
+                {searchTerm ? 'No visits match this search.' : 'No visits in this period.'}
               </p>
             )}
             <div className={styles.visitList}>
               {visibleVisits.map((visit) => (
                 <ActivityVisitCard
                   key={visit.visitId}
-                  visit={{ ...visit, managerName: visit.managerName || (visit.userId ? managerNameById.get(visit.userId) || null : null) }}
+                  visit={{
+                    ...visit,
+                    managerName: visit.managerName || (visit.userId ? managerNameById.get(visit.userId) || null : null),
+                  }}
                 />
               ))}
             </div>
