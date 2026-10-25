@@ -5,7 +5,7 @@ import { compareTournamentListing } from '../../../utils/tournament-collections.
 import { loadTournamentListingSignals } from '../../../utils/tournament-listing-signals.js';
 import { formatTournamentName } from '../../../utils/tournament-names.js';
 import { getCountryWorldDetails } from '../../../../shared/worlddetails.js';
-import { getJoinStoryManagerSummary } from '../../../utils/tournament-activity.js';
+import { getJoinStoryManagerSummary, isAdminAddedJoinStory, isSuppressedJoinStory } from '../../../utils/tournament-activity.js';
 import { isCurrentParticipantTeam } from '../../../utils/team-state.js';
 import type { PublicCollection } from '../../../utils/tournament-collections.js';
 
@@ -119,7 +119,7 @@ export interface HomeWeeklyPost {
 
 export interface HomeActivityEntry {
   id: string;
-  type: 'join' | 'season-start' | 'round-start' | 'round-finish' | 'round-report';
+  type: 'join' | 'admin-add' | 'season-start' | 'round-start' | 'round-finish' | 'round-report';
   occurred_at: string;
   tournament_id: string;
   tournament_slug: string;
@@ -281,11 +281,12 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     };
 
     for (const team of tournament.teams) {
-      if (team.active === false || team.is_placeholder || !team.created_at || !inActivityWindow(team.created_at)) continue;
-      const manager = getJoinStoryManagerSummary(team.join_story);
+      if (team.active === false || team.is_placeholder || isSuppressedJoinStory(team.join_story) || !team.created_at || !inActivityWindow(team.created_at)) continue;
+      const adminAdded = isAdminAddedJoinStory(team.join_story);
+      const manager = adminAdded ? { name: null, href: null, flag: null } : getJoinStoryManagerSummary(team.join_story);
       addActivity({
         id: `join:${team.id}`,
-        type: 'join',
+        type: adminAdded ? 'admin-add' : 'join',
         occurred_at: team.created_at,
         manager_name: manager.name || team.manager_name || null,
         manager_href: manager.href,

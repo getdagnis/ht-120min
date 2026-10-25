@@ -9,6 +9,7 @@ import type {
 } from '../../types/tournament-activity';
 import { getCanonicalCountryName } from '../../utils/ht-data';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
+import { isSuppressedJoinStory } from '../../utils/tournament-activity';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import { supabase } from '../../lib/supabase';
 import styles from './TournamentActivity.module.sass';
@@ -290,7 +291,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
     const cutoff = now - ACTIVITY_WINDOW_MS;
     const joinEntries = teams
-      .filter(isCurrentParticipantTeam)
+      .filter((team) => isCurrentParticipantTeam(team) && !isSuppressedJoinStory(team.join_story))
       .map((team) => ({ team, createdAt: Date.parse(team.created_at) }))
       .filter(({ createdAt }) => Number.isFinite(createdAt) && createdAt >= cutoff && createdAt <= now)
       .sort((a, b) => b.createdAt - a.createdAt)

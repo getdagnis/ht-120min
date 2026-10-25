@@ -1,5 +1,24 @@
 import type { TournamentJoinStory } from '../types/tournament-activity.js';
 
+const ADMIN_ADDED_STORY_PREFIX = 'Tournament organizers added ';
+
+export function buildAdminAddedJoinStory(teamName: string, htTeamId: number): TournamentJoinStory {
+  return [
+    { text: ADMIN_ADDED_STORY_PREFIX },
+    { text: teamName, href: `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${htTeamId}` },
+    { text: ' to the tournament.' },
+  ];
+}
+
+export function isAdminAddedJoinStory(value: unknown): boolean {
+  return isStory(value) && value[0]?.text === ADMIN_ADDED_STORY_PREFIX;
+}
+
+export function isSuppressedJoinStory(value: unknown): boolean {
+  // An empty stored story hides one join event without changing the team or its join date.
+  return Array.isArray(value) && value.length === 0;
+}
+
 export interface JoinStoryManagerSummary {
   name: string | null;
   href: string | null;

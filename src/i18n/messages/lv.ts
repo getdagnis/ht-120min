@@ -108,6 +108,7 @@ const messages = {
     'Sasniegumi, klubu profili, rekordi un kopienas reitingi pārvērš draudzības mačus ilgstošā sāncensībā ar savu vēsturi.',
     activityTitle: 'Jaunumi HT-120min turnīros',
     activityNewTeam: 'Jauna komanda',
+    activityAdminAdd: 'Turnīra organizatori pievienoja <team></team> turnīram <tournament></tournament>',
     activityJoinWithTeam: '<team></team> (menedžeris <manager></manager>{flag}) pievienojās turnīram <tournament></tournament>',
     activityJoinTeam: '<team></team> pievienojās turnīram <tournament></tournament>',
     activityJoinManager: '<manager></manager> pievienojās turnīram <tournament></tournament>',

@@ -46,6 +46,7 @@ const messages = {
       'Achievements, club profiles, records and community leaderboards turn friendly matches into long-term stories managers actually care about.',
     activityTitle: 'HT-120min latest activity',
     activityNewTeam: 'A new team',
+    activityAdminAdd: 'Tournament organizers added <team></team> to <tournament></tournament>',
     activityJoinWithTeam: '<team></team> led by <manager></manager>{flag} have joined <tournament></tournament>',
     activityJoinTeam: '<team></team> have joined <tournament></tournament>',
     activityJoinManager: '<manager></manager> joined <tournament></tournament>',

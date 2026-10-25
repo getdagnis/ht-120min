@@ -26,6 +26,7 @@ import { normalizeLeagueLimit } from '../../../shared/worlddetails.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
 import { normalizeGlobalChatContent } from '../../utils/global-chat.js';
+import { buildAdminAddedJoinStory } from '../../utils/tournament-activity.js';
 import { summarizeUniqueTournamentViews } from '../../utils/forge-activity-routes.js';
 import {
   sendChppChallengeDirect,
@@ -1178,6 +1179,7 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
         tournament_id: tournamentId, ht_team_id: teamId, name: teamName,
         active: true, reserve_active: false, joined_via_oauth: false,
         manager_name: 'Bot team', logo_url: details.logoUrl ?? null,
+        join_story: buildAdminAddedJoinStory(teamName, teamId),
         country_id: details.countryId ?? null, country_name: details.countryName ?? null,
         league_id: details.leagueId ?? null, gender_id: details.genderId ?? null,
         league_level: details.leagueLevel ?? null, team_rank: details.teamRank ?? null,

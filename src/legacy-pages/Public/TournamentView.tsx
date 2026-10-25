@@ -60,6 +60,7 @@ import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { Match120mGrade } from '../../../shared/match-120m-rating';
 import type { TournamentJoinStory } from '../../types/tournament-activity';
+import { buildAdminAddedJoinStory } from '../../utils/tournament-activity';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import {
@@ -4671,6 +4672,7 @@ export const TournamentView: React.FC<{
             power_league_rank: fetchedTeamData?.powerLeagueRank ?? null,
             power_region_rank: fetchedTeamData?.powerRegionRank ?? null,
             manager_name: fetchedTeamData ? 'Bot team' : null,
+            ...(!isJoin ? { join_story: buildAdminAddedJoinStory(name.trim(), htIdInt) } : {}),
           },
         ])
         .select()

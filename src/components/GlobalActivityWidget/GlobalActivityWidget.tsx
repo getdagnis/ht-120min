@@ -56,6 +56,15 @@ function activityCopy(entry: HomeActivityEntry, locale: string, t: ReturnType<ty
   const newsHref = toLocalePath(locale, `/t/${entry.tournament_slug}?tab=news`);
   const tournament = <a href={tournamentHref}>{entry.tournament_display_name}</a>;
 
+  if (entry.type === 'admin-add') {
+    const team = entry.team_ht_id ? (
+      <a href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${entry.team_ht_id}`} target="_blank" rel="noopener noreferrer">
+        {entry.team_name}
+      </a>
+    ) : entry.team_name;
+    return t.rich('activityAdminAdd', { team: () => team, tournament: () => tournament });
+  }
+
   if (entry.type === 'join') {
     const manager = entry.manager_name ? (
       entry.manager_ht_id ? (
