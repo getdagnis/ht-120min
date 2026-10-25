@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { repairLengthRound } from '../src/server/api/_lib/length-schedule-service.js';
 
-function createHarness(options: { doubleBye: boolean; warning?: boolean } = { doubleBye: true }) {
-  const teams = Array.from({ length: options.doubleBye ? 4 : 3 }, (_, index) => ({
+function createHarness(options: { doubleBye: boolean; warning?: boolean; unpairedTeam?: boolean } = { doubleBye: true }) {
+  const teams = Array.from({ length: options.doubleBye || options.unpairedTeam ? 4 : 3 }, (_, index) => ({
     id: `team-${index + 1}`, name: `Team ${index + 1}`, active: true,
     reserve_active: false, is_placeholder: false, team_rank: index + 1,
   }));
@@ -80,7 +80,21 @@ test('warning repair preserves an unrelated single BYE', async () => {
   const { supabase, calls } = createHarness({ doubleBye: false, warning: true });
   const result = await repairLengthRound(supabase, 'cup', 1);
   assert.equal(result.repairedPlayableFixtures, 0);
+  assert.equal(result.containedUnplayableFixtures, 1);
+  assert.equal(result.byeFixturesCreated, 0);
   const replacement = calls[0]!.args.p_unlocked_matches as Array<Record<string, unknown>>;
   assert.equal(replacement.length, 1);
   assert.deepEqual([replacement[0]!.home_team_id, replacement[0]!.away_team_id].sort(), ['team-1', 'team-2']);
+});
+
+test('warning repair reports a new BYE separately from unplayable containment', async () => {
+  const { supabase, calls } = createHarness({ doubleBye: false, warning: true, unpairedTeam: true });
+  const result = await repairLengthRound(supabase, 'cup', 1);
+  assert.equal(result.repairedPlayableFixtures, 0);
+  assert.equal(result.containedUnplayableFixtures, 1);
+  assert.equal(result.byeFixturesCreated, 1);
+  const replacement = calls[0]!.args.p_unlocked_matches as Array<Record<string, unknown>>;
+  assert.equal(replacement.length, 2);
+  assert.equal(replacement.filter((match) => match.schedule_resolution === 'finalized_unplayed').length, 1);
+  assert.equal(replacement.filter((match) => match.away_team_id === null).length, 1);
 });

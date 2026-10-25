@@ -414,7 +414,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     reserveTeams,
     activeParticipantCount,
     isGenerated,
-    isRegistrationOpen,
     isSandbox,
     isStoppedTournament,
     isValidatedTournament,
@@ -650,6 +649,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
   const pastTeams = teams.filter(isPastTeam);
+  const [pastTeamsExpanded, setPastTeamsExpanded] = useState<boolean | null>(null);
+  const isPastTeamsExpanded = pastTeamsExpanded ?? pastTeams.length <= 8;
   const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
   const [waitingReasons, setWaitingReasons] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -1697,9 +1698,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   </Button>
                                 </div>
                               )}
-                              {!isRegistrationOpen &&
-                                canManageOperationalAdmin &&
-                                !['finished', 'stopped', 'archived'].includes(tournament.status) && (
+                              {tournamentAllowsTeamActions && (
                                   <>
                                     <div className={adminStyles.teamPlanningRow}>
                                       <div>
@@ -2172,8 +2171,20 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
                           {pastTeams.length > 0 && (
                             <>
-                              <h3 className={adminStyles.sectionTitle}>Past teams ({pastTeams.length})</h3>
-                              <ul className={adminStyles.teamList}>
+                              <h3 className={adminStyles.sectionTitle}>
+                                <span>Past teams ({pastTeams.length})</span>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondaryAction"
+                                  aria-expanded={isPastTeamsExpanded}
+                                  aria-controls="admin-past-teams"
+                                  onClick={() => setPastTeamsExpanded(!isPastTeamsExpanded)}
+                                >
+                                  {isPastTeamsExpanded ? 'Hide' : 'Show'}
+                                </Button>
+                              </h3>
+                              <ul id="admin-past-teams" className={adminStyles.teamList} hidden={!isPastTeamsExpanded}>
                                 {pastTeams.map((team) => (
                                   <li key={team.id} className={adminStyles.pastTeam}>
                                     <div className={adminStyles.teamCard}>

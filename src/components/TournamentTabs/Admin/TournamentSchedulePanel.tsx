@@ -266,6 +266,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 }) => {
   const scheduleText = useTranslations('TournamentView');
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
+  const [expandedCompletedRounds, setExpandedCompletedRounds] = useState<Record<string, boolean>>({});
   const [manualAddOpen, setManualAddOpen] = useState(false);
   const [addMatchInput, setAddMatchInput] = useState('');
   const [addMatchPreview, setAddMatchPreview] = useState<HtMatchAddPreview | null>(null);
@@ -1095,29 +1096,48 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           <p className={adminStyles.scheduleSubtitle}>{scheduleText('roundByRoundScheduleDescription')}</p>
         </div>
         <div className={adminStyles.schedulePreview}>
-          {lengthRounds.map((round) => (
-            <div key={round.id} className={adminStyles.previewRow}>
-              <strong>
-                Round {round.round_number}
-                {round.phase === 'postseason' ? ` — ${getPostseasonRoundLabel(lengthRounds.filter(item => item.phase === 'postseason' && item.round_number <= round.round_number).length, lengthRounds.filter(item => item.phase === 'postseason').length)}` : ''}
-              </strong>
-              {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
-              {round.phase_status === 'pending' ? (
-                <p className={adminStyles.smallNote}>
-                  {round.phase === 'postseason'
-                    ? 'Qualifiers and winners from the preceding round'
-                    : `Pairings generated after Round ${round.round_number - 1}`}
-                </p>
-              ) : (
-                round.matches.map((match) => (
+          {lengthRounds.map((round) => {
+            const isCompleted = round.phase_status === 'completed';
+            const isExpanded = expandedCompletedRounds[round.id] ?? round.matches.length <= 8;
+            const roundLabel = `Round ${round.round_number}${
+              round.phase === 'postseason'
+                ? ` — ${getPostseasonRoundLabel(lengthRounds.filter(item => item.phase === 'postseason' && item.round_number <= round.round_number).length, lengthRounds.filter(item => item.phase === 'postseason').length)}`
+                : ''
+            }`;
+            return (
+              <div key={round.id} className={adminStyles.previewRow}>
+                {isCompleted ? (
+                  <button
+                    type="button"
+                    className={adminStyles.previewToggle}
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpandedCompletedRounds((current) => ({ ...current, [round.id]: !isExpanded }))}
+                  >
+                    <strong>{roundLabel}</strong>
+                    {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
+                    <span>{isExpanded ? 'Hide' : 'Show'} {round.matches.length} fixtures</span>
+                  </button>
+                ) : (
+                  <>
+                    <strong>{roundLabel}</strong>
+                    {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
+                  </>
+                )}
+                {round.phase_status === 'pending' ? (
+                  <p className={adminStyles.smallNote}>
+                    {round.phase === 'postseason'
+                      ? 'Qualifiers and winners from the preceding round'
+                      : `Pairings generated after Round ${round.round_number - 1}`}
+                  </p>
+                ) : (!isCompleted || isExpanded) && round.matches.map((match) => (
                   <div key={match.id} className={adminStyles.roundRow}>
                     {match.home_team?.name || 'BYE'} <span className={adminStyles.rowmiddle}>vs</span>{' '}
                     {match.away_team?.name || 'BYE'}
                   </div>
-                ))
-              )}
-            </div>
-          ))}
+                ))}
+              </div>
+            );
+          })}
         </div>
         {RESTORE_ROUND_1_PANIC_MODE &&
           currentRound?.round_number === 1 &&

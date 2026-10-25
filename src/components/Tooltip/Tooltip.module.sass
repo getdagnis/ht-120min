@@ -24,7 +24,7 @@
     --tooltip-tone: var(--rating-a)
 
   &[data-tone='2']
-    --tooltip-tone: var(--warning)
+    --tooltip-tone: var(--rating-b)
 
   &[data-tone='3']
     --tooltip-tone: var(--warning-high)
@@ -51,7 +51,7 @@
     --tooltip-tone: var(--rating-f)
 
   &[data-tone]
-    background: var(--tooltip-tone)
+    background: var(--tooltip-tone, var(--accent-2))
 
   &::after
     position: absolute

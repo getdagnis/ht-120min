@@ -29,6 +29,15 @@
   .ratingIndicator4
     color: var(--rating-f)
 
+  .ratingWarningD
+    color: var(--rating-d)
+
+  .ratingWarningE
+    color: var(--rating-e)
+
+  .ratingWarningF
+    color: var(--rating-f)
+
   &:last-child
     border-bottom: none
 
@@ -210,6 +219,9 @@
     align-items: center
     gap: 0.08rem
 
+  .ratingsThreatMarker
+    color: var(--rating-grade-color)
+
 .ratingsSpecialtyIcon
   font-family: HattrickIcomoon, sans-serif
   font-size: 1.15em
@@ -262,7 +274,16 @@
 .specialtyThreatPenalty
   margin-top: 0.25rem
   color: var(--rating-grade-color, var(--text60))
-  font-size: 0.68rem
+  width: fit-content
+  font-size: 0.7rem
+  text-decoration: underline
+  text-decoration-style: dotted
+  text-underline-offset: 2px
+  cursor: help
+
+  &:focus-visible
+    outline: 2px solid currentColor
+    outline-offset: 2px
 
 .ratingsSideAway .specialtyThreatPenalty
   text-align: right

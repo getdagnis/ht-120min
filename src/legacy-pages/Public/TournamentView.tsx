@@ -5034,9 +5034,16 @@ export const TournamentView: React.FC<{
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not repair this round.');
       await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
+      const contained = Number(body.containedUnplayableFixtures) || 0;
+      const byes = Number(body.byeFixturesCreated) || 0;
       setScheduleNotice({
-        title: `Round ${currentRound.round_number} repaired`,
-        message: `${body.lockedFixtures || 0} unaffected fixtures stayed locked. ${body.repairedPlayableFixtures || 0} playable fixtures were rebuilt.`,
+        title: `Round ${currentRound.round_number} repair complete`,
+        message: [
+          `${body.lockedFixtures || 0} unaffected fixtures kept.`,
+          `${body.repairedPlayableFixtures || 0} playable fixtures created.`,
+          ...(contained ? [`${contained} unplayable ${contained === 1 ? 'pairing' : 'pairings'} recorded for unavailable teams.`] : []),
+          ...(byes ? [`${byes} ${byes === 1 ? 'BYE' : 'BYEs'} assigned.`] : []),
+        ].join(' '),
       });
     } catch (error) {
       setScheduleNotice({

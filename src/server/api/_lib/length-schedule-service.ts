@@ -624,5 +624,7 @@ export async function repairLengthRound(
     lockedFixtures: untouchedMatches.filter((match) => match.home_team_id && match.away_team_id).length,
     unavailableTeams: unavailableTeamIds.length,
     repairedPlayableFixtures: repair.repairedPairs.filter((pairing) => !pairing.isBye).length,
+    containedUnplayableFixtures: repair.containmentPairs.length,
+    byeFixturesCreated: repair.repairedPairs.filter((pairing) => pairing.isBye).length,
   };
 }

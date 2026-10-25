@@ -24,7 +24,7 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
   assert.deepEqual(calculateMatch120mRating(setup({ tacticSkill: 15 })), {
-    score: 100, grade: 'A+', formula_version: 9, has_set_pieces_skill: true, has_specialties: true,
+    score: 100, grade: 'A+', formula_version: 13, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
@@ -34,15 +34,15 @@ test('strong defence protects the formation deduction while attack and tactic co
     ratings: { ...setup().ratings, leftAttack: raw(8) },
   }));
   assert.ok(rating);
-  assert.equal(rating.score, 66);
-  assert.equal(rating.grade, 'C+');
+  assert.equal(rating.score, 83);
+  assert.equal(rating.grade, 'B+');
 });
 
 test('unknown optional skill is neutral and missing specialties is not a penalty', () => {
   const unknown = calculateMatch120mRating(setup({ setPiecesTaker: null, specialtyPositions: undefined }));
   const highSkill = calculateMatch120mRating(setup({ setPiecesTaker: { playerName: null, skill: 14, skillCheckedAt: null } }));
   assert.ok(unknown && highSkill);
-  assert.equal(unknown.score - highSkill.score, 5);
+  assert.equal(unknown.score - highSkill.score, 12);
   assert.equal(unknown.has_set_pieces_skill, false);
   assert.equal(unknown.has_specialties, false);
 });
@@ -57,10 +57,10 @@ test('defensive Quick players do not count as offensive SE threat, while a dange
       leftAttack: raw(8), centralAttack: raw(2.5), rightAttack: raw(3.75), midfield: raw(3.75),
     },
   });
-  assert.equal(calculateMatch120mRating(defensive)?.grade, 'B');
+  assert.equal(calculateMatch120mRating(defensive)?.grade, 'A-');
 });
 
-test('the other reference setups calibrate to Pillars D, Lapsus D, and Bousignies C+', () => {
+test('the other reference setups calibrate to Pillars C, Lapsus C, and Bousignies C+', () => {
   const pillars = setup({
     formation: '2-5-3', tacticType: 0, tacticName: 'Normal',
     setPiecesTaker: { playerName: null, skill: 8, skillCheckedAt: null },
@@ -89,8 +89,8 @@ test('the other reference setups calibrate to Pillars D, Lapsus D, and Bousignie
       leftAttack: raw(5.75), centralAttack: raw(6), rightAttack: raw(7), midfield: raw(7),
     },
   });
-  assert.equal(calculateMatch120mRating(pillars)?.grade, 'D');
-  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'D');
+  assert.equal(calculateMatch120mRating(pillars)?.grade, 'C+');
+  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'C');
   assert.equal(calculateMatch120mRating(bousignies)?.grade, 'C+');
 });
 
@@ -116,14 +116,16 @@ test('unrecognized or incomplete core data remains unscored', () => {
   assert.equal(calculateMatch120mRating(setup({ tacticType: null, tacticName: null })), null);
 });
 
-test('120m coaching colors attacks above average defence and flags midfield load by defence coverage', () => {
+test('120m coaching colors attacks above average defence, double-covered defence, and midfield load', () => {
   const balanced = setup({
     ratings: {
       leftDefence: raw(6), centralDefence: raw(6), rightDefence: raw(6),
       leftAttack: raw(3), centralAttack: raw(3), rightAttack: raw(3), midfield: raw(3),
     },
   });
-  assert.deepEqual(analyzeMatch120mCoaching(balanced).sectorScores, {});
+  assert.deepEqual(analyzeMatch120mCoaching(balanced).sectorScores, {
+    leftDefence: 1, centreDefence: 1, rightDefence: 1,
+  });
 
   const attackAbove = setup({ ratings: { ...balanced.ratings, leftAttack: raw(6.01) } });
   assert.equal(analyzeMatch120mCoaching(attackAbove).sectorScores.leftAttack, 4);
@@ -136,6 +138,7 @@ test('120m coaching colors attacks above average defence and flags midfield load
     ratings: { ...midfieldAtBoundary.ratings, midfield: raw(9.01) },
   });
   assert.equal(analyzeMatch120mCoaching(midfieldOver).sectorScores.midfield, 4);
+
 });
 
 test('120m coaching always flags defence below 5 and attacks at 8, with a stronger 11.25 warning', () => {
@@ -164,9 +167,9 @@ test('120m coaching flags three Quick, Head, or Unpredictable players and only r
   ] });
   const analysis = analyzeMatch120mCoaching(base, [{ specialtyId: 2, roleIds: [110] }]);
   assert.ok(analysis.quickDefensiveRoles.includes(101));
-  assert.equal(analysis.sectorScores.rightDefence, undefined);
-  assert.ok(analysis.recommendations.includes('reduceQuick'));
-  assert.ok(analysis.recommendations.includes('reduceHead'));
+  assert.equal(analysis.sectorScores.rightDefence, 1);
+  assert.ok(!analysis.recommendations.includes('reduceQuick'));
+  assert.ok(!analysis.recommendations.includes('reduceHead'));
   assert.ok(analysis.recommendations.includes('reduceUnpredictable'));
   assert.ok(!analysis.recommendations.includes('setDefensiveStyle'));
 
@@ -190,7 +193,7 @@ test('rough SE threat discounts average skill fit and excludes Unpredictable goa
     { specialtyId: 4, roleIds: [100] },
   ] }));
   assert.ok(baseline && withThreat && withUnpredictableKeeper);
-  assert.equal(baseline.score - withThreat.score, 6);
+  assert.equal(baseline.score - withThreat.score, 7);
   assert.equal(baseline.score - withUnpredictableKeeper.score, 5);
 });
 
@@ -236,14 +239,14 @@ test('reversed venues keep distinct performances with their fixture participants
   assert.equal(result?.home?.ht_team_id, 303);
   assert.equal(result?.home?.grade, 'A+');
   assert.equal(result?.away?.team_id, 'away');
-  assert.equal(result?.away?.grade, 'F-');
+  assert.equal(result?.away?.grade, 'B+');
   assert.equal(queries[0].columns.includes('tournament_id'), false);
   assert.equal(queries[1].columns, 'tournament_id,season_number');
   assert.equal(queries[2].filters.id, 'tournament');
   match.match_event_details = rawDetails;
   const legacy = await prepareMatch120mRatings(supabase, 'fixture');
   assert.equal(legacy?.home?.grade, 'A+');
-  assert.equal(legacy?.away?.grade, 'F-');
+  assert.equal(legacy?.away?.grade, 'B+');
   match.actual_ht_home_team_id = 999;
   assert.equal(await prepareMatch120mRatings(supabase, 'fixture'), null);
 });

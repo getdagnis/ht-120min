@@ -70,6 +70,10 @@ interface ForgeFixtureView {
   away: ForgeTeamView;
 }
 
+function isByeTeam(team: ForgeTeamView) {
+  return team.name === 'BYE' && team.htTeamId === null;
+}
+
 interface MatchesResponse {
   tournaments?: TournamentOption[];
   tournament?: { id: string; name: string; season: number };
@@ -171,7 +175,7 @@ function exportRoundCsv(data: MatchesResponse, fixtureErrors: Record<string, str
   ];
   const rows = (data.fixtures || []).map(fixture => {
     const sideValues = (team: ForgeTeamView) => {
-      const bye = team.name === 'BYE' && team.htTeamId === null;
+      const bye = isByeTeam(team);
       const flags = team.savedFlags;
       const rating = team.latest120mRating;
       return [
@@ -893,6 +897,7 @@ export function ForgeMatchesSection() {
                   {(data.fixtures || []).map((fixture, index) => {
                     if (!visibleStatuses[fixtureStatusFilter(fixture.status)]) return null;
                     const fixtureBusy = Boolean(busyActions[fixture.id]);
+                    const hasBye = isByeTeam(fixture.home) || isByeTeam(fixture.away);
                     return (
                       <article key={fixture.id} className={styles.fixture}>
                         <div className={styles.fixtureHeader}>
@@ -933,7 +938,9 @@ export function ForgeMatchesSection() {
                                   )}
                                   <span>{team.name}</span>
                                 </div>
-                                <div className={styles.managerName}>{team.managerName || 'Manager unavailable'}</div>
+                                {!isByeTeam(team) ? (
+                                  <div className={styles.managerName}>{team.managerName || 'Manager unavailable'}</div>
+                                ) : null}
                               </div>
                               <div className={styles.stateRow}>
                                 <span
@@ -950,54 +957,56 @@ export function ForgeMatchesSection() {
                                 )}
                               </div>
                               <p className={styles.stateReason}>{team.chppReason}</p>
-                              <div className={styles.actions}>
-                                <Button
-                                  variant="primaryAction"
-                                  size="sm"
-                                  disabled={!team.canChallenge || fixtureBusy || bulkRunning}
-                                  title={
-                                    team.canChallenge
-                                      ? `Send a Cup Rules challenge to ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
-                                      : team.challengeDisabledReason
-                                  }
-                                  onClick={() => void runAction(fixture, team, 'challenge')}
-                                >
-                                  Challenge {team.side === 'home' ? fixture.away.name : fixture.home.name}
-                                </Button>
-                                {team.side === 'away' && team.canChallenge && (
+                              {!hasBye && (
+                                <div className={styles.actions}>
+                                  <Button
+                                    variant="primaryAction"
+                                    size="sm"
+                                    disabled={!team.canChallenge || fixtureBusy || bulkRunning}
+                                    title={
+                                      team.canChallenge
+                                        ? `Send a Cup Rules challenge to ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
+                                        : team.challengeDisabledReason
+                                    }
+                                    onClick={() => void runAction(fixture, team, 'challenge')}
+                                  >
+                                    Challenge {team.side === 'home' ? fixture.away.name : fixture.home.name}
+                                  </Button>
+                                  {team.side === 'away' && team.canChallenge && (
+                                    <Button
+                                      variant="secondaryDanger"
+                                      size="sm"
+                                      disabled={fixtureBusy || bulkRunning}
+                                      onClick={() => void runAction(fixture, team, 'challenge', 0)}
+                                    >
+                                      Challenge as home
+                                    </Button>
+                                  )}
+                                  {team.canWithdraw && (
+                                    <Button
+                                      variant="secondaryDanger"
+                                      size="sm"
+                                      disabled={fixtureBusy || bulkRunning}
+                                      onClick={() => void runAction(fixture, team, 'withdraw')}
+                                    >
+                                      Withdraw challenge
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="secondaryDanger"
                                     size="sm"
-                                    disabled={fixtureBusy || bulkRunning}
-                                    onClick={() => void runAction(fixture, team, 'challenge', 0)}
+                                    disabled={!team.canAccept || fixtureBusy || bulkRunning}
+                                    title={
+                                      team.canAccept
+                                        ? `Accept the challenge from ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
+                                        : team.acceptDisabledReason
+                                    }
+                                    onClick={() => void runAction(fixture, team, 'accept')}
                                   >
-                                    Challenge as home
+                                    Accept from {team.side === 'home' ? fixture.away.name : fixture.home.name}
                                   </Button>
-                                )}
-                                {team.canWithdraw && (
-                                  <Button
-                                    variant="secondaryDanger"
-                                    size="sm"
-                                    disabled={fixtureBusy || bulkRunning}
-                                    onClick={() => void runAction(fixture, team, 'withdraw')}
-                                  >
-                                    Withdraw challenge
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="secondaryDanger"
-                                  size="sm"
-                                  disabled={!team.canAccept || fixtureBusy || bulkRunning}
-                                  title={
-                                    team.canAccept
-                                      ? `Accept the challenge from ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
-                                      : team.acceptDisabledReason
-                                  }
-                                  onClick={() => void runAction(fixture, team, 'accept')}
-                                >
-                                  Accept from {team.side === 'home' ? fixture.away.name : fixture.home.name}
-                                </Button>
-                              </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
