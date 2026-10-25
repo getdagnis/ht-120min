@@ -13,6 +13,8 @@ import {
   analyzeMatch120mCoaching,
   calculateMatch120mSpecialtyThreatPenalty,
   MATCH_120M_MAX_SE_THREAT_PENALTY,
+  MATCH_120M_MIDFIELD_RED_THRESHOLD,
+  MATCH_120M_MIDFIELD_WARNING_THRESHOLD,
   normalizeMatch120mGrade,
   type Match120mCoachingAnalysis,
   type Match120mRatedSector,
@@ -177,16 +179,22 @@ function specialtyMarkersForSector(
         roles: specialtyRoles,
       });
   }
-  return [...markers.values()].map((marker) => ({
-    ...marker,
-    penalized: marker.roles.some((role) =>
-      marker.specialtyId === 2 ? role >= 106 && role <= 113
-        : marker.specialtyId === 5 || marker.specialtyId === 4 ? role >= 101 && role <= 113
-          : marker.specialtyId === 1 ? role === 106 || (role >= 110 && role <= 113)
-            : marker.specialtyId === 3 ? role >= 111 && role <= 113
-              : false),
-    green: marker.specialtyId === 2 && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)),
-  }));
+  return [...markers.values()]
+    .map((marker) => ({
+      ...marker,
+      penalized: marker.roles.some((role) =>
+        marker.specialtyId === 2 ? role >= 106 && role <= 113
+          : marker.specialtyId === 5 || marker.specialtyId === 4 ? role >= 101 && role <= 113
+            : marker.specialtyId === 1 ? role === 106 || (role >= 110 && role <= 113)
+              : marker.specialtyId === 3 ? role >= 111 && role <= 113
+                : false),
+      green: (marker.specialtyId === 2
+        && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)))
+        || (marker.specialtyId === 3
+          && marker.roles.some((role) => analysis.powerfulPressingRoles.includes(role))),
+    }))
+    .sort((a, b) => Number(b.penalized) - Number(a.penalized)
+      || Number(b.green) - Number(a.green));
 }
 
 function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
@@ -340,6 +348,7 @@ function RatingsPitch({
   midfieldLabel?: string;
 }) {
   const uiText = useTranslations('PublicUI.RatingsPitch');
+  const fixtureText = useTranslations('PublicUI.FixtureCard');
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
       ['Left attack (LW):', ratings.leftAttack, 'leftAttack'],
@@ -366,9 +375,15 @@ function RatingsPitch({
             const score = sector ? analysis.sectorScores[sector] : null;
             const sectorValue = Number(value);
             let sectorTip = '';
-            if (score === 4 && (sector === 'midfield' || analysis.midfieldBalancePoints !== null
-              && analysis.midfieldBalancePoints < 35)) {
+            const isMidfieldOrAttack = sector === 'midfield' || sector?.endsWith('Attack');
+            if (isMidfieldOrAttack && analysis.midfieldBalancePoints !== null
+              && analysis.midfieldBalancePoints < MATCH_120M_MIDFIELD_RED_THRESHOLD) {
               sectorTip = uiText('midfieldBalanceCritical');
+            } else if (isMidfieldOrAttack && analysis.midfieldBalancePoints !== null
+              && analysis.midfieldBalancePoints < MATCH_120M_MIDFIELD_WARNING_THRESHOLD) {
+              sectorTip = uiText('midfieldBalanceWarning');
+            } else if (sector?.endsWith('Defence') && score === 1) {
+              sectorTip = uiText('strongDefence');
             } else if (sector && score === 4) {
               if (sector.endsWith('Defence')) sectorTip = uiText('weakDefence');
               else if (sectorValue >= 11.25) sectorTip = uiText('veryHighAttack');
@@ -402,9 +417,11 @@ function RatingsPitch({
                             score={penalized ? 4 : green ? 1 : null}
                             content={
                               penalized
-                                ? uiText('specialtyThreatPenaltyMarker')
+                                ? fixtureText('specialtyThreatPenaltyMarker')
                                 : green
-                                  ? uiText('quickDefensiveCover')
+                                  ? specialtyId === 3
+                                    ? fixtureText('powerfulPressingBenefit')
+                                    : uiText('quickDefensiveCover')
                                   : ''
                             }
                           >
