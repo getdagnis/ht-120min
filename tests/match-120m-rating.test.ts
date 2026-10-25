@@ -24,7 +24,7 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
   assert.deepEqual(calculateMatch120mRating(setup({ tacticSkill: 15 })), {
-    score: 100, grade: 'A+', formula_version: 13, has_set_pieces_skill: true, has_specialties: true,
+    score: 100, grade: 'A+', formula_version: 14, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
@@ -34,7 +34,7 @@ test('strong defence protects the formation deduction while attack and tactic co
     ratings: { ...setup().ratings, leftAttack: raw(8) },
   }));
   assert.ok(rating);
-  assert.equal(rating.score, 83);
+  assert.equal(rating.score, 80);
   assert.equal(rating.grade, 'B+');
 });
 
@@ -57,10 +57,10 @@ test('defensive Quick players do not count as offensive SE threat, while a dange
       leftAttack: raw(8), centralAttack: raw(2.5), rightAttack: raw(3.75), midfield: raw(3.75),
     },
   });
-  assert.equal(calculateMatch120mRating(defensive)?.grade, 'A-');
+  assert.equal(calculateMatch120mRating(defensive)?.grade, 'B+');
 });
 
-test('the other reference setups calibrate to Pillars C, Lapsus C, and Bousignies C+', () => {
+test('the other reference setups calibrate to Pillars C-, Lapsus C-, and Bousignies C+', () => {
   const pillars = setup({
     formation: '2-5-3', tacticType: 0, tacticName: 'Normal',
     setPiecesTaker: { playerName: null, skill: 8, skillCheckedAt: null },
@@ -89,8 +89,8 @@ test('the other reference setups calibrate to Pillars C, Lapsus C, and Bousignie
       leftAttack: raw(5.75), centralAttack: raw(6), rightAttack: raw(7), midfield: raw(7),
     },
   });
-  assert.equal(calculateMatch120mRating(pillars)?.grade, 'C+');
-  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'C');
+  assert.equal(calculateMatch120mRating(pillars)?.grade, 'C-');
+  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'C-');
   assert.equal(calculateMatch120mRating(bousignies)?.grade, 'C+');
 });
 
@@ -193,8 +193,8 @@ test('rough SE threat discounts average skill fit and excludes Unpredictable goa
     { specialtyId: 4, roleIds: [100] },
   ] }));
   assert.ok(baseline && withThreat && withUnpredictableKeeper);
-  assert.equal(baseline.score - withThreat.score, 7);
-  assert.equal(baseline.score - withUnpredictableKeeper.score, 5);
+  assert.equal(baseline.score - withThreat.score, 9);
+  assert.equal(baseline.score - withUnpredictableKeeper.score, 6);
 });
 
 test('only 120-minute scoring modes are eligible', () => {

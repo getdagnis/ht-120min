@@ -195,12 +195,11 @@ function specialtyMarkersForSector(
             : marker.specialtyId === 1 ? role === 106 || (role >= 110 && role <= 113)
               : marker.specialtyId === 3 ? role >= 111 && role <= 113
                 : false);
-      const offensiveThreatGrade = penalized && marker.roles.some((role) => role >= 106)
-        && threatGrade !== 'A' && threatGrade !== 'B' ? threatGrade : null;
+      const threatPenaltyGrade = penalized && threatGrade !== 'A' && threatGrade !== 'B' ? threatGrade : null;
       return {
         ...marker,
         penalized,
-        offensiveThreatGrade,
+        threatPenaltyGrade,
         red: penalized && specialtyCount >= 3,
         green: (marker.specialtyId === 2
           && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)))
@@ -208,8 +207,8 @@ function specialtyMarkersForSector(
             && marker.roles.some((role) => analysis.powerfulPressingRoles.includes(role))),
       };
     })
-    .sort((a, b) => Number(Boolean(b.offensiveThreatGrade) || b.red)
-      - Number(Boolean(a.offensiveThreatGrade) || a.red)
+    .sort((a, b) => Number(Boolean(b.threatPenaltyGrade) || b.red)
+      - Number(Boolean(a.threatPenaltyGrade) || a.red)
       || Number(b.green) - Number(a.green));
 }
 
@@ -416,6 +415,8 @@ function RatingsPitch({
               && analysis.midfieldBalancePoints < MATCH_120M_WARNING_STAGE_D_THRESHOLD) {
               sectorTip = uiText('midfieldBalanceDWarning');
             } else if (sector?.endsWith('Defence') && score === 1) {
+              sectorTip = uiText('veryStrongDefence');
+            } else if (sector?.endsWith('Defence') && score === 2) {
               sectorTip = uiText('strongDefence');
             } else if (sector && score === 4) {
               if (sector.endsWith('Defence')) sectorTip = uiText('weakDefence');
@@ -435,17 +436,17 @@ function RatingsPitch({
                       className={styles.ratingsSpecialtyIcons}
                       aria-label={uiText('specialtiesContributingToThisRating')}
                     >
-                      {markers.map(({ specialtyId, count, penalized, offensiveThreatGrade, red, green }) => (
+                      {markers.map(({ specialtyId, count, penalized, threatPenaltyGrade, red, green }) => (
                         <span
                           key={specialtyId}
-                          className={offensiveThreatGrade
-                            ? `${styles.ratingsThreatMarker} ${styles[`ratingGrade${offensiveThreatGrade}`]}`
+                          className={threatPenaltyGrade
+                            ? `${styles.ratingsThreatMarker} ${styles[`ratingGrade${threatPenaltyGrade}`]}`
                             : undefined}
                         >
                           {count > 1 && (
                             <span
                               className={
-                                offensiveThreatGrade ? undefined
+                                threatPenaltyGrade ? undefined
                                   : red ? styles.ratingIndicator4 : green ? styles.ratingIndicator1 : undefined
                               }
                             >
@@ -453,8 +454,8 @@ function RatingsPitch({
                             </span>
                           )}
                           <IndicatorTip
-                            score={offensiveThreatGrade ? null : red ? 4 : green ? 1 : null}
-                            tone={offensiveThreatGrade ? `grade-${offensiveThreatGrade.toLowerCase()}` : undefined}
+                            score={threatPenaltyGrade ? null : red ? 4 : green ? 1 : null}
+                            tone={threatPenaltyGrade ? `grade-${threatPenaltyGrade.toLowerCase()}` : undefined}
                             content={
                               penalized
                                 ? fixtureText('specialtyThreatPenaltyMarker')

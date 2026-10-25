@@ -3,7 +3,7 @@ import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndica
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
 
-export const MATCH_120M_FORMULA_VERSION = 13;
+export const MATCH_120M_FORMULA_VERSION = 14;
 export const MATCH_120M_MAX_SE_THREAT_PENALTY = 25;
 const MATCH_120M_SET_PIECES_MAX_POINTS = 25;
 const MATCH_120M_SET_PIECES_POINTS_PER_SKILL = 2;
@@ -100,6 +100,19 @@ function moreSevereWarningGrade(
   return severity[first] >= severity[second] ? first : second;
 }
 
+function hiddenRatingPenalty(
+  indicatorScores: Array<RatingIndicatorScore | null>,
+  seThreatPoints: number,
+  hasRedPosition: boolean,
+): number {
+  const indicatorPenalty = indicatorScores.filter((score) => score !== null && score >= 3).length;
+  return indicatorPenalty + seThreatRatingSurcharge(seThreatPoints) + Number(hasRedPosition);
+}
+
+function seThreatRatingSurcharge(seThreatPoints: number): number {
+  return seThreatPoints >= 15 ? 3 : seThreatPoints >= 10 ? 2 : seThreatPoints >= 7 ? 1 : 0;
+}
+
 function tacticRatingPoints(tactic: string, tacticSkill: number | null | undefined): number {
   const indicator = getTacticIndicatorScore(tactic);
   if (indicator === 1) {
@@ -146,7 +159,7 @@ function gradeFor(score: number): Match120mGrade {
  * the theoretical maximum is 22.5 points, below the 25-point scale ceiling.
  * This uses only specialties and lineup roles in the performance snapshot; it does not fetch
  * player skills or infer an opponent.
- * The role filters count Quick attackers, weighted outfield Head players, outfield
+ * The role filters count Quick attackers, all Head players, outfield
  * Unpredictable players, Technical wingers/forwards, and Powerful forwards. Unknown specialty
  * data stays neutral. The returned breakdown drives the score tooltip.
  */
@@ -181,7 +194,7 @@ export function calculateMatch120mSpecialtyThreatBreakdown(
     specialties.find((entry) => entry.specialtyId === specialtyId)?.roleIds.filter(eligible).length ?? 0;
 
   const quickAttackers = countRoles(2, (roleId) => roleId >= 106 && roleId <= 113);
-  const headPlayers = countMatch120mSpecialtyPlayers(specialties, 5) ?? 0;
+  const headPlayers = countRoles(5, (roleId) => roleId >= 100 && roleId <= 113);
   const unpredictablePlayers = countRoles(4, (roleId) => roleId >= 101 && roleId <= 113);
   const technicalAttackers = countRoles(1, (roleId) => roleId === 106 || (roleId >= 110 && roleId <= 113));
   const powerfulForwards = countRoles(3, (roleId) => roleId >= 111 && roleId <= 113);
@@ -243,12 +256,23 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
   const midfieldPoints = interpolate(defenceCoverRatio, [[0.5, 0], [1, 100]]);
   const tacticPoints = tacticRatingPoints(tactic, performance.tacticSkill) * 4;
   const formationScore = getFormationIndicatorScore(formation);
+  const tacticScore = getTacticIndicatorScore(tactic);
   const formationValue = formationPoints[formation] ?? incompleteFormationPoints[formationScore!];
   const skill = performance.setPiecesTaker?.skill;
   const hasSetPiecesSkill = typeof skill === 'number' && Number.isFinite(skill) && skill >= 1;
   const setPiecesPoints = setPiecesRatingPoints(skill);
+  const setPiecesScore = getSetPieceIndicatorScore(skill);
   const specialties = performance.specialtyPositions;
   const seThreatPenalty = calculateMatch120mSpecialtyThreatPenalty(specialties);
+  const hasRedPosition = [raw.leftDefence!, raw.centralDefence!, raw.rightDefence!]
+    .some((value) => display(value) < 5)
+    || midfieldPoints < MATCH_120M_WARNING_STAGE_F_THRESHOLD
+    || attacks.some((value) => value >= 11.25);
+  const additionalRatingPenalty = hiddenRatingPenalty(
+    [formationScore, tacticScore, setPiecesScore],
+    seThreatPenalty,
+    hasRedPosition,
+  );
   const attackPenalty = maxAttack >= 8 ? 8 : maxAttack >= 7 ? 3 : maxAttack >= 6 ? 2 : maxAttack >= 5 ? 1 : 0;
   const formationPenalty = Math.max(0, (100 - formationValue!) * 0.18);
   const formationProtection = Math.min(1, Math.max(0,
@@ -260,7 +284,7 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
     + (MATCH_120M_FORMATION_WEIGHT - unprotectedFormationPenalty)
     + midfieldPoints * 0.20 + setPiecesPoints;
   const score = Math.round(Math.max(0, Math.min(100,
-    Math.min(100, positiveScore) - seThreatPenalty - attackPenalty,
+    Math.min(100, positiveScore) - seThreatPenalty - attackPenalty - additionalRatingPenalty,
   )));
   return { score, grade: gradeFor(score), formula_version: MATCH_120M_FORMULA_VERSION,
     has_set_pieces_skill: hasSetPiecesSkill, has_specialties: Array.isArray(specialties) };
@@ -301,9 +325,15 @@ export function analyzeMatch120mCoaching(
   let attackPenaltyPoints = 0;
   if (averageDefence !== null && averageAttack !== null && midfield !== null) {
     const highestAttack = Math.max(...attacks.map((value) => value ?? 0));
-    const allDefenceRatingsStrong = (defences.every((value) => value !== null && value >= 11)
+    const allDefenceRatingsAtLeastFive = defences.every((value) => value !== null && value >= 5);
+    const allDefenceRatingsVeryStrong = (defences.every((value) => value !== null && value >= 11)
       && averageDefence >= 12)
-      || (averageDefence >= highestAttack * 2 && averageDefence >= midfield * 2);
+      || (allDefenceRatingsAtLeastFive
+        && averageDefence >= highestAttack * 2
+        && averageDefence >= midfield * 1.5);
+    const allDefenceRatingsStrong = allDefenceRatingsAtLeastFive
+      && averageDefence >= highestAttack * 1.5
+      && averageDefence >= midfield * 1.5;
     const ownValues: Record<Match120mRatedSector, number> = {
       leftAttack: attacks[0]!, centreAttack: attacks[1]!, rightAttack: attacks[2]!, midfield,
       leftDefence: defences[0]!, centreDefence: defences[1]!, rightDefence: defences[2]!,
@@ -340,8 +370,10 @@ export function analyzeMatch120mCoaching(
       } else if (ownValues[sector] < 5) {
         sectorWarningGrades[sector] = 'F';
         sectorScores[sector] = 4;
-      } else if (allDefenceRatingsStrong) {
+      } else if (allDefenceRatingsVeryStrong) {
         sectorScores[sector] = 1;
+      } else if (allDefenceRatingsStrong) {
+        sectorScores[sector] = 2;
       }
     }
     if (midfield + averageAttack > averageDefence) recommendations.push('balanceMidfield');
@@ -419,7 +451,9 @@ export function analyzeMatch120mCoaching(
       }
     }
   }
-  if (recommendations.includes('reduceSEThreat')) recommendationImpacts.reduceSEThreat = seThreatPenalty;
+  if (recommendations.includes('reduceSEThreat')) {
+    recommendationImpacts.reduceSEThreat = seThreatPenalty + seThreatRatingSurcharge(seThreatPenalty);
+  }
   if (recommendations.includes('choosePressing')) recommendationImpacts.choosePressing = (100 - tacticPoints) * 0.25;
   if (recommendations.includes('improvePressingSkill')) {
     recommendationImpacts.improvePressingSkill = Math.max(
