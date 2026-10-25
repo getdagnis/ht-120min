@@ -48,11 +48,11 @@ export async function handleManagerSurvey(req: VercelRequest, res: VercelRespons
   const tournamentId = queryString(req.method === 'GET' ? req.query.tournamentId : req.body?.tournamentId);
   if (!tournamentId || !/^[0-9a-f-]{36}$/i.test(tournamentId)) return res.status(400).json({ error: 'Invalid tournament.' });
   const db = getServiceSupabase(6000);
-  const { data: survey, error: surveyError } = await db.from('tournament_preference_surveys')
-    .select('id, tournament_id, variant').eq('tournament_id', tournamentId).eq('status', 'active').maybeSingle();
+  const { data: survey, error: surveyError } = await db.from('surveys')
+    .select('id, tournament_id, variant').eq('scope', 'tournament').eq('tournament_id', tournamentId).eq('status', 'active').maybeSingle();
   if (surveyError) throw surveyError;
   if (!survey) return res.status(200).json({ survey: null });
-  const { data: existing, error: existingError } = await db.from('tournament_preference_responses')
+  const { data: existing, error: existingError } = await db.from('survey_responses')
     .select('completed_at').eq('survey_id', survey.id).eq('manager_ht_id', session.userId).maybeSingle();
   if (existingError) throw existingError;
   if (existing) return req.method === 'GET'
@@ -100,14 +100,14 @@ export async function handleManagerSurvey(req: VercelRequest, res: VercelRespons
   return res.status(201).json({ submitted: true });
 }
 
-async function allRows(table: 'tournament_preference_responses' | 'teams', surveyId: string, tournamentId: string) {
+async function allRows(table: 'survey_responses' | 'teams', surveyId: string, tournamentId: string) {
   const db = getServiceSupabase(6000);
   const rows: Record<string, unknown>[] = [];
   for (let start = 0; ; start += 500) {
     const query = table === 'teams'
       ? db.from('teams').select('id, ht_team_id, hattrick_user_id, active, reserve_active, is_placeholder')
         .eq('tournament_id', tournamentId).eq('active', true).order('id').range(start, start + 499)
-      : db.from('tournament_preference_responses')
+      : db.from('survey_responses')
         .select('manager_ht_id, manager_name, manager_country_id, manager_importance, team_answers, completed_at')
         .eq('survey_id', surveyId).order('completed_at', { ascending: false })
         .order('manager_ht_id').range(start, start + 499);
@@ -146,8 +146,8 @@ export async function handleForgeSurveys(req: VercelRequest, res: VercelResponse
         if (!membership) return res.status(400).json({ error: 'This tournament has no survey template.' });
         variant = 'exotic_hfi';
       }
-      const { data: created, error: createError } = await db.from('tournament_preference_surveys')
-        .insert({ tournament_id: tournament.id, variant }).select('id').single();
+      const { data: created, error: createError } = await db.from('surveys')
+        .insert({ scope: 'tournament', tournament_id: tournament.id, variant }).select('id').single();
       if (createError) throw createError;
       return res.status(201).json({ id: created.id });
     }
@@ -155,7 +155,7 @@ export async function handleForgeSurveys(req: VercelRequest, res: VercelResponse
     if (!surveyId || !['publish', 'close'].includes(action)) return res.status(400).json({ error: 'Invalid survey action.' });
     const from = action === 'publish' ? 'draft' : 'active';
     const to = action === 'publish' ? 'active' : 'closed';
-    const { data, error } = await db.from('tournament_preference_surveys')
+    const { data, error } = await db.from('surveys')
       .update({ status: to, ...(to === 'active' ? { published_at: new Date().toISOString() } : { closed_at: new Date().toISOString() }) })
       .eq('id', surveyId).eq('status', from).select('id').maybeSingle();
     if (error?.code === '23505') return res.status(409).json({ error: 'This tournament already has an active survey.' });
@@ -163,8 +163,9 @@ export async function handleForgeSurveys(req: VercelRequest, res: VercelResponse
     if (!data) return res.status(409).json({ error: 'Survey state changed. Reload.' });
     return res.status(200).json({ saved: true });
   }
-  const { data: surveys, error: surveysError } = await db.from('tournament_preference_surveys')
+  const { data: surveys, error: surveysError } = await db.from('surveys')
     .select('id, tournament_id, variant, status, created_at, published_at, closed_at')
+    .eq('scope', 'tournament')
     .order('created_at', { ascending: false });
   if (surveysError) throw surveysError;
   const tournamentIds = [...new Set((surveys || []).map((survey) => survey.tournament_id))];
@@ -178,7 +179,7 @@ export async function handleForgeSurveys(req: VercelRequest, res: VercelResponse
   const selected = items.find((item) => item.id === selectedId);
   if (!selected) return res.status(200).json({ surveys: items, selected: null });
   const [responses, teams] = await Promise.all([
-    allRows('tournament_preference_responses', selected.id, selected.tournament_id),
+    allRows('survey_responses', selected.id, selected.tournament_id),
     allRows('teams', selected.id, selected.tournament_id),
   ]);
   const activeTeams = teams.filter((team) => team.active && !team.reserve_active && !team.is_placeholder

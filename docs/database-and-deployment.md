@@ -88,6 +88,7 @@ Recent important migrations:
 - `113_tournament_planning_and_recruiting.sql` (prepared locally: real Planning/Recruiting lifecycle, transactional exclusivity and withdrawal, guarded reset and server-authorized enrollment/season paths; not applied by the agent)
 - `115_fix_publication_valid_user_refresh.sql` (prepared locally: defers per-team `valid_users` writes during publication and refreshes affected counts once; not applied by the agent)
 - `145_tournament_preference_surveys.sql` (owner-marked applied: private survey history, independent current team/manager preferences, and atomic submission RPC; live schema state not independently inspected)
+- `146_generalize_survey_table_names.sql` (prepared: renames the survey and preference tables to concise shared names, adds tournament/site survey scope, and retains service-only compatibility views; not applied)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared
