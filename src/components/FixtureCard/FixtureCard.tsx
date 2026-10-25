@@ -179,14 +179,12 @@ function specialtyMarkersForSector(
   }
   return [...markers.values()].map((marker) => ({
     ...marker,
-    excessive:
-      marker.specialtyId === 2
-        ? (analysis.quickCount ?? 0) >= 3
-        : marker.specialtyId === 5
-          ? (analysis.headCount ?? 0) >= 3
-          : marker.specialtyId === 4
-            ? (analysis.unpredictableCount ?? 0) >= 3
-            : false,
+    penalized: marker.roles.some((role) =>
+      marker.specialtyId === 2 ? role >= 106 && role <= 113
+        : marker.specialtyId === 5 || marker.specialtyId === 4 ? role >= 101 && role <= 113
+          : marker.specialtyId === 1 ? role === 106 || (role >= 110 && role <= 113)
+            : marker.specialtyId === 3 ? role >= 111 && role <= 113
+              : false),
     green: marker.specialtyId === 2 && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)),
   }));
 }
@@ -273,7 +271,7 @@ function GameStyle({
 function gradeAdvice(
   analysis: Match120mCoachingAnalysis,
   grade: string,
-  text: (key: string, values?: { grade: string }) => string,
+  text: (key: string, values?: { grade?: string; formation?: string }) => string,
   score = analysis.rating?.score,
 ) {
   const description =
@@ -309,7 +307,9 @@ function gradeAdvice(
           ? ['fineTuneForAPlus']
           : [];
   const advice = adviceKeys
-    .map((key) => text(key))
+    .map((key) => text(key, key === 'chooseDefensiveFormation'
+      ? { formation: analysis.formation ?? '—' }
+      : undefined))
     .map((tip) => `• ${tip}`)
     .join('\n');
   const sections = [heading];
@@ -366,11 +366,11 @@ function RatingsPitch({
             const score = sector ? analysis.sectorScores[sector] : null;
             const sectorValue = Number(value);
             let sectorTip = '';
-            if (sector === 'midfield' && score === 3) {
-              sectorTip = uiText('midfieldPartiallyUnbalanced');
+            if (score === 4 && (sector === 'midfield' || analysis.midfieldBalancePoints !== null
+              && analysis.midfieldBalancePoints < 35)) {
+              sectorTip = uiText('midfieldBalanceCritical');
             } else if (sector && score === 4) {
-              if (sector === 'midfield') sectorTip = uiText('midfieldNeedsBalance');
-              else if (sector.endsWith('Defence')) sectorTip = uiText('weakDefence');
+              if (sector.endsWith('Defence')) sectorTip = uiText('weakDefence');
               else if (sectorValue >= 11.25) sectorTip = uiText('veryHighAttack');
               else if (sectorValue >= 8) sectorTip = uiText('dangerousAttack');
               else sectorTip = uiText('attackExceedsDefence');
@@ -387,28 +387,22 @@ function RatingsPitch({
                       className={styles.ratingsSpecialtyIcons}
                       aria-label={uiText('specialtiesContributingToThisRating')}
                     >
-                      {markers.map(({ specialtyId, count, excessive, green }) => (
+                      {markers.map(({ specialtyId, count, penalized, green }) => (
                         <span key={specialtyId}>
                           {count > 1 && (
                             <span
                               className={
-                                excessive ? styles.ratingIndicator4 : green ? styles.ratingIndicator1 : undefined
+                                penalized ? styles.ratingIndicator4 : green ? styles.ratingIndicator1 : undefined
                               }
                             >
                               {count}×
                             </span>
                           )}
                           <IndicatorTip
-                            score={excessive ? 4 : green ? 1 : null}
+                            score={penalized ? 4 : green ? 1 : null}
                             content={
-                              excessive
-                                ? uiText(
-                                    specialtyId === 2
-                                      ? 'tooManyQuick'
-                                      : specialtyId === 5
-                                        ? 'tooManyHead'
-                                        : 'tooManyUnpredictable',
-                                  )
+                              penalized
+                                ? uiText('specialtyThreatPenaltyMarker')
                                 : green
                                   ? uiText('quickDefensiveCover')
                                   : ''
@@ -827,7 +821,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           tactic={preview.tactic}
                           skill={preview.tacticSkill}
                           score={predictedAnalysis?.tacticScore ?? null}
-                          tip={ratingText(predictedAnalysis?.tacticScore === 1 ? 'pressingBest' : 'aimPressing')}
+                          tip={ratingText(
+                            predictedAnalysis?.tacticScore === 1
+                              ? (preview.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
+                              : 'aimPressing',
+                          )}
                         />
                       </span>
                       <GameStyle
@@ -1002,7 +1000,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         tactic={performance?.tacticName}
                         skill={performance?.tacticSkill}
                         score={analysis.tacticScore}
-                        tip={ratingText(analysis.tacticScore === 1 ? 'pressingBest' : 'aimPressing')}
+                        tip={ratingText(
+                          analysis.tacticScore === 1
+                            ? (performance?.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
+                            : 'aimPressing',
+                        )}
                       />
                     </strong>
                   </span>

@@ -23,19 +23,19 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 }
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
-  assert.deepEqual(calculateMatch120mRating(setup()), {
-    score: 100, grade: 'A+', formula_version: 8, has_set_pieces_skill: true, has_specialties: true,
+  assert.deepEqual(calculateMatch120mRating(setup({ tacticSkill: 15 })), {
+    score: 100, grade: 'A+', formula_version: 9, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
-test('attacking formation and tactic with a strong attack is capped near zero', () => {
+test('strong defence protects the formation deduction while attack and tactic costs still apply', () => {
   const rating = calculateMatch120mRating(setup({
     formation: '2-5-3', tacticType: 4, tacticName: 'Attack on wings',
     ratings: { ...setup().ratings, leftAttack: raw(8) },
   }));
   assert.ok(rating);
-  assert.ok(rating.score <= 10);
-  assert.equal(rating.grade, 'F-');
+  assert.equal(rating.score, 66);
+  assert.equal(rating.grade, 'C+');
 });
 
 test('unknown optional skill is neutral and missing specialties is not a penalty', () => {
@@ -60,7 +60,7 @@ test('defensive Quick players do not count as offensive SE threat, while a dange
   assert.equal(calculateMatch120mRating(defensive)?.grade, 'B');
 });
 
-test('the other reference setups calibrate to Pillars E, Lapsus D, and Bousignies B', () => {
+test('the other reference setups calibrate to Pillars D, Lapsus D, and Bousignies C+', () => {
   const pillars = setup({
     formation: '2-5-3', tacticType: 0, tacticName: 'Normal',
     setPiecesTaker: { playerName: null, skill: 8, skillCheckedAt: null },
@@ -89,9 +89,9 @@ test('the other reference setups calibrate to Pillars E, Lapsus D, and Bousignie
       leftAttack: raw(5.75), centralAttack: raw(6), rightAttack: raw(7), midfield: raw(7),
     },
   });
-  assert.equal(calculateMatch120mRating(pillars)?.grade, 'E-');
+  assert.equal(calculateMatch120mRating(pillars)?.grade, 'D');
   assert.equal(calculateMatch120mRating(lapsus)?.grade, 'D');
-  assert.equal(calculateMatch120mRating(bousignies)?.grade, 'B-');
+  assert.equal(calculateMatch120mRating(bousignies)?.grade, 'C+');
 });
 
 test('grade labels keep only meaningful plus/minus distinctions and normalize older stored labels', () => {
