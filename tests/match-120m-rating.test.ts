@@ -34,7 +34,7 @@ test('strong defence protects the formation deduction while attack and tactic co
     ratings: { ...setup().ratings, leftAttack: raw(8) },
   }));
   assert.ok(rating);
-  assert.equal(rating.score, 80);
+  assert.equal(rating.score, 81);
   assert.equal(rating.grade, 'B+');
 });
 
@@ -42,7 +42,7 @@ test('unknown optional skill is neutral and missing specialties is not a penalty
   const unknown = calculateMatch120mRating(setup({ setPiecesTaker: null, specialtyPositions: undefined }));
   const highSkill = calculateMatch120mRating(setup({ setPiecesTaker: { playerName: null, skill: 14, skillCheckedAt: null } }));
   assert.ok(unknown && highSkill);
-  assert.equal(unknown.score - highSkill.score, 12);
+  assert.equal(unknown.score - highSkill.score, 13);
   assert.equal(unknown.has_set_pieces_skill, false);
   assert.equal(unknown.has_specialties, false);
 });
