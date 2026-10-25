@@ -15,6 +15,7 @@ import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
 import { tryRecalculateMatch120mRatings } from './_lib/match-120m-ratings.js';
 import { handleForgeLocales } from './_lib/forge-locales.js';
+import { handleManagerSurvey, handleForgeSurveys } from './_lib/surveys.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
 import {
   loadTournamentAccess,
@@ -3945,6 +3946,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleForgeStats(req, res);
       case 'forge-locales':
         return await handleForgeLocales(req, res);
+      case 'manager-survey':
+        return await handleManagerSurvey(req, res);
+      case 'forge-surveys':
+        return await handleForgeSurveys(req, res);
       case 'tournament-roles':
         return await handleTournamentRoles(req, res);
       case 'tournament-access':

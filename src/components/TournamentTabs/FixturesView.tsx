@@ -1349,6 +1349,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     // Membership can change after a fixture; its saved participants cannot.
                     const homeIsBye = !match.home_team;
                     const awayIsBye = !match.away_team;
+                    const homeFinalRating = match.match_120m_ratings?.find((rating) => rating.side === 'home');
+                    const awayFinalRating = match.match_120m_ratings?.find((rating) => rating.side === 'away');
                     const availableChallenge = challengeAvailability[match.id];
                     const fixtureChallengeAction =
                       !isHistorical &&
@@ -1450,7 +1452,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
                           ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? match.match_120m_ratings?.find((rating) => rating.side === 'home')?.grade : undefined,
+                            ? homeFinalRating?.grade : undefined,
+                          ratingScore: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                            ? homeFinalRating?.score : undefined,
                           reserveReplacingName: homeIsBye ? undefined : match.home_team?.reserve_replacing_name,
                           isBye: homeIsBye,
                         }}
@@ -1466,7 +1470,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,
                           ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? match.match_120m_ratings?.find((rating) => rating.side === 'away')?.grade : undefined,
+                            ? awayFinalRating?.grade : undefined,
+                          ratingScore: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                            ? awayFinalRating?.score : undefined,
                           reserveReplacingName: awayIsBye ? undefined : match.away_team?.reserve_replacing_name,
                           isBye: awayIsBye,
                         }}

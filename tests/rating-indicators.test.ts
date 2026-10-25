@@ -21,14 +21,21 @@ test('mindset indicators show only full defensive settings', () => {
   assert.equal(getMatchMindsetIndicator(null), null);
 });
 
-test('formation indicators recognize complete formations without pinning color scores', () => {
-  const formations = ['5-5-0', '5-4-1', '5-3-2', '5-2-3', '4-5-1', '4-4-2', '4-3-3', '3-5-2', '3-4-3', '2-5-3'];
-  for (const formation of formations) {
-    const score = getFormationIndicatorScore(formation);
-    assert.ok(typeof score === 'number' && score >= 0 && score <= 4, formation);
+test('formation indicators preserve canonical scores and classify incomplete formations', () => {
+  const formations = new Map([
+    ['5-5-0', 1], ['5-4-1', 1], ['5-3-2', 1], ['5-2-3', 1],
+    ['4-5-1', 2], ['4-4-2', 2], ['4-3-3', 3], ['3-5-2', 3], ['3-4-3', 4], ['2-5-3', 4],
+  ]);
+  for (const [formation, expectedScore] of formations) {
+    assert.equal(getFormationIndicatorScore(formation), expectedScore, formation);
   }
-  assert.equal(getFormationIndicatorScore('3-3-2'), null);
-  assert.equal(getFormationIndicatorScore('2-4-2'), null);
+  assert.equal(getFormationIndicatorScore('5-3-1'), 1);
+  assert.equal(getFormationIndicatorScore('4-3-1'), 2);
+  assert.equal(getFormationIndicatorScore('3-3-1'), 0);
+  assert.equal(getFormationIndicatorScore('3-3-2'), 4);
+  assert.equal(getFormationIndicatorScore('3-2-3'), 4);
+  assert.equal(getFormationIndicatorScore('2-3-3'), 4);
+  assert.equal(getFormationIndicatorScore('2-4-2'), 4);
   assert.equal(getFormationIndicatorScore(null), null);
 });
 

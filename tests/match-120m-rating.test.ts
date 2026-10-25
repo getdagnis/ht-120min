@@ -24,7 +24,7 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
   assert.deepEqual(calculateMatch120mRating(setup()), {
-    score: 100, grade: 'A+', formula_version: 3, has_set_pieces_skill: true, has_specialties: true,
+    score: 100, grade: 'A+', formula_version: 8, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
@@ -47,7 +47,7 @@ test('unknown optional skill is neutral and missing specialties is not a penalty
   assert.equal(unknown.has_specialties, false);
 });
 
-test('four Quick players and one dangerous attack sector reduce an otherwise good setup', () => {
+test('defensive Quick players do not count as offensive SE threat, while a dangerous attack sector still costs points', () => {
   const defensive = setup({
     formation: '5-4-1', tacticType: 0, tacticName: 'Normal', styleOfPlay: -1000,
     setPiecesTaker: { playerName: null, skill: 6, skillCheckedAt: null },
@@ -57,7 +57,7 @@ test('four Quick players and one dangerous attack sector reduce an otherwise goo
       leftAttack: raw(8), centralAttack: raw(2.5), rightAttack: raw(3.75), midfield: raw(3.75),
     },
   });
-  assert.equal(calculateMatch120mRating(defensive)?.grade, 'C');
+  assert.equal(calculateMatch120mRating(defensive)?.grade, 'B');
 });
 
 test('the other reference setups calibrate to Pillars E, Lapsus D, and Bousignies B', () => {
@@ -89,21 +89,25 @@ test('the other reference setups calibrate to Pillars E, Lapsus D, and Bousignie
       leftAttack: raw(5.75), centralAttack: raw(6), rightAttack: raw(7), midfield: raw(7),
     },
   });
-  assert.equal(calculateMatch120mRating(pillars)?.grade, 'E');
+  assert.equal(calculateMatch120mRating(pillars)?.grade, 'E-');
   assert.equal(calculateMatch120mRating(lapsus)?.grade, 'D');
-  assert.equal(calculateMatch120mRating(bousignies)?.grade, 'B');
+  assert.equal(calculateMatch120mRating(bousignies)?.grade, 'B-');
 });
 
 test('grade labels keep only meaningful plus/minus distinctions and normalize older stored labels', () => {
   assert.equal(normalizeMatch120mGrade('A+'), 'A+');
   assert.equal(normalizeMatch120mGrade('A-'), 'A-');
   assert.equal(normalizeMatch120mGrade('B+'), 'B+');
+  assert.equal(normalizeMatch120mGrade('B-'), 'B-');
+  assert.equal(normalizeMatch120mGrade('C+'), 'C+');
+  assert.equal(normalizeMatch120mGrade('C-'), 'C-');
   assert.equal(normalizeMatch120mGrade('F-'), 'F-');
-  assert.equal(normalizeMatch120mGrade('B-'), 'B');
-  assert.equal(normalizeMatch120mGrade('C+'), 'C');
   assert.equal(normalizeMatch120mGrade('D+'), 'D');
-  assert.equal(normalizeMatch120mGrade('E-'), 'E');
-  assert.equal(normalizeMatch120mGrade('F+'), 'F');
+  assert.equal(normalizeMatch120mGrade('D-'), 'D');
+  assert.equal(normalizeMatch120mGrade('E+'), 'E-');
+  assert.equal(normalizeMatch120mGrade('E'), 'E-');
+  assert.equal(normalizeMatch120mGrade('F+'), 'F-');
+  assert.equal(normalizeMatch120mGrade('F'), 'F-');
 });
 
 test('unrecognized or incomplete core data remains unscored', () => {
@@ -112,7 +116,7 @@ test('unrecognized or incomplete core data remains unscored', () => {
   assert.equal(calculateMatch120mRating(setup({ tacticType: null, tacticName: null })), null);
 });
 
-test('120m coaching colors attacks only above average defence and midfield at the combined threshold', () => {
+test('120m coaching colors attacks above average defence and flags midfield load by defence coverage', () => {
   const balanced = setup({
     ratings: {
       leftDefence: raw(6), centralDefence: raw(6), rightDefence: raw(6),
@@ -127,7 +131,7 @@ test('120m coaching colors attacks only above average defence and midfield at th
   const midfieldAtBoundary = setup({
     ratings: { ...balanced.ratings, leftAttack: raw(3), centralAttack: raw(3), rightAttack: raw(3), midfield: raw(9) },
   });
-  assert.equal(analyzeMatch120mCoaching(midfieldAtBoundary).sectorScores.midfield, undefined);
+  assert.equal(analyzeMatch120mCoaching(midfieldAtBoundary).sectorScores.midfield, 4);
   const midfieldOver = setup({
     ratings: { ...midfieldAtBoundary.ratings, midfield: raw(9.01) },
   });
@@ -171,13 +175,23 @@ test('120m coaching flags three Quick, Head, or Unpredictable players and only r
   assert.deepEqual(technicalAnalysis.quickDefensiveRoles, []);
 });
 
-test('three Unpredictable players reduce the 120m score; two do not', () => {
+test('rough SE threat discounts average skill fit and excludes Unpredictable goalkeepers', () => {
   const baseline = calculateMatch120mRating(setup());
-  const two = calculateMatch120mRating(setup({ specialtyPositions: [{ specialtyId: 4, roleIds: [101, 102] }] }));
-  const three = calculateMatch120mRating(setup({ specialtyPositions: [{ specialtyId: 4, roleIds: [101, 102, 103] }] }));
-  assert.ok(baseline && two && three);
-  assert.equal(two.score, baseline.score);
-  assert.equal(three.score, baseline.score - 6);
+  const withThreat = calculateMatch120mRating(setup({ specialtyPositions: [
+    { specialtyId: 2, roleIds: [110, 111] },
+    { specialtyId: 5, roleIds: [101] },
+    { specialtyId: 4, roleIds: [102] },
+    { specialtyId: 1, roleIds: [107, 108] },
+    { specialtyId: 3, roleIds: [105] },
+  ] }));
+  const withUnpredictableKeeper = calculateMatch120mRating(setup({ specialtyPositions: [
+    { specialtyId: 2, roleIds: [110, 111] },
+    { specialtyId: 5, roleIds: [101] },
+    { specialtyId: 4, roleIds: [100] },
+  ] }));
+  assert.ok(baseline && withThreat && withUnpredictableKeeper);
+  assert.equal(baseline.score - withThreat.score, 6);
+  assert.equal(baseline.score - withUnpredictableKeeper.score, 5);
 });
 
 test('only 120-minute scoring modes are eligible', () => {

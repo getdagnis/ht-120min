@@ -682,8 +682,7 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
 export const TournamentView: React.FC<{
   initialData?: TournamentInitialData;
   collectionLinks?: { slug: string; title: string }[];
-  surveyTestTeams?: { id: string; name: string; logo_url?: string }[];
-}> = ({ initialData, collectionLinks = [], surveyTestTeams = [] }) => {
+}> = ({ initialData, collectionLinks = [] }) => {
   const uiText = useTranslations('PublicUI.TournamentView');
   const t = useTranslations('TournamentView');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
@@ -6186,7 +6185,7 @@ export const TournamentView: React.FC<{
 
   return (
     <div className={styles.view}>
-      {tournament && surveyTestTeams.length > 0 && <ManagerSurveyMock teams={surveyTestTeams} />}
+      {tournament && <ManagerSurveyMock key={tournament.id} tournamentId={tournament.id} />}
       {loadError && (
         <div className={styles.refreshError} role="alert">
           <p>{loadError}</p>
