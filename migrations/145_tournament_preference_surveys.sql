@@ -129,3 +129,5 @@ REVOKE ALL ON FUNCTION public.submit_tournament_preference_survey(uuid, uuid, bi
 GRANT EXECUTE ON FUNCTION public.submit_tournament_preference_survey(uuid, uuid, bigint, text, integer, text, jsonb)
   TO service_role;
 COMMIT;
+
+-- applied!
