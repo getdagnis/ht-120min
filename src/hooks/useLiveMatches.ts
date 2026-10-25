@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import type { MatchEventDetails } from '../../shared/match-events';
 import { getLivePollDelay, type LivePollCandidate } from '../../shared/live-match';
 
+const LIVE_MATCH_REQUEST_BATCH_SIZE = 30;
+
 export interface LiveMatchData extends Partial<LiveMatchClock> {
   status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
@@ -101,17 +103,23 @@ export function useLiveMatches(
 
       if (potentialLive.length === 0) return;
 
-      const ids = potentialLive.map((m) => m.ht_match_id).join(',');
-      try {
-        const res = await fetch(`/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${ids}&_t=${Date.now()}`);
-        if (res.ok) {
+      const ids = [...new Set(potentialLive.flatMap((match) => match.ht_match_id ? [match.ht_match_id] : []))];
+      let newlyFinished = false;
+      for (let offset = 0; offset < ids.length; offset += LIVE_MATCH_REQUEST_BATCH_SIZE) {
+        const batch = ids.slice(offset, offset + LIVE_MATCH_REQUEST_BATCH_SIZE);
+        try {
+          const res = await fetch(
+            `/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${batch.join(',')}&_t=${Date.now()}`,
+          );
+          if (!res.ok) continue;
+
           const data = await res.json();
+          const batchIds = new Set(batch);
           potentialLive
-            .filter((match) => match.completed && match.ht_match_id)
+            .filter((match) => match.completed && match.ht_match_id && batchIds.has(match.ht_match_id))
             .forEach((match) => attemptedAppgMatchIdsRef.current.add(match.ht_match_id!));
 
           const results = data.results as Record<string, LiveMatchData>;
-          let newlyFinished = false;
           for (const [id, result] of Object.entries(results)) {
             if (result.status !== 'finished' || notifiedFinishedMatchIdsRef.current.has(id)) continue;
             notifiedFinishedMatchIdsRef.current.add(id);
@@ -124,12 +132,11 @@ export function useLiveMatches(
               return merged;
             });
           }
-          if (newlyFinished) onMatchFinishedRef.current?.();
-
+        } catch (error) {
+          console.error('Error polling live matches:', error);
         }
-      } catch (error) {
-        console.error('Error polling live matches:', error);
       }
+      if (newlyFinished) onMatchFinishedRef.current?.();
     };
 
     let cancelled = false;
