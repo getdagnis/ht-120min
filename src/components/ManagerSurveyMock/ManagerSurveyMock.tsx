@@ -1,33 +1,64 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../Button/Button';
+import { surveyImportance, surveyPriorities, type SurveyImportance, type SurveyPriority, type SurveyVariant } from '../../../shared/survey';
 import styles from './ManagerSurveyMock.module.sass';
 
 type SurveyTeam = { id: string; name: string; logo_url?: string };
+type SurveyPrompt = { id: string; variant: SurveyVariant; managerName: string; teams: SurveyTeam[] };
 
-const priorities = [
-  { value: 'flags', label: '🇲🇵 Collecting new flags' },
-  { value: '120m', label: '⏱ 120-minute matches' },
-  { value: 'both', label: '🖇 Both are equally important to this team' },
-  { value: 'fun', label: "🥂 It's here for challenge, fun and no-hassle friendlies" },
-] as const;
-const importance = [
-  '☝️ Highly important',
-  '👌 Nice to have',
-  '⚽️ Depends on team or current training plan',
-  "🏛 I'd prefer regular matches",
-];
-
-export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
+export function ManagerSurveyMock({ tournamentId }: { tournamentId: string }) {
+  const [survey, setSurvey] = useState<SurveyPrompt | null>(null);
   const [open, setOpen] = useState(true);
   const [teamIndex, setTeamIndex] = useState(0);
   const [step, setStep] = useState<'teams' | 'manager' | 'thanks'>('teams');
-  const [answers, setAnswers] = useState<Record<string, { priority?: string; comments?: string }>>({});
-  const [managerImportance, setManagerImportance] = useState('');
+  const [answers, setAnswers] = useState<Record<string, { priority?: SurveyPriority; comments?: string }>>({});
+  const [managerImportance, setManagerImportance] = useState<SurveyImportance | ''>('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open || teams.length === 0) return;
+    const controller = new AbortController();
+    void fetch(`/api/app?route=manager-survey&tournamentId=${encodeURIComponent(tournamentId)}`, {
+      credentials: 'include', signal: controller.signal, cache: 'no-store',
+    }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!controller.signal.aborted && data.survey && Array.isArray(data.teams)) {
+        setSurvey({ ...data.survey, managerName: data.managerName, teams: data.teams });
+      }
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [tournamentId]);
+
+  const teams = survey?.teams ?? [];
+
+  const submit = async () => {
+    if (!survey || !managerImportance || submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/app?route=manager-survey', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, surveyId: survey.id, managerImportance,
+          answers: teams.map((team) => ({ teamId: team.id, priority: answers[team.id]?.priority,
+            comments: answers[team.id]?.comments ?? '' })) }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Could not save the survey. Please try again.');
+      }
+      setStep('thanks');
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Could not save the survey. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !survey || teams.length === 0) return;
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = 'hidden';
@@ -58,12 +89,12 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
       window.removeEventListener('keydown', onKeyDown);
       previousFocus?.focus();
     };
-  }, [open, teams.length]);
+  }, [open, survey, teams.length]);
 
-  if (!open || teams.length === 0) return null;
+  if (!open || !survey || teams.length === 0) return null;
   const team = teams[teamIndex];
   const answer = answers[team.id] ?? {};
-  const setAnswer = (update: { priority?: string; comments?: string }) =>
+  const setAnswer = (update: { priority?: SurveyPriority; comments?: string }) =>
     setAnswers((current) => ({
       ...current,
       [team.id]: { ...current[team.id], ...update },
@@ -90,7 +121,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
           </button>
           {step === 'thanks' ? (
             <>
-              <h1 id="manager-survey-title">Thank you, mr_bots!</h1>
+              <h1 id="manager-survey-title">Thank you, {survey.managerName}!</h1>
               <p>Happy to have you around! Have a great tournament!</p>
               <Button onClick={() => setOpen(false)}>Done</Button>
             </>
@@ -98,7 +129,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
             <>
               {step === 'teams' ? (
                 <>
-                  <h1 id="manager-survey-title">Welcome back, mr_bots!</h1>
+                  <h1 id="manager-survey-title">Welcome back, {survey.managerName}!</h1>
                   <p className={styles.subTitle}>
                     Please answer this question to store as your team preference. This will be taken in account when
                     pairing your teams against future opponents.
@@ -109,7 +140,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                   </div>
                   <fieldset className={styles.fieldset}>
                     <legend>When a choice has to be made, what matters most for this team?</legend>
-                    {priorities.map((option) => (
+                    {surveyPriorities[survey.variant].map((option) => (
                       <label
                         className={`${styles.option} ${answer.priority === option.value ? styles.selected : answer.priority ? styles.inactive : ''}`}
                         key={option.value}
@@ -131,6 +162,7 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                     id={`survey-team-comments-${team.id}`}
                     value={answer.comments ?? ''}
                     onChange={(event) => setAnswer({ comments: event.target.value })}
+                    maxLength={1000}
                     rows={2}
                   />
                   <div className={styles.actions}>
@@ -155,18 +187,18 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                   <h1 id="manager-survey-title">Last one!</h1>
                   <fieldset className={styles.fieldset}>
                     <legend>In general, how important are 120-minute matches to you?</legend>
-                    {importance.map((option) => (
+                    {surveyImportance.map((option) => (
                       <label
-                        className={`${styles.option} ${managerImportance === option ? styles.selected : managerImportance ? styles.inactive : ''}`}
-                        key={option}
+                        className={`${styles.option} ${managerImportance === option.value ? styles.selected : managerImportance ? styles.inactive : ''}`}
+                        key={option.value}
                       >
                         <input
                           type="radio"
                           name="manager-importance"
-                          checked={managerImportance === option}
-                          onChange={() => setManagerImportance(option)}
+                          checked={managerImportance === option.value}
+                          onChange={() => setManagerImportance(option.value)}
                         />
-                        {option}
+                        {option.label}
                       </label>
                     ))}
                   </fieldset>
@@ -174,10 +206,11 @@ export function ManagerSurveyMock({ teams }: { teams: SurveyTeam[] }) {
                     <Button variant="outline" onClick={() => setStep('teams')}>
                       Back
                     </Button>
-                    <Button disabled={!managerImportance} onClick={() => setStep('thanks')}>
-                      Submit
+                    <Button disabled={!managerImportance || submitting} onClick={() => void submit()}>
+                      {submitting ? 'Submitting…' : 'Submit'}
                     </Button>
                   </div>
+                  {submitError && <p role="alert">{submitError}</p>}
                 </>
               )}
             </>
