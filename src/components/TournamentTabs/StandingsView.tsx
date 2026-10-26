@@ -128,7 +128,6 @@ type StandingsSortKey =
   | 'gf'
   | 'pts'
   | 'appg'
-  | 'averageAchievements'
   | 'averagePoints'
   | 'averageMinutes'
   | 'averageDifference'
@@ -296,7 +295,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       }
 
       const averageKey = {
-        averageAchievements: 'achievements120min',
         averagePoints: 'pts',
         averageMinutes: 'totalMinutes',
         averageDifference: 'gd',
@@ -508,15 +506,16 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       }
 
       if (showAverage120Scoring) {
-        const header = ['Team', 'PwrR', 'Avg120', 'GP', 'AvPts', 'AvMin', 'Dif', 'AvGls'];
+        const header = ['Team', 'Power', '120m%', 'Games', '120m', 'AvPts', 'AvMin', 'Dif', 'AvGls'];
         return `[table]\n${forumHeader(includePlacement ? ['#', ...header] : header)}\n${rows
           .map((standing, index) =>
             forumRow([
               ...(includePlacement ? [index + 1] : []),
               forumTeamName(standing),
               standing.powerRating ?? '—',
-              formatAverage(average120Stat(standing, 'achievements120min')),
+              `${percentage120min(standing).toFixed(0)}%`,
               standing.played,
+              standing.achievements120min,
               ...(['pts', 'totalMinutes', 'gd', 'gf'] as const).map((key) =>
                 formatAverage(average120Stat(standing, key)),
               ),
@@ -738,12 +737,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {showAverage120Scoring ? (
                   <>
                     {sortableHeader(
-                      uiText('avg120Column'),
-                      'averageAchievements',
+                      uiText('percentage120Column'),
+                      'achievements120minPercent',
                       styles.center120,
-                      uiText('avg120Tooltip'),
+                      uiText('percentage120Tooltip'),
                     )}
                     {sortableHeader(uiText('gamesColumn'), 'played', styles.center, uiText('gamesTooltip'))}
+                    {sortableHeader(
+                      uiText('matches120Column'),
+                      'achievements120min',
+                      styles.center,
+                      uiText('matches120Tooltip'),
+                    )}
                     {sortableHeader(
                       uiText('avgPointsColumn'),
                       'averagePoints',
@@ -770,7 +775,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       uiText('matches120Column'),
                       'achievements120min',
                       styles.center120,
-                      'Completed 120 min matches',
+                      uiText('matches120Tooltip'),
                     )}
                     {sortableHeader(
                       uiText('pointsColumn'),
@@ -994,9 +999,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       {showAverage120Scoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>
-                            {formatAverage(average120Stat(s, 'achievements120min'))}
+                            {percentage120min(s).toFixed(0)}%
                           </td>
                           <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{s.achievements120min}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'pts'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'totalMinutes'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gd'))}</td>
