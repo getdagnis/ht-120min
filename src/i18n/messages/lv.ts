@@ -1057,6 +1057,7 @@ const messages = {
       midfield: "Pussargu līnija",
     },
     FixtureCard: {
+      sharedPredictedRatings: 'Prognozētie reitingi ir kopīgoti! ✅',
       rEPLACING: "",
       warning: "",
       misarrangedFixture: "",
@@ -1134,6 +1135,11 @@ const messages = {
       noTeamMatches: 'Šajā kārtā nav spēļu ar tavām turnīra komandām.',
     },
     FixturesView: {
+      yourNextMatch: 'Tava nākamā spēle',
+      nextRoundMatchesForYourTeams: 'Tavu komandu nākamās kārtas spēles',
+      nextRoundNumber: 'Nākamā kārta (Kārta {round})',
+      currentRoundNumber: 'Pašreizējā kārta (Kārta {round})',
+      lastRoundNumber: 'Iepriekšējā kārta (Kārta {round})',
       myMatches: "Manas spēles",
       allMatches: "Visas spēles",
       matchView: "Spēļu skats",

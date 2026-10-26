@@ -10,7 +10,7 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { Switch } from '../Switch/Switch';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { skillDisplay } from '../../utils/hattrick-skill';
-import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
+import { getHattrickWeekDetails, getStockholmWallClock } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
 import { isFixtureMisarranged } from '../../utils/fixture-status';
@@ -427,6 +427,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     Number(match.away_team?.hattrick_user_id) === currentHtUserId
   ), [currentHtUserId]);
   const hasMyTeam = rounds.some((round) => round.matches.some(isOwnedMatch));
+  const ownedTeamIds = new Set(rounds.flatMap((round) => round.matches.flatMap((match) => [
+    ...(currentHtUserId && Number(match.home_team?.hattrick_user_id) === currentHtUserId && match.home_team
+      ? [match.home_team.ht_team_id] : []),
+    ...(currentHtUserId && Number(match.away_team?.hattrick_user_id) === currentHtUserId && match.away_team
+      ? [match.away_team.ht_team_id] : []),
+  ])));
+  const nextOwnedRound = !isHistorical ? orderFixtureRounds(rounds).find((round) => round.matches.some(
+    (match) => isOwnedMatch(match) && !match.completed && match.status !== 'misarranged',
+  )) : null;
   const viewContext = `${tournamentId}:${season}:${currentHtUserId ?? 'visitor'}`;
   const fixtureView = viewChoice?.context === viewContext ? viewChoice.view : hasMyTeam ? 'mine' : 'all';
   const selectView = (view: 'mine' | 'all') => {
@@ -995,7 +1004,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const isFocusedRound = round.id === focusedRound?.id;
         const isPendingRound = round.phase_status === 'pending';
 
-        const isExpanded = expandedRounds[round.id] ?? (isHistorical || round.matches.some(match => !match.completed && match.status !== 'misarranged') || round.round_number === lastFinishedRoundNumber);
+        const isExpanded = expandedRounds[round.id] ?? (fixtureView === 'all'
+          ? isFocusedRound
+          : isHistorical || round.matches.some(match => !match.completed && match.status !== 'misarranged') || round.round_number === lastFinishedRoundNumber);
 
         const allFinished =
           !isPendingRound &&
@@ -1012,6 +1023,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const roundTimeZone = round.matches[0] ? getFixtureDisplayTimeZone(round.matches[0]) : undefined;
         const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
         const roundPeriod = roundDate ? getImportedFixtureRoundPeriod(roundDate) : null;
+        const currentRoundStartsAt = roundDate ? getStockholmWallClock(roundDate) : null;
+        if (currentRoundStartsAt) {
+          // Tuesday at 06:00 in the round's Hattrick calendar week.
+          const daysSinceMonday = (currentRoundStartsAt.getUTCDay() + 6) % 7;
+          currentRoundStartsAt.setUTCDate(currentRoundStartsAt.getUTCDate() - daysSinceMonday + 1);
+          currentRoundStartsAt.setUTCHours(6, 0, 0, 0);
+        }
+        const isCurrentRound = nowMs > 0 && currentRoundStartsAt !== null &&
+          getStockholmWallClock(new Date(nowMs)).getTime() >= currentRoundStartsAt.getTime();
+        const roundTitleKey = !isHistorical && isNextRound && !allFinished
+          ? isCurrentRound ? 'currentRoundNumber' : 'nextRoundNumber'
+          : !isHistorical && allFinished && round.round_number === lastFinishedRoundNumber
+            ? 'lastRoundNumber'
+            : 'roundNumber';
 
         const formatMatch = (m: FixtureMatch, isNext: boolean) => {
           const hasPenaltyShootout =
@@ -1064,7 +1089,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 <div className={styles.roundHeader}>
                   <>
                     <span>
-                      {uiText('roundNumber', { round: round.round_number })}
+                      {uiText(roundTitleKey, { round: round.round_number })}
                       {round.phase === 'postseason'
                         ? uiText(
                             rounds.filter(
@@ -1171,6 +1196,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             >
               {isExpanded && (
                 <div className={styles.matchesGrid}>
+                  {fixtureView === 'mine' && round.id === nextOwnedRound?.id && (
+                    <h3 className={styles.personalMatchTitle}>
+                      {uiText(ownedTeamIds.size > 1 ? 'nextRoundMatchesForYourTeams' : 'yourNextMatch')}
+                    </h3>
+                  )}
                   {isPendingRound && (
                     <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
                       <p>

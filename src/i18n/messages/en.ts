@@ -1081,6 +1081,7 @@ const messages = {
       midfield: "Midfield",
     },
     FixtureCard: {
+      sharedPredictedRatings: 'Shared predicted ratings! ✅',
       rEPLACING: "REPLACING",
       warning: "Warning",
       misarrangedFixture: "Misarranged fixture!",
@@ -1158,6 +1159,11 @@ const messages = {
       noTeamMatches: 'No matches for your tournament teams in this round.',
     },
     FixturesView: {
+      yourNextMatch: 'Your next match',
+      nextRoundMatchesForYourTeams: 'Next round matches for your teams',
+      nextRoundNumber: 'Next round (Round {round})',
+      currentRoundNumber: 'Current round (Round {round})',
+      lastRoundNumber: 'Last round (Round {round})',
       myMatches: "My Matches",
       allMatches: "All Matches",
       matchView: "Match view",
