@@ -320,6 +320,8 @@ function getLeagueByCountry(countryName?: string | null) {
 }
 
 function parseWeekendBand(label: string): number | null {
+  if (label === 'I-III') return 3;
+  if (label === 'I-IV') return 4;
   if (label === 'I-V') return 5;
   if (label === 'I-VI') return 6;
   if (label === 'I-VII' || label === 'VII') return 7;

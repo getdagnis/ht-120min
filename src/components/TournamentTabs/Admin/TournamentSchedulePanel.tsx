@@ -139,6 +139,7 @@ interface TournamentSchedulePanelProps {
   isRepairingRound?: boolean;
   onRepairRound?: () => void;
   reserveAdmissionControl?: React.ReactNode;
+  organizerRoundControl?: React.ReactNode;
   isRecoveringRoundOne?: boolean;
   onRecoverRoundOne?: () => void;
 }
@@ -261,6 +262,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   isRepairingRound = false,
   onRepairRound,
   reserveAdmissionControl,
+  organizerRoundControl,
   isRecoveringRoundOne = false,
   onRecoverRoundOne,
 }) => {
@@ -1547,6 +1549,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           <p>Altering schedule for running tournaments is currently not possible. Contact app's author.</p>
         </div>
       )}
+      {organizerRoundControl}
     </SectionCard>
   );
 };

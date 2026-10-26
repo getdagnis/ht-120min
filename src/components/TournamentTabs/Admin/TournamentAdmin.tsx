@@ -1537,10 +1537,19 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             onRecoverRoundOne={
                               tournament.schedule_mode === 'length' ? recoverOriginalLengthRoundOne : undefined
                             }
+                            organizerRoundControl={
+                              tournament.schedule_mode === 'length' && canManageOperationalAdmin ? (
+                                <OrganizerRoundPanel
+                                  tournamentId={tournament.id}
+                                  canOverride={isSiteAdmin}
+                                  onChanged={async () => {
+                                    await onReservesChanged();
+                                    await fetchFixturesOnly();
+                                  }}
+                                />
+                              ) : undefined
+                            }
                           />
-                          {tournament.schedule_mode === 'length' && isGenerated && canManageOperationalAdmin && (
-                            <OrganizerRoundPanel tournamentId={tournament.id} canOverride={isSiteAdmin} onChanged={async () => { await onReservesChanged(); await fetchFixturesOnly(); }} />
-                          )}
                         </div>
                       )}
 

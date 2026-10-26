@@ -59,7 +59,9 @@ export function serializeOrganizerPairings(slot: CalendarSlot, pairs: LengthSche
   return pairs.map(pair => {
     const home = teams.find(team => team.id === (pair.homeTeamId || pair.awayTeamId));
     const kickoff = home && getScheduledDateForSlot(slot, { countryName: home.country_name, leagueLevel: home.league_level });
-    if (!kickoff) throw new Error('Could not calculate the planned kickoff.');
+    if (!kickoff || !Number.isFinite(kickoff.getTime())) {
+      throw new Error(`Could not calculate the planned kickoff for ${home?.name || 'an unknown team'}.`);
+    }
     return { home_team_id: pair.homeTeamId, away_team_id: pair.awayTeamId, scheduled_for: kickoff.toISOString() };
   });
 }

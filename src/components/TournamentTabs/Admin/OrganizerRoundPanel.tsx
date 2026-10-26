@@ -51,7 +51,15 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   const slot = context?.slots.find(value => value.id === slotId);
   const calendarSlot = slot ? { ...slot, nominalDate: new Date(slot.nominalDate) } : null;
   const validation = pairs ? validateOrganizerPairings(selection, pairs, selected) : null;
-  const kickoffs = pairs && calendarSlot && !validation ? serializeOrganizerPairings(calendarSlot, pairs, selected) : [];
+  let kickoffs: ReturnType<typeof serializeOrganizerPairings> = [];
+  let kickoffError: string | null = null;
+  if (pairs && calendarSlot && !validation) {
+    try {
+      kickoffs = serializeOrganizerPairings(calendarSlot, pairs, selected);
+    } catch (cause) {
+      kickoffError = cause instanceof Error ? cause.message : 'Could not calculate planned kickoffs.';
+    }
+  }
   const pastKickoff = kickoffs.some(match => new Date(match.scheduled_for).getTime() <= now);
 
   async function load() {
@@ -98,7 +106,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   }
 
   async function save() {
-    if (!context || !pairs || validation || pastKickoff) return;
+    if (!context || !pairs || validation || kickoffError || pastKickoff) return;
     const confirmation = `Save this counted regular round with ${selection.length} teams and ${pairs.length} fixtures?\n` +
       `${admissions} teams selected for continuing admission.` +
       (canOverride ? '\nExisting organizer overrides apply to admissions; fixtures and history remain protected.' : '');
@@ -186,7 +194,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
             </div>
             <Button type="button" disabled={selection.length < 2}
               onClick={() => { setPairs(generateOrganizerPairings(selected, context.history)); setError(null); }}>
-              Generate pairings
+              Preview pairings
             </Button>
             {pairs && <>
               <h4>Review pairings</h4>
@@ -219,9 +227,10 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
                 Add fixture / BYE
               </Button>
               {validation && <p role="status">{validation}</p>}
+              {kickoffError && <p role="alert">{kickoffError}</p>}
               {pastKickoff && <p role="status">A planned kickoff has passed. Change the venue, roster, or slot before saving.</p>}
               <p>{admissions} continuing admissions; all other non-active teams keep their current membership.</p>
-              <Button type="button" disabled={Boolean(validation) || pastKickoff} onClick={() => void save()}>Save counted round</Button>
+              <Button type="button" disabled={Boolean(validation || kickoffError) || pastKickoff} onClick={() => void save()}>Save counted round</Button>
             </>}
           </>}
         </fieldset>
