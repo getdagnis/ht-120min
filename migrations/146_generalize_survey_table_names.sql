@@ -126,3 +126,5 @@ GRANT EXECUTE ON FUNCTION public.submit_tournament_preference_survey(uuid, uuid,
   TO service_role;
 
 COMMIT;
+
+-- applied!
