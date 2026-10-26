@@ -12,13 +12,14 @@ import { canFlagTeamsPair } from '../../../../shared/flag-matching';
 import { analyzeFlagRoster } from '../../../../shared/flag-pairing';
 import { flagRoster } from '../../../../shared/organizer-planning';
 import type { FlagCollection } from '../../../../shared/flag-hunters';
+import { interest120m, type PairingPreference } from '../../../../shared/pairing-preferences';
 import { getRoundDisplayLabel, type DisplayRound } from '../../../../shared/round-display';
 import styles from './OrganizerRoundPanel.module.sass';
 
 type Slot = Omit<CalendarSlot, 'nominalDate'> & { nominalDate: string };
 interface Context {
   teams: OrganizerRoundTeam[]; slots: Slot[]; history: OrganizerRoundHistory[]; rosterVersion: string;
-  flags: Record<string, FlagCollection>; existingRounds: PlanningRound[]; storageKey: string; batchSize: number; canRepairSavedRounds: boolean;
+  flags: Record<string, FlagCollection>; preferences: Record<string, PairingPreference>; existingRounds: PlanningRound[]; storageKey: string; batchSize: number; canRepairSavedRounds: boolean;
   observations: Array<{ slot_id: string; team_id: string; observation: SlotObservation }>;
   rounds: DisplayRound[];
 }
@@ -228,7 +229,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     }
     try {
       const result = proposeOrganizerPairs({ teams: selected, flags: effectiveFlags, checks, previous: pairs || [], protectedPairs,
-        history: context.history, seed: `${tournamentId}:${slotId}`, repair, balanced });
+        history: context.history, seed: `${tournamentId}:${slotId}`, repair, balanced, preferences: context.preferences });
       setBaseline(pairs || []); setPairs(result.pairs);
       setError(null);
       setSuccess(`${result.pairs.length} fixtures proposed. ${result.unresolved.length} unresolved teams.${result.balancedFallback ? ' Balanced pairing contained incompatible opponents; showing the compatible flag proposal instead.' : ''}${result.searchLimited ? ' Bounded search limit reached; review and edit as needed.' : ''}${result.byeReason ? ` ${result.byeReason}` : ''}`);
@@ -344,6 +345,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
       {pairs && <p>{pairs.filter(locked).length} protected fixtures</p>}
       <div className={styles.roster}>{shown.map(team => {
         const entry = selection.find(row => row.teamId === team.id), check = checks[team.id], flag = flags[String(team.ht_team_id)];
+        const preference = context.preferences?.[String(team.ht_team_id)];
         return <div key={team.id} className={styles.team}>
           <label><input type="checkbox" checked={Boolean(entry)} disabled={Boolean(roundId)} onChange={event => choose(team, event.target.checked)} />{team.name} <small>({teamGroup(team)})</small></label>
           {entry && !team.active && !roundId && <select aria-label={`Participation for ${team.name}`} value={entry.participation} onChange={event => {
@@ -351,6 +353,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
           }}><option value="round_only">This round only</option><option value="admit">Admit for subsequent rounds</option></select>}
           {entry && <small>{check ? `${check.state}: ${check.reason} (${check.checkedAt})` : 'Availability not checked'}{check?.pendingOpponentIds.length ? ` ${check.offersDirectionKnown ? 'Outgoing challenges' : 'Pending offers, direction unchecked'}: ${check.pendingOpponentIds.join(', ')}.` : ''}{check?.incomingOfferOpponentIds?.length ? ` Incoming offers: ${check.incomingOfferOpponentIds.join(', ')}.` : ''}<br />
             Flags: {flag ? `${effectiveFlags[String(team.ht_team_id)]?.homeUnknown || effectiveFlags[String(team.ht_team_id)]?.awayUnknown ? 'unknown/stale or partially unknown' : 'current'} (${flag.fetchedAt})` : 'unknown'}{pairs && !playingIds.has(team.id) ? ' · Not included in proposed round' : ''}</small>}
+          {entry && preference && <small>Preference: {preference.priority || 'team answer missing; manager fallback'}{interest120m(preference) ? ` · 120m interest ${interest120m(preference)}/4` : ''}{preference.comment ? ` · Survey comment (${preference.commentedAt?.slice(0, 10) || 'date unknown'}): ${preference.comment}` : ''}</small>}
         </div>;
       })}</div>
       <div className={styles.controls}>

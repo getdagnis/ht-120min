@@ -2,6 +2,7 @@ import { canFlagTeamsPair } from '../../shared/flag-matching.js';
 import { createScarcityDraft } from '../../shared/flag-pairing.js';
 import { flagRoster, pairIsBooked, pairKey, pairingBenefits, type PlanningMatch, type SlotObservation } from '../../shared/organizer-planning.js';
 import type { FlagCollection } from '../../shared/flag-hunters.js';
+import type { PairingPreference } from '../../shared/pairing-preferences.js';
 import { generateOrganizerPairings, type OrganizerRoundTeam, type OrganizerRoundHistory } from './organizer-round.js';
 import type { LengthSchedulePairing } from './length-schedule.js';
 
@@ -14,6 +15,7 @@ export function proposeOrganizerPairs(input: {
   teams: OrganizerRoundTeam[]; flags: Record<string, FlagCollection>; checks: Record<string, SlotObservation>;
   previous: LengthSchedulePairing[]; protectedPairs: LengthSchedulePairing[];
   history: OrganizerRoundHistory[]; seed: string; repair: boolean; balanced: boolean;
+  preferences?: Record<string, PairingPreference>;
 }) {
   const { teams, flags, checks, previous, history } = input;
   const locked = [...input.protectedPairs];
@@ -36,6 +38,7 @@ export function proposeOrganizerPairs(input: {
     });
   });
   const draft = createScarcityDraft(roster, flags, input.seed, null, { managerFirst: true,
+    preferences: input.preferences,
     baseline: input.repair ? toHtPairs(previous) : undefined,
     baselineByes: input.repair ? previous.filter(pair => !pair.homeTeamId || !pair.awayTeamId)
       .map(pair => Number(teams.find(team => team.id === (pair.homeTeamId || pair.awayTeamId))?.ht_team_id)) : undefined,

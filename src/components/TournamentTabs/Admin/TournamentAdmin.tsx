@@ -340,6 +340,10 @@ export interface TournamentAdminController {
     isScheduleConfirmationOpen: boolean;
     setIsScheduleConfirmationOpen: Setter<boolean>;
     schedulePreflightWarning: string | null;
+    lengthOpeningPreview: { previewToken: string; preferenceCount: number; historicalOpener: boolean;
+      pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked';
+      openingMatches: Array<{ home: string; away: string; isBye: boolean; homeComment: string | null; awayComment: string | null;
+        homeCommentedAt: string | null; awayCommentedAt: string | null }> } | null;
     scheduleNotice: { title: string; message: string; showMatches?: boolean } | null;
     setScheduleNotice: Setter<{ title: string; message: string; showMatches?: boolean } | null>;
     onScheduleModeChange: (mode: 'single' | 'double' | 'recurring') => void;
@@ -665,6 +669,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     isScheduleConfirmationOpen,
     setIsScheduleConfirmationOpen,
     schedulePreflightWarning,
+    lengthOpeningPreview,
     scheduleNotice,
     setScheduleNotice,
     onScheduleModeChange: handleScheduleModeChange,
@@ -3071,6 +3076,17 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
         {usesLengthSchedulePlanner && (
           <p>Only Round 1 is paired now. Later rounds are generated after the current round is resolved.</p>
         )}
+        {usesLengthSchedulePlanner && lengthOpeningPreview && <div>
+          <p>{lengthOpeningPreview.pairingSource === 'approved' ? 'The approved historical opener is used.'
+            : lengthOpeningPreview.pairingSource === 'flags' ? 'Current saved flag collections guided this opener.'
+              : lengthOpeningPreview.pairingSource === 'preferences' ? 'Saved 120m preferences guided this opener.'
+                : 'Ranked opener used.'} {lengthOpeningPreview.preferenceCount} saved team or manager preferences considered. Review the exact opening pairs:</p>
+          <div className={adminStyles.openingPreview}>{lengthOpeningPreview.openingMatches.map((match, index) =>
+            <div key={index}>{match.isBye ? `${match.home} has a BYE` : `${match.home} vs ${match.away}`}
+              {match.homeComment && <small><br />{match.home} survey comment ({match.homeCommentedAt?.slice(0, 10) || 'date unknown'}): {match.homeComment}</small>}
+              {match.awayComment && <small><br />{match.away} survey comment ({match.awayCommentedAt?.slice(0, 10) || 'date unknown'}): {match.awayComment}</small>}
+            </div>)}</div>
+        </div>}
         {schedulePreflightWarning && <p className={adminStyles.scheduleWarning}>⚠️ {schedulePreflightWarning}</p>}
         {activeScheduleTeams.length % 2 !== 0 && (
           <p>One team will have a BYE each round. You can define a house rule for how those teams earn points.</p>

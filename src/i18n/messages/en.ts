@@ -2,8 +2,8 @@ const messages = {
   lobby: {
     title: "Lobby",
     hanging_around: "Hanging around",
-    ready_to_join: "Ready to join",
-    open_to_invitations: "Open to invitations",
+    ready_to_join: "Join when possible",
+    open_to_invitations: "Available as reserve",
     statusForTeam: "Lobby status for {team}",
     saveError: "Could not update Lobby status.",
   },

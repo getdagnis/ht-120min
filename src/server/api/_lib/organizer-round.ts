@@ -7,6 +7,7 @@ import { proposalHash, startVerification, readVerification, checkSlot, cachedCol
 import { validateFinalObservations, flagRoster, type SlotObservation, type PlanningRound } from '../../../../shared/organizer-planning.js';
 import { canFlagTeamsPair } from '../../../../shared/flag-matching.js';
 import type { ChppTeamOption } from './chpp-xml.js';
+import { loadPairingPreferences } from './pairing-preferences.js';
 
 interface RoundContext {
   rosterVersion: string;
@@ -49,6 +50,7 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
       const collection = cachedCollection(team, cached);
       return collection ? [[String(team.ht_team_id), collection]] : [];
     }));
+    const preferences = await loadPairingPreferences(db, tournamentId, context.teams, true);
     const observations: Array<{ slot_id: string; team_id: string; observation: SlotObservation }> = [];
     for (let offset = 0; ; offset += 500) {
       const page = await db.from('tournament_slot_checks').select('slot_id,team_id,observation')
@@ -58,7 +60,7 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
       observations.push(...(page.data || []) as typeof observations);
       if ((page.data?.length || 0) < 500) break;
     }
-    return res.status(200).json({ ...context, slots, flags, observations, existingRounds, canRepairSavedRounds: repairCapability.data === true,
+    return res.status(200).json({ ...context, slots, flags, preferences, observations, existingRounds, canRepairSavedRounds: repairCapability.data === true,
       storageKey: `organizer-draft:${actorId}:${tournamentId}:${seasonNumber}`, batchSize: PLANNING_BATCH_SIZE });
   }
   const { slotId, roster, pairings, rosterVersion, action, roundId, teamIds, verification } = req.body || {};

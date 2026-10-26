@@ -1640,6 +1640,10 @@ export const TournamentView: React.FC<{
     () => (lengthScheduleDraft.valid ? serializeLengthScheduleDraft(lengthScheduleDraft) : null),
     [lengthScheduleDraft],
   );
+  const [lengthOpeningPreview, setLengthOpeningPreview] = useState<{ previewToken: string; preferenceCount: number; historicalOpener: boolean;
+    pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked';
+    openingMatches: Array<{ home: string; away: string; isBye: boolean; homeComment: string | null; awayComment: string | null;
+      homeCommentedAt: string | null; awayCommentedAt: string | null }> } | null>(null);
   const rescheduleInputRounds = useMemo(
     () =>
       rounds.map((round) => ({
@@ -4939,6 +4943,20 @@ export const TournamentView: React.FC<{
     } catch {
       // The preflight is advisory; the post-generation fixture refresh remains authoritative.
     }
+    if (usesLengthSchedulePlanner) {
+      try {
+        const response = await fetch('/api/app?route=generate-length-schedule', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'preview', tournamentId: tournament.id, seasonNumber: tournament.season || 1,
+            schedulePayload: serializedLengthScheduleDraft }) });
+        const preview = await response.json();
+        if (!response.ok) throw new Error(preview.error || 'Could not preview the opening round.');
+        setLengthOpeningPreview(preview);
+      } catch (cause) {
+        setScheduleNotice({ title: 'Could not preview schedule', message: cause instanceof Error ? cause.message : 'Try again.' });
+        return;
+      }
+    }
     setIsScheduleConfirmationOpen(true);
   };
 
@@ -4962,6 +4980,7 @@ export const TournamentView: React.FC<{
             tournamentId: tournament.id,
             seasonNumber: tournament.season || 1,
             schedulePayload: serializedLengthScheduleDraft,
+            previewToken: lengthOpeningPreview?.previewToken,
           }),
         });
         const body = await response.json().catch(() => ({}));
@@ -6052,6 +6071,7 @@ export const TournamentView: React.FC<{
       isScheduleConfirmationOpen,
       setIsScheduleConfirmationOpen,
       schedulePreflightWarning,
+      lengthOpeningPreview,
       scheduleNotice,
       setScheduleNotice,
       onScheduleModeChange: handleScheduleModeChange,

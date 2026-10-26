@@ -46,7 +46,15 @@ break; existing HFI missing-rank validation remains in place.
 
 Version 2 plans freeze raw ranking values and seeds on `tournament_seasons` and
 reserve a regular pairing plan using persistent season-slot indices. A ranked
-opener pairs neighboring seeds. Complete round-robin cycles finish all unique
+opener pairs neighboring seeds when no current survey preference changes the
+choice. Future Around the World seasons first try the existing scarcity matcher
+with current saved flag collections; no CHPP fetch occurs during generation.
+When that cache cannot support a complete flag proposal, new seasons can relabel
+only the opener to favor mutual 120-minute interest; rank proximity remains the
+fallback. The admin confirmation shows the
+server-built opener, and generation rejects a changed preview. Existing saved
+seasons and later rounds are not reselected from survey answers. Complete
+round-robin cycles finish all unique
 opponents before repeating; even repeat counts split venues equally, and an
 Euler orientation balances each team's aggregate home/away count within one.
 Partial cycles keep pair counts within one; odd fields receive one BYE per team

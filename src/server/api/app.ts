@@ -96,6 +96,10 @@ import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 import { buildLengthScheduleDraft, serializeLengthScheduleDraft } from '../../utils/length-schedule.js';
 import { buildFlagHuntersLengthScheduleDraft } from './_lib/flag-hunters-schedule.js';
+import { loadPairingPreferences } from './_lib/pairing-preferences.js';
+import { futureFlagOpening } from './_lib/flag-opening.js';
+import { preferenceOpening } from '../../utils/preference-opening.js';
+import { createHash } from 'node:crypto';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
 import {
   FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings,
@@ -389,16 +393,47 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
     selectedFormatId: readString(schedulePayload.format_id),
   };
   let draft;
+  let preferences: Awaited<ReturnType<typeof loadPairingPreferences>> = {};
+  const historicalOpener = tournament.slug === 'around-the-world' && seasonNumber === 1;
+  let pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked' = 'ranked';
   try {
-    if (tournament.slug === 'around-the-world') {
+    preferences = await loadPairingPreferences(supabase, tournamentId, roster || [], req.body?.action === 'preview');
+    const normal = buildLengthScheduleDraft(scheduleInput);
+    const opener = normal.valid && !historicalOpener ? preferenceOpening(normal.teams, preferences,
+      Object.fromEntries((roster || []).map(team => [team.id, team.ht_team_id]))) : null;
+    const flagOpener = normal.valid && tournament.slug === 'around-the-world' && !historicalOpener
+      ? await futureFlagOpening(supabase, tournamentId, normal, (roster || []).map(team => ({ ...team, reserve_active: false })), preferences)
+      : null;
+    if (historicalOpener) {
+      pairingSource = 'approved';
       draft = buildFlagHuntersLengthScheduleDraft(scheduleInput, roster || []);
-    } else draft = buildLengthScheduleDraft(scheduleInput);
+    } else {
+      pairingSource = flagOpener ? 'flags' : opener ? 'preferences' : 'ranked';
+      draft = flagOpener || opener ? buildLengthScheduleDraft({ ...scheduleInput, openingPairings: flagOpener || opener! }) : normal;
+    }
   } catch (error) {
     return res.status(422).json({ error: error instanceof Error ? error.message : 'Could not pair the admitted teams.' });
   }
   if (!draft.valid) return res.status(422).json({ error: draft.reason });
   if (!draft.formats.some(format => format.id === schedulePayload.format_id)) {
     return res.status(422).json({ error: 'Choose a supported schedule format.' });
+  }
+
+  const previewToken = createHash('sha256').update(JSON.stringify({ roster: draft.rankingSnapshot,
+    slot: draft.selectedStartSlotId, format: draft.selectedFormat?.id, pairs: draft.regularPairings })).digest('hex');
+  if (req.body?.action === 'preview') {
+    const preferenceByTeamId = new Map((roster || []).map(team => [team.id, preferences[String(team.ht_team_id)]]));
+    return res.status(200).json({ previewToken,
+      openingMatches: draft.rounds[0]?.matches.map(match => ({ home: match.homeTeamName, away: match.awayTeamName, isBye: match.isBye,
+        homeComment: match.homeTeamId ? preferenceByTeamId.get(match.homeTeamId)?.comment || null : null,
+        homeCommentedAt: match.homeTeamId ? preferenceByTeamId.get(match.homeTeamId)?.commentedAt || null : null,
+        awayComment: match.awayTeamId ? preferenceByTeamId.get(match.awayTeamId)?.comment || null : null,
+        awayCommentedAt: match.awayTeamId ? preferenceByTeamId.get(match.awayTeamId)?.commentedAt || null : null })) || [],
+      preferenceCount: historicalOpener ? 0 : Object.keys(preferences).length,
+      historicalOpener, pairingSource });
+  }
+  if ((pairingSource === 'flags' || !historicalOpener && Object.keys(preferences).length > 0) && req.body?.previewToken !== previewToken) {
+    return res.status(409).json({ error: 'The roster or preferences changed since preview. Review the opener again.' });
   }
 
   const { data, error } = await supabase.rpc('generate_length_tournament_schedule', {

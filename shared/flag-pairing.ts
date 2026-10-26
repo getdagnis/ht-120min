@@ -2,6 +2,7 @@ import { canFlagTeamsPair, maximumFlagMatching, seededFlagTie as tie } from './f
 import { HATTRICK_WORLD_DETAILS } from './worlddetails.js';
 import { getCountryActiveTeamCount } from './country-active-team-counts.js';
 import { flagBenefit, type FlagCollection, type FlagDraft, type FlagHunterTeam, type FlagPair } from './flag-hunters.js';
+import { preferencePairScore, type PairingPreference } from './pairing-preferences.js';
 
 export const FLAG_COUNTRIES = Object.values(HATTRICK_WORLD_DETAILS).filter(country => country.countryId !== null).map(country => country.leagueId);
 export type CollectionStatus = 'collecting' | 'complete' | 'unavailable' | 'unknown';
@@ -91,7 +92,7 @@ function sharedShortages(collectors: FlagPriority[]): FlagShortage[] {
 
 
 type Slot = [number, number]; // -1 is an unpaired slot, not a fake Hattrick team.
-interface EdgeScore { priority: bigint; managers: bigint; gains: number; mutual: number; rare: number; seeded: number }
+interface EdgeScore { priority: bigint; managers: bigint; gains: number; mutual: number; rare: number; preference: number; seeded: number }
 interface Score extends EdgeScore { singleManagerBye: number; usefulBye: number; changes: number; repeats: number }
 export interface FlagPairingOptions {
   managerFirst?: boolean;
@@ -100,8 +101,9 @@ export interface FlagPairingOptions {
   previousPairs?: FlagPair[];
   /** Gains already secured by booked matches from the same round. */
   gainingManagerIds?: number[];
+  preferences?: Record<string, PairingPreference>;
 }
-const empty = (): EdgeScore => ({ priority: 0n, managers: 0n, gains: 0, mutual: 0, rare: 0, seeded: 0 });
+const empty = (): EdgeScore => ({ priority: 0n, managers: 0n, gains: 0, mutual: 0, rare: 0, preference: 0, seeded: 0 });
 const bitCount = (value: bigint) => { let count = 0; for (; value; value &= value - 1n) count++; return count; };
 function compare(a: Score, b: Score, options: FlagPairingOptions) {
   if (options.baseline && a.changes !== b.changes) return b.changes - a.changes;
@@ -111,7 +113,7 @@ function compare(a: Score, b: Score, options: FlagPairingOptions) {
   if (a.priority !== b.priority) return a.priority > b.priority ? 1 : -1;
   const rareDifference = a.rare - b.rare;
   const rareOrder = Math.abs(rareDifference) > Number.EPSILON * 32 * Math.max(1, Math.abs(a.rare), Math.abs(b.rare)) ? rareDifference : 0;
-  return bitCount(a.managers) - bitCount(b.managers) || a.gains - b.gains || rareOrder
+  return bitCount(a.managers) - bitCount(b.managers) || a.gains - b.gains || rareOrder || a.preference - b.preference
     || b.repeats - a.repeats || b.singleManagerBye - a.singleManagerBye || b.usefulBye - a.usefulBye || a.seeded - b.seeded;
 }
 function partitions(ids: number[]): Slot[][] {
@@ -137,7 +139,9 @@ export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<stri
       score.priority |= priorityBits.get(team.htTeamId) ?? 0n; score.managers |= managerBits.get(team.managerId!)!; score.gains++;
       const count = getCountryActiveTeamCount(opponent.countryId); if (count !== null) score.rare += 1 / count;
     }
-    score.mutual = benefits.every(Boolean) ? 1 : 0; score.seeded = tie(seed, `venue:${home.htTeamId}:${away.htTeamId}`);
+    score.mutual = benefits.every(Boolean) ? 1 : 0;
+    score.preference = preferencePairScore(options.preferences?.[String(home.htTeamId)], options.preferences?.[String(away.htTeamId)], benefits[0], benefits[1]);
+    score.seeded = tie(seed, `venue:${home.htTeamId}:${away.htTeamId}`);
     edges.set(`${home.htTeamId}:${away.htTeamId}`, score);
   }
   const orientations = (pair: Slot): Slot[] => {
@@ -168,7 +172,7 @@ export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<stri
       const edge = edges.get(`${a}:${b}`)!;
       if (options.previousPairs?.some(pair => (pair.homeId === a && pair.awayId === b) || (pair.homeId === b && pair.awayId === a))) result.repeats++;
       result.priority |= edge.priority; result.managers |= edge.managers; result.gains += edge.gains; result.mutual += edge.mutual;
-      result.rare += edge.rare; result.seeded += edge.seeded;
+      result.rare += edge.rare; result.preference += edge.preference; result.seeded += edge.seeded;
     }
     return result;
   };
@@ -197,7 +201,7 @@ export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<stri
         const candidate = [...rest, ...patch], patchScore = score(patch);
         const candidateScore: Score = { priority: restScore.priority | patchScore.priority, managers: restScore.managers | patchScore.managers,
           gains: restScore.gains + patchScore.gains, mutual: restScore.mutual + patchScore.mutual,
-          rare: restScore.rare + patchScore.rare, seeded: restScore.seeded + patchScore.seeded,
+          rare: restScore.rare + patchScore.rare, preference: restScore.preference + patchScore.preference, seeded: restScore.seeded + patchScore.seeded,
           changes: restScore.changes + patchScore.changes, repeats: restScore.repeats + patchScore.repeats,
           singleManagerBye: restScore.singleManagerBye + patchScore.singleManagerBye, usefulBye: restScore.usefulBye + patchScore.usefulBye };
         if (compareScores({ ...candidateScore, seeded: 0 }, { ...currentScore, seeded: 0 }) > 0
