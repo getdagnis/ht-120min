@@ -1,3 +1,4 @@
+import { orderFixtureRounds } from '../../../utils/organizer-round.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
@@ -1599,60 +1600,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     };
 
-    // Active-round warnings are intentionally sticky. The first refresh that
-    // detects a conflict decides who is warned; later CHPP state must not add
-    // a warning to the opponent who had to arrange elsewhere afterward.
-    const warningRoundIdsToDeactivateSet = new Set(warningRoundIdsToDeactivate);
-    const activeExistingWarnings = (existingWarnings || []).filter(
-      (warning) => warning.active !== false && !warningRoundIdsToDeactivateSet.has(warning.round_id),
-    );
-    const warningPlan = planFixtureWarningRefresh(activeExistingWarnings, upcomingRound.id, []);
-    const existingWarningsOutsideRefresh = warningPlan.historicalWarnings;
-    const currentRoundWarnings = warningPlan.currentRoundWarnings;
-    const knownCupStatuses = new Map<string, boolean>();
-    const getWarningHistory = (teamId: string) => [
-      ...existingWarningsOutsideRefresh.filter((w) => w.team_id === teamId),
-      ...currentRoundWarnings.filter((w) => w.team_id === teamId),
-    ];
-
-    const recordWarning = async (teamId: string, reason: 'misarranged' | 'in_cup' = 'misarranged') => {
-      const alreadyHasWarning = currentRoundWarnings.some(
-        (w) => w.round_id === upcomingRound.id && w.team_id === teamId,
-      );
-      if (alreadyHasWarning) return;
-
-      const inactiveWarning = (existingWarnings || []).find(
-        (warning) => warning.round_id === upcomingRound.id && warning.team_id === teamId &&
-          warning.reason === reason && warning.active === false,
-      );
-      if (inactiveWarning) {
-        const { error } = await supabase.from('fixture_warnings').update({ active: true }).eq('id', inactiveWarning.id);
-        if (error) throw error;
-        currentRoundWarnings.push({ ...inactiveWarning, active: true });
-        return;
-      }
-
-      const teamWarnings = getWarningHistory(teamId);
-      const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
-      const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
-      const type = reason === 'in_cup' ? 'yellow' : isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
-
-      await supabase.from('fixture_warnings').insert({
-        tournament_id,
-        round_id: upcomingRound.id,
-        team_id: teamId,
-        type,
-        reason,
-      });
-
-      currentRoundWarnings.push({
-        round_id: upcomingRound.id,
-        team_id: teamId,
-        type,
-        reason,
-      } as (typeof currentRoundWarnings)[number]);
-    };
-
     const linkedMatchIds: number[] = [];
 
     const findConfirmedMatch = (
@@ -1730,260 +1677,320 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const reserveTeams = teams.filter(
-      (team) => team.active === false && team.reserve_active === true && team.ht_team_id > 0,
-    );
+    const actionableRounds = [upcomingRound, ...rounds.filter(round => round.id !== upcomingRound.id && round.phase_status === 'materialized')];
+    const refreshRound = async (upcomingRound: typeof actionableRounds[number]) => {
+      // Active-round warnings are intentionally sticky. The first refresh that
+      // detects a conflict decides who is warned; later CHPP state must not add
+      // a warning to the opponent who had to arrange elsewhere afterward.
+      const warningRoundIdsToDeactivateSet = new Set(warningRoundIdsToDeactivate);
+      const activeExistingWarnings = (existingWarnings || []).filter(
+        (warning) => warning.active !== false && !warningRoundIdsToDeactivateSet.has(warning.round_id),
+      );
+      const warningPlan = planFixtureWarningRefresh(activeExistingWarnings, upcomingRound.id, []);
+      const existingWarningsOutsideRefresh = warningPlan.historicalWarnings;
+      const currentRoundWarnings = warningPlan.currentRoundWarnings;
+      const knownCupStatuses = new Map<string, boolean>();
+      const getWarningHistory = (teamId: string) => [
+        ...existingWarningsOutsideRefresh.filter((w) => w.team_id === teamId),
+        ...currentRoundWarnings.filter((w) => w.team_id === teamId),
+      ];
 
-    for (const match of upcomingRound.matches) {
-      if (match.completed) continue;
-      const currentStatus = match.status ?? 'not_arranged';
-      if (!['not_arranged', 'arranged', 'misarranged'].includes(currentStatus)) continue;
+      const recordWarning = async (teamId: string, reason: 'misarranged' | 'in_cup' = 'misarranged') => {
+        const alreadyHasWarning = currentRoundWarnings.some(
+          (w) => w.round_id === upcomingRound.id && w.team_id === teamId,
+        );
+        if (alreadyHasWarning) return;
 
-      // Keep kit snapshots independent of friendly-list reconciliation.
-      let checkedExistingKits = false;
-      if (currentStatus === 'arranged' && match.ht_match_id) {
-        const home = teams.find((team) => team.id === match.home_team_id);
-        const away = teams.find((team) => team.id === match.away_team_id);
-        if (home && away) {
-          checkedExistingKits = true;
-          try {
-            const reserve = teams.find((team) => team.id === match.reserve_team_id);
-            const [homeDetails, awayDetails] = await Promise.all([
-              getStoryTeamDetails(match.reserve_replaces_team_id === home.id && reserve ? reserve : home),
-              getStoryTeamDetails(match.reserve_replaces_team_id === away.id && reserve ? reserve : away),
-            ]);
-            const homeKit = teamDetailsKitForMatchSide(homeDetails, match.actual_ht_home_team_id ?? null, match.actual_ht_away_team_id ?? null);
-            const awayKit = teamDetailsKitForMatchSide(awayDetails, match.actual_ht_home_team_id ?? null, match.actual_ht_away_team_id ?? null);
-            const kitUpdate = {
-              ...(homeKit && homeKit !== match.home_match_kit_url ? { home_match_kit_url: homeKit } : {}),
-              ...(awayKit && awayKit !== match.away_match_kit_url ? { away_match_kit_url: awayKit } : {}),
-            };
-            if (Object.keys(kitUpdate).length) {
-              const { error } = await supabase.from('matches').update(kitUpdate).eq('id', match.id);
-              if (error) throw error;
-              Object.assign(match, kitUpdate);
+        const inactiveWarning = (existingWarnings || []).find(
+          (warning) => warning.round_id === upcomingRound.id && warning.team_id === teamId &&
+            warning.reason === reason && warning.active === false,
+        );
+        if (inactiveWarning) {
+          const { error } = await supabase.from('fixture_warnings').update({ active: true }).eq('id', inactiveWarning.id);
+          if (error) throw error;
+          currentRoundWarnings.push({ ...inactiveWarning, active: true });
+          return;
+        }
+
+        const teamWarnings = getWarningHistory(teamId);
+        const chronological = orderFixtureRounds(rounds);
+        const prevRound = chronological[chronological.findIndex(round => round.id === upcomingRound.id) - 1];
+        const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
+        const type = reason === 'in_cup' ? 'yellow' : isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
+
+        await supabase.from('fixture_warnings').insert({
+          tournament_id,
+          round_id: upcomingRound.id,
+          team_id: teamId,
+          type,
+          reason,
+        });
+
+        currentRoundWarnings.push({
+          round_id: upcomingRound.id,
+          team_id: teamId,
+          type,
+          reason,
+        } as (typeof currentRoundWarnings)[number]);
+      };
+
+      const reserveTeams = upcomingRound.round_source === 'organizer' ? [] : teams.filter(
+        (team) => team.active === false && team.reserve_active === true && team.ht_team_id > 0,
+      );
+
+      for (const match of upcomingRound.matches) {
+        if (match.completed) continue;
+        const currentStatus = match.status ?? 'not_arranged';
+        if (!['not_arranged', 'arranged', 'misarranged'].includes(currentStatus)) continue;
+
+        // Keep kit snapshots independent of friendly-list reconciliation.
+        let checkedExistingKits = false;
+        if (currentStatus === 'arranged' && match.ht_match_id) {
+          const home = teams.find((team) => team.id === match.home_team_id);
+          const away = teams.find((team) => team.id === match.away_team_id);
+          if (home && away) {
+            checkedExistingKits = true;
+            try {
+              const reserve = teams.find((team) => team.id === match.reserve_team_id);
+              const [homeDetails, awayDetails] = await Promise.all([
+                getStoryTeamDetails(match.reserve_replaces_team_id === home.id && reserve ? reserve : home),
+                getStoryTeamDetails(match.reserve_replaces_team_id === away.id && reserve ? reserve : away),
+              ]);
+              const homeKit = teamDetailsKitForMatchSide(homeDetails, match.actual_ht_home_team_id ?? null, match.actual_ht_away_team_id ?? null);
+              const awayKit = teamDetailsKitForMatchSide(awayDetails, match.actual_ht_home_team_id ?? null, match.actual_ht_away_team_id ?? null);
+              const kitUpdate = {
+                ...(homeKit && homeKit !== match.home_match_kit_url ? { home_match_kit_url: homeKit } : {}),
+                ...(awayKit && awayKit !== match.away_match_kit_url ? { away_match_kit_url: awayKit } : {}),
+              };
+              if (Object.keys(kitUpdate).length) {
+                const { error } = await supabase.from('matches').update(kitUpdate).eq('id', match.id);
+                if (error) throw error;
+                Object.assign(match, kitUpdate);
+              }
+            } catch (error) {
+              console.warn('Could not refresh linked match kits:', error instanceof Error ? error.message : error);
             }
-          } catch (error) {
-            console.warn('Could not refresh linked match kits:', error instanceof Error ? error.message : error);
+          }
+        }
+
+        // Older reserve refreshes deactivated the replaced team's warning. An
+        // already-linked reserve fixture may otherwise exit before reconciliation.
+        if (currentStatus === 'arranged' && match.reserve_team_id && match.reserve_replaces_team_id &&
+            (existingWarnings || []).some((warning) =>
+              warning.round_id === upcomingRound.id && warning.team_id === match.reserve_replaces_team_id &&
+              warning.reason === 'misarranged' && warning.active === false,
+            )) {
+          await recordWarning(match.reserve_replaces_team_id);
+          continue;
+        }
+
+        // Already-arranged matches only need a pass when their activity snapshot is missing.
+        if (
+          currentStatus === 'arranged' &&
+          match.ht_match_id &&
+          match.chpp_match_date &&
+          match.match_type &&
+          match.home_match_kit_url &&
+          match.away_match_kit_url &&
+          (match.next_match_arrange_story || match.reserve_story || match.reserve_team_id) &&
+          (match.reserve_team_id || !currentRoundWarnings.some(
+              (warning) =>
+                warning.round_id === upcomingRound.id &&
+                (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
+          ))
+        ) continue;
+
+        const homeTeam = teams.find((t) => t.id === match.home_team_id);
+        const awayTeam = teams.find((t) => t.id === match.away_team_id);
+        if (!homeTeam || !awayTeam) continue;
+
+        const [homeDetails, awayDetails] = await Promise.all([
+          getStoryTeamDetails(homeTeam),
+          getStoryTeamDetails(awayTeam),
+        ]);
+        if (typeof homeDetails?.stillInCup === 'boolean') knownCupStatuses.set(homeTeam.id, homeDetails.stillInCup);
+        if (typeof awayDetails?.stillInCup === 'boolean') knownCupStatuses.set(awayTeam.id, awayDetails.stillInCup);
+        if (homeDetails?.stillInCup === true) await recordWarning(homeTeam.id, 'in_cup');
+        if (awayDetails?.stillInCup === true) await recordWarning(awayTeam.id, 'in_cup');
+
+        const targetDate = getMatchTargetDate(match, upcomingRound, homeTeam.country_name);
+        const homeFriendlies = await getFriendlies(homeTeam);
+        const awayFriendlies = await getFriendlies(awayTeam);
+        if (!homeFriendlies || !awayFriendlies) continue;
+
+        const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
+          (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
+          (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
+
+        const withinWindow = (f: { date: Date }) =>
+          isFriendlyInsideAcceptedWindow(f.date, targetDate, match.schedule_slot_type);
+        const confirmedMatch = findConfirmedMatch(match, upcomingRound, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
+        const reserveAllowed = isReserveUseAllowed({ status: currentStatus, targetDate, now });
+        const reserveResolution = confirmedMatch
+          ? null
+          : findReserveFixtureMatch({
+              homeHtTeamId: homeTeam.ht_team_id,
+              awayHtTeamId: awayTeam.ht_team_id,
+              homeFriendlies,
+              awayFriendlies,
+              reserveTeams,
+              targetDate,
+              isInsideWindow: (friendlyDate, expectedTargetDate) =>
+                isFriendlyInsideAcceptedWindow(friendlyDate, expectedTargetDate, match.schedule_slot_type),
+              reserveAllowed,
+            });
+        const homeOffending = homeFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+        const awayOffending = awayFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+
+        let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
+        let htMatchId: number | null = null;
+        let matchType: number | null = null;
+        let venueMismatch = false;
+        let actualHtHomeTeamId: number | null = null;
+        let actualHtAwayTeamId: number | null = null;
+        let reserveTeamId: string | null = null;
+        let reserveReplacesTeamId: string | null = null;
+
+        if (confirmedMatch) {
+          status = 'arranged';
+          htMatchId = confirmedMatch.matchId;
+          matchType = confirmedMatch.matchType;
+          actualHtHomeTeamId = confirmedMatch.homeId;
+          actualHtAwayTeamId = confirmedMatch.awayId;
+          venueMismatch = confirmedMatch.homeId === awayTeam.ht_team_id && confirmedMatch.awayId === homeTeam.ht_team_id;
+          linkedMatchIds.push(confirmedMatch.matchId);
+        } else if (reserveResolution?.kind === 'reserve') {
+          status = 'arranged';
+          htMatchId = reserveResolution.fixture.matchId;
+          matchType = reserveResolution.fixture.matchType;
+          actualHtHomeTeamId = reserveResolution.fixture.homeId;
+          actualHtAwayTeamId = reserveResolution.fixture.awayId;
+          reserveTeamId = reserveResolution.reserve.id;
+          reserveReplacesTeamId = reserveResolution.replaces === 'home' ? homeTeam.id : awayTeam.id;
+          linkedMatchIds.push(reserveResolution.fixture.matchId);
+        } else {
+          if (reserveResolution?.kind === 'both-reserves' || homeOffending || awayOffending) {
+            status = 'misarranged';
+          }
+        }
+
+        const arrangeStory =
+          status === 'arranged'
+            ? await buildArrangeStorySnapshot(
+                match,
+                upcomingRound,
+                confirmedMatch,
+                currentStatus === 'arranged' ? null : new Date().toISOString(),
+            )
+            : null;
+        const reserveStory =
+          status === 'arranged' && reserveResolution?.kind === 'reserve'
+            ? buildReserveStorySnapshot(
+                match,
+                upcomingRound,
+                reserveResolution,
+                homeTeam,
+                awayTeam,
+                currentStatus === 'arranged' ? null : new Date().toISOString(),
+              )
+            : null;
+
+        let kitUrls: { home_match_kit_url: string | null; away_match_kit_url: string | null } | null = null;
+        if (htMatchId && !checkedExistingKits &&
+            (htMatchId !== match.ht_match_id || !match.home_match_kit_url || !match.away_match_kit_url)) {
+          const reserveTeam = reserveResolution?.kind === 'reserve' ? reserveResolution.reserve : null;
+          kitUrls = {
+            home_match_kit_url: teamDetailsKitForMatchSide(
+              reserveReplacesTeamId === homeTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : homeDetails,
+              actualHtHomeTeamId,
+              actualHtAwayTeamId,
+            ),
+            away_match_kit_url: teamDetailsKitForMatchSide(
+              reserveReplacesTeamId === awayTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : awayDetails,
+              actualHtHomeTeamId,
+              actualHtAwayTeamId,
+            ),
+          };
+        }
+
+        // Update match status and HT Match ID
+        const { error: matchUpdateError } = await supabase
+          .from('matches')
+          .update({
+            status,
+            ht_match_id: htMatchId,
+            // Repair containment is provisional. A confirmed future booking in
+            // the current round must wait for its result rather than count as DNP.
+            ...(confirmedMatch && confirmedMatch.date > now &&
+                upcomingRound.phase_status === 'materialized' && match.schedule_resolution === 'finalized_unplayed'
+              ? { schedule_resolution: 'pending' } : {}),
+            ...(confirmedMatch ? { chpp_match_date: confirmedMatch.date.toISOString() } :
+              htMatchId !== match.ht_match_id ? { chpp_match_date: null } : {}),
+            match_type: matchType,
+            venue_mismatch: venueMismatch,
+            actual_ht_home_team_id: actualHtHomeTeamId,
+            actual_ht_away_team_id: actualHtAwayTeamId,
+            reserve_team_id: reserveTeamId,
+            reserve_replaces_team_id: reserveReplacesTeamId,
+            ...(kitUrls || (htMatchId !== match.ht_match_id
+              ? { home_match_kit_url: null, away_match_kit_url: null }
+              : {})),
+            ...(arrangeStory ? { next_match_arrange_story: arrangeStory } : {}),
+            ...(reserveStory ? { reserve_story: reserveStory } : {}),
+          })
+          .eq('id', match.id);
+        if (matchUpdateError) throw matchUpdateError;
+
+        if (reserveResolution?.kind === 'reserve') {
+          const replacedWarningId = getReplacedTeamWarningId({
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            replaces: reserveResolution.replaces,
+            homeOffending,
+            awayOffending,
+          });
+          if (replacedWarningId) await recordWarning(replacedWarningId);
+        } else {
+          for (const teamId of getMisarrangedWarningTeamIds({
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id,
+            homeOffending,
+            awayOffending,
+            homeAlreadyWarned: currentRoundWarnings.some(
+              (warning) => warning.round_id === upcomingRound.id && warning.team_id === homeTeam.id,
+            ),
+            awayAlreadyWarned: currentRoundWarnings.some(
+              (warning) => warning.round_id === upcomingRound.id && warning.team_id === awayTeam.id,
+            ),
+          })) {
+            await recordWarning(teamId);
           }
         }
       }
 
-      // Older reserve refreshes deactivated the replaced team's warning. An
-      // already-linked reserve fixture may otherwise exit before reconciliation.
-      if (currentStatus === 'arranged' && match.reserve_team_id && match.reserve_replaces_team_id &&
-          (existingWarnings || []).some((warning) =>
-            warning.round_id === upcomingRound.id && warning.team_id === match.reserve_replaces_team_id &&
-            warning.reason === 'misarranged' && warning.active === false,
-          )) {
-        await recordWarning(match.reserve_replaces_team_id);
-        continue;
-      }
-
-      // Already-arranged matches only need a pass when their activity snapshot is missing.
-      if (
-        currentStatus === 'arranged' &&
-        match.ht_match_id &&
-        match.chpp_match_date &&
-        match.match_type &&
-        match.home_match_kit_url &&
-        match.away_match_kit_url &&
-        (match.next_match_arrange_story || match.reserve_story || match.reserve_team_id) &&
-        (match.reserve_team_id || !currentRoundWarnings.some(
-            (warning) =>
-              warning.round_id === upcomingRound.id &&
-              (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
-        ))
-      ) continue;
-
-      const homeTeam = teams.find((t) => t.id === match.home_team_id);
-      const awayTeam = teams.find((t) => t.id === match.away_team_id);
-      if (!homeTeam || !awayTeam) continue;
-
-      const [homeDetails, awayDetails] = await Promise.all([
-        getStoryTeamDetails(homeTeam),
-        getStoryTeamDetails(awayTeam),
-      ]);
-      if (typeof homeDetails?.stillInCup === 'boolean') knownCupStatuses.set(homeTeam.id, homeDetails.stillInCup);
-      if (typeof awayDetails?.stillInCup === 'boolean') knownCupStatuses.set(awayTeam.id, awayDetails.stillInCup);
-      if (homeDetails?.stillInCup === true) await recordWarning(homeTeam.id, 'in_cup');
-      if (awayDetails?.stillInCup === true) await recordWarning(awayTeam.id, 'in_cup');
-
-      const targetDate = getMatchTargetDate(match, upcomingRound, homeTeam.country_name);
-      const homeFriendlies = await getFriendlies(homeTeam);
-      const awayFriendlies = await getFriendlies(awayTeam);
-      if (!homeFriendlies || !awayFriendlies) continue;
-
-      const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
-        (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
-        (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
-
-      const withinWindow = (f: { date: Date }) =>
-        isFriendlyInsideAcceptedWindow(f.date, targetDate, match.schedule_slot_type);
-      const confirmedMatch = findConfirmedMatch(match, upcomingRound, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
-      const reserveAllowed = isReserveUseAllowed({ status: currentStatus, targetDate, now });
-      const reserveResolution = confirmedMatch
-        ? null
-        : findReserveFixtureMatch({
-            homeHtTeamId: homeTeam.ht_team_id,
-            awayHtTeamId: awayTeam.ht_team_id,
-            homeFriendlies,
-            awayFriendlies,
-            reserveTeams,
-            targetDate,
-            isInsideWindow: (friendlyDate, expectedTargetDate) =>
-              isFriendlyInsideAcceptedWindow(friendlyDate, expectedTargetDate, match.schedule_slot_type),
-            reserveAllowed,
-          });
-      const homeOffending = homeFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-      const awayOffending = awayFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-
-      let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
-      let htMatchId: number | null = null;
-      let matchType: number | null = null;
-      let venueMismatch = false;
-      let actualHtHomeTeamId: number | null = null;
-      let actualHtAwayTeamId: number | null = null;
-      let reserveTeamId: string | null = null;
-      let reserveReplacesTeamId: string | null = null;
-
-      if (confirmedMatch) {
-        status = 'arranged';
-        htMatchId = confirmedMatch.matchId;
-        matchType = confirmedMatch.matchType;
-        actualHtHomeTeamId = confirmedMatch.homeId;
-        actualHtAwayTeamId = confirmedMatch.awayId;
-        venueMismatch = confirmedMatch.homeId === awayTeam.ht_team_id && confirmedMatch.awayId === homeTeam.ht_team_id;
-        linkedMatchIds.push(confirmedMatch.matchId);
-      } else if (reserveResolution?.kind === 'reserve') {
-        status = 'arranged';
-        htMatchId = reserveResolution.fixture.matchId;
-        matchType = reserveResolution.fixture.matchType;
-        actualHtHomeTeamId = reserveResolution.fixture.homeId;
-        actualHtAwayTeamId = reserveResolution.fixture.awayId;
-        reserveTeamId = reserveResolution.reserve.id;
-        reserveReplacesTeamId = reserveResolution.replaces === 'home' ? homeTeam.id : awayTeam.id;
-        linkedMatchIds.push(reserveResolution.fixture.matchId);
-      } else {
-        if (reserveResolution?.kind === 'both-reserves' || homeOffending || awayOffending) {
-          status = 'misarranged';
+      const staleCupWarningTeamIds = currentRoundWarnings
+        .filter((warning) => warning.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false)
+        .map((warning) => warning.team_id);
+      if (staleCupWarningTeamIds.length > 0) {
+        const { error: staleCupWarningError } = await supabase
+          .from('fixture_warnings')
+          .update({ active: false })
+          .eq('tournament_id', tournament_id)
+          .eq('round_id', upcomingRound.id)
+          .in('team_id', Array.from(new Set(staleCupWarningTeamIds)))
+          .eq('reason', 'in_cup')
+          .eq('active', true);
+        if (staleCupWarningError) throw staleCupWarningError;
+        for (let index = currentRoundWarnings.length - 1; index >= 0; index -= 1) {
+          const warning = currentRoundWarnings[index];
+          if (warning?.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false) {
+            currentRoundWarnings.splice(index, 1);
+          }
         }
       }
 
-      const arrangeStory =
-        status === 'arranged'
-          ? await buildArrangeStorySnapshot(
-              match,
-              upcomingRound,
-              confirmedMatch,
-              currentStatus === 'arranged' ? null : new Date().toISOString(),
-          )
-          : null;
-      const reserveStory =
-        status === 'arranged' && reserveResolution?.kind === 'reserve'
-          ? buildReserveStorySnapshot(
-              match,
-              upcomingRound,
-              reserveResolution,
-              homeTeam,
-              awayTeam,
-              currentStatus === 'arranged' ? null : new Date().toISOString(),
-            )
-          : null;
-
-      let kitUrls: { home_match_kit_url: string | null; away_match_kit_url: string | null } | null = null;
-      if (htMatchId && !checkedExistingKits &&
-          (htMatchId !== match.ht_match_id || !match.home_match_kit_url || !match.away_match_kit_url)) {
-        const reserveTeam = reserveResolution?.kind === 'reserve' ? reserveResolution.reserve : null;
-        kitUrls = {
-          home_match_kit_url: teamDetailsKitForMatchSide(
-            reserveReplacesTeamId === homeTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : homeDetails,
-            actualHtHomeTeamId,
-            actualHtAwayTeamId,
-          ),
-          away_match_kit_url: teamDetailsKitForMatchSide(
-            reserveReplacesTeamId === awayTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : awayDetails,
-            actualHtHomeTeamId,
-            actualHtAwayTeamId,
-          ),
-        };
-      }
-
-      // Update match status and HT Match ID
-      const { error: matchUpdateError } = await supabase
-        .from('matches')
-        .update({
-          status,
-          ht_match_id: htMatchId,
-          // Repair containment is provisional. A confirmed future booking in
-          // the current round must wait for its result rather than count as DNP.
-          ...(confirmedMatch && confirmedMatch.date > now &&
-              upcomingRound.phase_status === 'materialized' && match.schedule_resolution === 'finalized_unplayed'
-            ? { schedule_resolution: 'pending' } : {}),
-          ...(confirmedMatch ? { chpp_match_date: confirmedMatch.date.toISOString() } :
-            htMatchId !== match.ht_match_id ? { chpp_match_date: null } : {}),
-          match_type: matchType,
-          venue_mismatch: venueMismatch,
-          actual_ht_home_team_id: actualHtHomeTeamId,
-          actual_ht_away_team_id: actualHtAwayTeamId,
-          reserve_team_id: reserveTeamId,
-          reserve_replaces_team_id: reserveReplacesTeamId,
-          ...(kitUrls || (htMatchId !== match.ht_match_id
-            ? { home_match_kit_url: null, away_match_kit_url: null }
-            : {})),
-          ...(arrangeStory ? { next_match_arrange_story: arrangeStory } : {}),
-          ...(reserveStory ? { reserve_story: reserveStory } : {}),
-        })
-        .eq('id', match.id);
-      if (matchUpdateError) throw matchUpdateError;
-
-      if (reserveResolution?.kind === 'reserve') {
-        const replacedWarningId = getReplacedTeamWarningId({
-          homeTeamId: homeTeam.id,
-          awayTeamId: awayTeam.id,
-          replaces: reserveResolution.replaces,
-          homeOffending,
-          awayOffending,
-        });
-        if (replacedWarningId) await recordWarning(replacedWarningId);
-      } else {
-        for (const teamId of getMisarrangedWarningTeamIds({
-          homeTeamId: homeTeam.id,
-          awayTeamId: awayTeam.id,
-          homeOffending,
-          awayOffending,
-          homeAlreadyWarned: currentRoundWarnings.some(
-            (warning) => warning.round_id === upcomingRound.id && warning.team_id === homeTeam.id,
-          ),
-          awayAlreadyWarned: currentRoundWarnings.some(
-            (warning) => warning.round_id === upcomingRound.id && warning.team_id === awayTeam.id,
-          ),
-        })) {
-          await recordWarning(teamId);
-        }
-      }
-    }
-
-    const staleCupWarningTeamIds = currentRoundWarnings
-      .filter((warning) => warning.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false)
-      .map((warning) => warning.team_id);
-    if (staleCupWarningTeamIds.length > 0) {
-      const { error: staleCupWarningError } = await supabase
-        .from('fixture_warnings')
-        .update({ active: false })
-        .eq('tournament_id', tournament_id)
-        .eq('round_id', upcomingRound.id)
-        .in('team_id', Array.from(new Set(staleCupWarningTeamIds)))
-        .eq('reason', 'in_cup')
-        .eq('active', true);
-      if (staleCupWarningError) throw staleCupWarningError;
-      for (let index = currentRoundWarnings.length - 1; index >= 0; index -= 1) {
-        const warning = currentRoundWarnings[index];
-        if (warning?.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false) {
-          currentRoundWarnings.splice(index, 1);
-        }
-      }
-    }
+    };
+    for (const round of actionableRounds) await refreshRound(round);
 
     // Backfill story snapshots for recent or historical linked matches when the
     // exact CHPP friendly is still available. Their transition timestamp remains
@@ -2043,7 +2050,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const participant = teams.some((team) => team.active && !team.is_placeholder && Number(team.hattrick_user_id) === session.userId);
         const access = participant ? null : await loadTournamentAccess(supabase, String(tournament_id), session.userId);
         if (participant || access?.canManageOperations) {
-          ratingsRefreshed = await refreshSharedFixtureRatings(supabase, String(tournament_id), upcomingRound.id);
+          for (const round of actionableRounds) ratingsRefreshed += await refreshSharedFixtureRatings(supabase, String(tournament_id), round.id);
         }
       }
     }
@@ -2053,7 +2060,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       // Create initial shares only. Existing predictions are updated exclusively
       // through the authenticated clicked-refresh branch above.
-      ratingsShared = await autoShareFixtureRatings(supabase, String(tournament_id), upcomingRound.id, ordersByTeam, undefined,
+      for (const round of actionableRounds) ratingsShared += await autoShareFixtureRatings(supabase, String(tournament_id), round.id, ordersByTeam, undefined,
         async (teamId) => {
           const team = teams.find((candidate) => candidate.id === teamId);
           if (!team) return undefined;

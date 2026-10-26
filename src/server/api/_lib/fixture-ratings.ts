@@ -1,3 +1,4 @@
+import { isExplicitRoundParticipant } from '../../../utils/organizer-round.js';
 import { getAuthHeader } from './chpp-auth.js';
 import { readChppTag } from './chpp-xml.js';
 import { fetchManagerTeamsFromChpp, fetchOwnedTeamPlayerSpecialtiesFromChpp, ManagerCompendiumRequestError } from './manager-compendium.js';
@@ -9,7 +10,7 @@ import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../
 
 // Local development only: set false to test normal participant visibility.
 // Save this file, then reload the tournament page; no dev-server restart needed.
-const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = true;
+const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW;
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
@@ -299,7 +300,7 @@ export async function loadFixtureForRatings(db: Db, fixtureId: string) {
     .eq('id', fixtureId).maybeSingle();
   if (error) throw error;
   if (!fixture) throw new FixtureRatingsError(404, 'Fixture not found.');
-  const { data: round, error: roundError } = await db.from('rounds').select('id,tournament_id,season_number').eq('id', fixture.round_id).maybeSingle();
+  const { data: round, error: roundError } = await db.from('rounds').select('id,tournament_id,season_number,round_source,round_participants(team_id)').eq('id', fixture.round_id).maybeSingle();
   if (roundError) throw roundError;
   if (!round) throw new FixtureRatingsError(404, 'Fixture round not found.');
   const { data: tournament, error: tournamentError } = await db.from('tournaments').select('id,season,status,is_archived').eq('id', round.tournament_id).maybeSingle();
@@ -322,7 +323,7 @@ export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, us
     return [];
   }
   const { data: rounds, error: roundsError } = await db.from('rounds')
-    .select('id,season_number').eq('tournament_id', tournamentId).eq('season_number', tournament.season);
+    .select('id,season_number,round_source,round_participants(team_id)').eq('tournament_id', tournamentId).eq('season_number', tournament.season);
   if (roundsError) throw roundsError;
   const roundIds = (rounds || []).map((round) => round.id);
   if (!roundIds.length) return [];
@@ -378,7 +379,7 @@ export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof lo
     Number(round.season_number) !== Number(tournament.season) || fixture.status !== 'arranged' || fixture.completed ||
     !Number.isSafeInteger(Number(fixture.ht_match_id)) || Number(fixture.ht_match_id) <= 0 ||
     !Number.isFinite(kickoff) || kickoff <= Date.now() ||
-    !home || !away || home.active !== true || away.active !== true || home.is_placeholder || away.is_placeholder ||
+    !home || !away || (home.active !== true && !isExplicitRoundParticipant(round, home.id)) || (away.active !== true && !isExplicitRoundParticipant(round, away.id)) || home.is_placeholder || away.is_placeholder ||
     !Number.isSafeInteger(Number(home.ht_team_id)) || Number(home.ht_team_id) <= 0 ||
     !Number.isSafeInteger(Number(away.ht_team_id)) || Number(away.ht_team_id) <= 0 ||
     home.ht_team_id === away.ht_team_id || home.id === away.id) {

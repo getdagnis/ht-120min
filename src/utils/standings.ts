@@ -394,13 +394,14 @@ export function calculateSeasonSlotStandings(
   scoringMode: PersistedScoringMode,
   slotAssignments: SeasonSlotAssignment[] = [],
   membershipBased = false,
+  additionalParticipantIds: ReadonlySet<string> = new Set(),
 ): TeamStanding[] {
   if (membershipBased) {
     const activeIds = new Set(teams.filter(team => team.active && !team.reserve_active && !team.is_placeholder).map(team => team.id));
     // Keep departed opponents available while counting real results; only the
     // final rows are filtered. Slot identity never transfers another team's score.
     return calculateStandings(teams.map(team => ({ ...team, reserve_active: false })), matches, scoringMode)
-      .filter(standing => activeIds.has(standing.teamId));
+      .filter(standing => activeIds.has(standing.teamId) || additionalParticipantIds.has(standing.teamId));
   }
   if (slots.length === 0) return calculateStandings(teams, matches, scoringMode);
 

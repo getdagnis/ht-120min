@@ -1,4 +1,12 @@
 const messages = {
+  lobby: {
+    title: "Lobby",
+    hanging_around: "Hanging around",
+    ready_to_join: "Ready to join",
+    open_to_invitations: "Open to invitations",
+    statusForTeam: "Lobby status for {team}",
+    saveError: "Could not update Lobby status.",
+  },
   Home: {
     tournamentCardPlanning: 'Planning • Season {season}',
     tournamentCardRecruiting: 'Recruiting • Season {season}',
@@ -522,7 +530,7 @@ const messages = {
       joiningFromNextRoundExplainer: "Your team will wait for the next available regular round. Current fixtures stay unchanged.",
       pendingNextRoundNotice: "Your team is on the Waiting list and will join when a place is available.",
       participantClosedReserveOpen: "Participant registration is closed. You can still register a reserve team.",
-      waitingTeams: "Waiting",
+      waitingTeams: "Lobby",
       registrationClosed: "Tournament registration is closed.",
       participatingFromNextRound: "Participating from next round",
       joinAnotherFromNextRound: "You are participating. Another eligible team can join the Waiting list.",
@@ -1073,6 +1081,7 @@ const messages = {
       midfield: "Midfield",
     },
     FixtureCard: {
+      sharedPredictedRatings: 'Shared predicted ratings! ✅',
       rEPLACING: "REPLACING",
       warning: "Warning",
       misarrangedFixture: "Misarranged fixture!",
@@ -1150,6 +1159,17 @@ const messages = {
       noTeamMatches: 'No matches for your tournament teams in this round.',
     },
     FixturesView: {
+      yourNextMatch: 'Your next match',
+      yourPreviousMatches: 'Your previous matches',
+      nextRoundMatchesForYourTeams: 'Next round matches for your teams',
+      nextRoundNumber: 'Next round (Round {round})',
+      currentRoundNumber: 'Current round (Round {round})',
+      lastRoundNumber: 'Last round (Round {round})',
+      myMatches: "My Matches",
+      allMatches: "All Matches",
+      matchView: "Match view",
+      noPersonalMatches: "No matches for your teams in this season.",
+
       seasonFixtures: 'Season {season} Fixtures',
       seasonNumber: 'Season {season}',
       roundNumber: 'Round {round}',

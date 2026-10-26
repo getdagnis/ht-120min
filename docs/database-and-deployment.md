@@ -89,6 +89,7 @@ Recent important migrations:
 - `115_fix_publication_valid_user_refresh.sql` (prepared locally: defers per-team `valid_users` writes during publication and refreshes affected counts once; not applied by the agent)
 - `145_tournament_preference_surveys.sql` (owner-marked applied: private survey history, independent current team/manager preferences, and atomic submission RPC; live schema state not independently inspected)
 - `146_generalize_survey_table_names.sql` (prepared: renames the survey and preference tables to concise shared names, adds tournament/site survey scope, and retains service-only compatibility views; not applied)
+- `147_allow_survey_resubmission.sql` (prepared: replaces an existing manager/survey response and refreshes current preferences on repeat submission; not applied)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared
@@ -246,3 +247,15 @@ Local verification uses a disposable UNIX-socket PostgreSQL cluster with
 synthetic fixtures and actual migration/RPC definitions plus mocked API/CHPP
 responses. It does not verify live ownership, live Supabase schema, deployment,
 production data normalization, browser presentation or real match booking.
+
+
+## Tournament Lobby and added regular rounds
+
+Prepared `148_tournament_lobby.sql` adds exclusive Lobby intent and a service-only
+status-change RPC while synchronizing existing automatic-admission consumers.
+Prepared `149_organizer_regular_rounds.sql` adds an explicit round roster, atomic
+organizer-round creation, and progression gates. Neither was applied to Supabase.
+Verify the installed staged membership/slot prerequisites (including 137), preserve
+all owner markers, and apply 148 then 149 before deploying the matching public
+projections/API. Do not use an application rollback that ignores existing added
+rounds. See [ownership, access, rollout and acceptance](tournament-lobby-and-rounds.md).

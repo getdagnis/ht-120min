@@ -680,6 +680,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           isRight={isRight}
           matchSummary={team.matchSummary}
           matchKitUrl={team.warning ? null : team.matchKitUrl}
+          matchNotice={!isOwned && status === 'arranged' && (
+            ratingsSharedStatus?.[isRight ? 'away' : 'home'] === 'shared' ||
+            ratingsPreview?.[isRight ? 'away' : 'home']
+          ) ? uiText('sharedPredictedRatings') : undefined}
         />
       )}
       {team.warning && (
@@ -694,7 +698,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   return (
     <div
       data-fixture-id={matchId}
-      className={`${styles.fixtureCard} ${isOwned ? styles.ownedFixture : ''} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
+      className={`${styles.fixtureCard} ${isOwned ? styles.ownedFixture : ''} ${isOwned && (ratingsPreview || ratingsSharedStatus) ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
     >
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
@@ -807,7 +811,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           )}
         </div>
       </div>
-      {(ratingsPreview || ratingsSharedStatus) && (
+      {isOwned && (ratingsPreview || ratingsSharedStatus) && (
         <section className={styles.ratingsPreview} aria-label={uiText('sharedMatchRatings')}>
           {(ratingsPreview?.home || ratingsPreview?.away) && (
             <div className={styles.ratingsPreviewTitle}>{uiText('sharedMatchRatings')}</div>

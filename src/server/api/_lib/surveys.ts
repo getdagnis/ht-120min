@@ -52,12 +52,12 @@ export async function handleManagerSurvey(req: VercelRequest, res: VercelRespons
     .select('id, tournament_id, variant').eq('scope', 'tournament').eq('tournament_id', tournamentId).eq('status', 'active').maybeSingle();
   if (surveyError) throw surveyError;
   if (!survey) return res.status(200).json({ survey: null });
-  const { data: existing, error: existingError } = await db.from('survey_responses')
-    .select('completed_at').eq('survey_id', survey.id).eq('manager_ht_id', session.userId).maybeSingle();
-  if (existingError) throw existingError;
-  if (existing) return req.method === 'GET'
-    ? res.status(200).json({ survey: null })
-    : res.status(409).json({ error: 'This survey has already been submitted.' });
+  if (req.method === 'GET') {
+    const { data: existing, error: existingError } = await db.from('survey_responses')
+      .select('completed_at').eq('survey_id', survey.id).eq('manager_ht_id', session.userId).maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) return res.status(200).json({ survey: null });
+  }
   const teams = await loadActiveTeams(tournamentId, session.userId);
   if (!teams.length) return req.method === 'GET'
     ? res.status(200).json({ survey: null })
@@ -94,7 +94,6 @@ export async function handleManagerSurvey(req: VercelRequest, res: VercelRespons
     p_manager_country_id: profile?.country_id ?? null,
     p_manager_importance: managerImportance, p_team_answers: teamAnswers,
   });
-  if (error?.code === '23505') return res.status(409).json({ error: 'This survey has already been submitted.' });
   if (error?.code === '40001') return res.status(409).json({ error: 'The survey or team list changed. Reload the page.' });
   if (error) throw error;
   return res.status(201).json({ submitted: true });

@@ -9,6 +9,7 @@ test('registered keys are assigned to their owning Forge sections', () => {
   assert.equal(sectionForKey('Home.chatWelcome'), 'Home');
   assert.equal(sectionForKey('Home.tinderTitle'), 'Tinder');
   assert.equal(sectionForKey('fixtures.autoArrangeTooltip'), 'TournamentView');
+  assert.equal(sectionForKey('lobby.ready_to_join'), 'TournamentView');
   assert.equal(sectionForKey('CreateTournament.title'), 'CreateTournament');
   assert.equal(sectionForKey('ManagerProfiles.myProfile'), 'ManagerProfiles');
   assert.ok(keysForSection('System').includes('notFound.title'));
@@ -62,4 +63,11 @@ test('published values override registered keys without mutating source or repla
   assert.equal(result.CreateTournament.title, 'Create Tournament');
   assert.equal(source.Home.welcomeTitle, 'Laipni lūdzam HT-120min!');
   assert.equal('unregistered' in result, false);
+});
+
+
+test('Lobby intention translations and personal fixture labels retain their locale overrides', () => {
+  assert.equal(getDictionary('lv').lobby.ready_to_join, 'Gatavs pievienoties');
+  assert.equal(getDictionary('lv').PublicUI.FixturesView.myMatches, 'Manas spēles');
+  assert.equal(getDictionary('en').lobby.open_to_invitations, 'Open to invitations');
 });

@@ -39,6 +39,7 @@ interface TeamBylineProps {
     eventDetails?: MatchSideEventDetails | null;
   } | null;
   matchKitUrl?: string | null;
+  matchNotice?: string;
 }
 
 export const TeamByline: React.FC<TeamBylineProps> = ({
@@ -55,6 +56,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   lastSeenAt,
   matchSummary,
   matchKitUrl,
+  matchNotice,
 }) => {
   const uiText = useTranslations('PublicUI.TeamByline');
   // Use a unique ID for tooltips to avoid collisions
@@ -313,7 +315,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           </>
         )}
       </div>
-      {mode === 'fixtures' && (visibleMatchKitUrl || groupedGoals.length > 0 || summary) && (
+      {mode === 'fixtures' && (visibleMatchKitUrl || groupedGoals.length > 0 || summary || matchNotice) && (
         <div className={`${styles.matchDetails} ${isRight ? styles.right : ''}`}>
           {visibleMatchKitUrl && (
             <img
@@ -327,6 +329,11 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             />
           )}
           <div className={styles.matchEvents}>
+            {matchNotice && (
+              <div className={styles.goalsRow}>
+                <span className={styles.goalItem}>{matchNotice}</span>
+              </div>
+            )}
             {groupedGoals.length > 0 && (
               <div className={styles.goalsRow} aria-label={uiText('goals')}>
                 {groupedGoals.map((goal) => (

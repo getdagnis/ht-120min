@@ -127,7 +127,7 @@ function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJo
       if (name === 'get_waiting_admission_plan') return { data: { activeTeamIds: ['team-1', 'team-2'], teamIds: withPendingJoin ? ['team-3'] : [], rosterVersion: 'test-version' }, error: null };
       rpcCalls.push({ name, args });
       if (failFirstCommit) { failFirstCommit = false; return { data: null, error: { code: '40001', message: 'Roster changed' } }; }
-      if (name !== 'apply_length_round_transition_with_membership') throw new Error(`Unexpected RPC ${name}`);
+      if (!['apply_length_round_transition_with_membership', 'apply_length_round_transition'].includes(name)) throw new Error(`Unexpected RPC ${name}`);
 
       // Model the relevant atomic SQL transition contract for service-boundary tests.
       const completedRound = (tables.rounds as typeof currentRound[]).find((round) => round.id === args.p_completed_round_id);
@@ -165,7 +165,7 @@ function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJo
     },
   };
 
-  return { supabase, currentRound, nextRound, warnings, rpcCalls };
+  return { supabase, currentRound, nextRound, warnings, rpcCalls, tables };
 }
 
 async function progress(harness: ReturnType<typeof createHarness>) {
@@ -270,4 +270,28 @@ test('a membership race replans and commits one complete round without duplicate
   assert.deepEqual(harness.rpcCalls[1]!.args.p_active_team_ids, ['team-1', 'team-2']);
   assert.deepEqual(harness.rpcCalls[1]!.args.p_pending_team_ids, ['team-3']);
   assert.equal(harness.rpcCalls[1]!.args.p_roster_version, 'test-version');
+});
+
+
+test('an overlapping weekend round completes independently without repeating membership admission', async () => {
+  const harness = createHarness(fixture('ongoing', { ht_match_id: 123 }));
+  harness.tables.rounds.push({ ...harness.currentRound, id: 'weekend-round', round_number: 3, round_source: 'organizer',
+    matches: [fixture('finished', { completed: true, schedule_resolution: 'played' })] });
+  assert.equal((await progress(harness)).reason, 'round_unresolved');
+  assert.equal(harness.rpcCalls.length, 1);
+  assert.equal(harness.rpcCalls[0].name, 'apply_length_round_transition');
+  assert.equal(harness.rpcCalls[0].args.p_next_round_id, null);
+  assert.equal(harness.currentRound.phase_status, 'materialized');
+  assert.equal(harness.nextRound.phase_status, 'pending');
+});
+
+test('qualification waits for every counted additional round', async () => {
+  const harness = createHarness(fixture('finished', { completed: true, schedule_resolution: 'played' }));
+  harness.nextRound.phase = 'postseason';
+  harness.tables.rounds.push({ ...harness.currentRound, id: 'weekend-round', round_number: 3, round_source: 'organizer',
+    matches: [fixture('not_arranged', { scheduled_for: '2099-03-23T12:00:00Z' })] });
+  assert.equal((await progress(harness)).reason, 'additional_regular_round_unresolved');
+  assert.equal(harness.rpcCalls.length, 0);
+  assert.equal(harness.currentRound.phase_status, 'materialized');
+  assert.equal(harness.nextRound.phase_status, 'pending');
 });

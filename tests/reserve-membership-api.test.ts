@@ -115,3 +115,41 @@ test('three-list membership uses verified roles and cannot accept a client overr
     Object.assign(process.env, oldEnv);
   }
 });
+
+test('Lobby status ownership is server-derived and organizer rounds require operational access', async () => {
+  const oldEnv = { ...process.env }, oldFetch = globalThis.fetch;
+  Object.assign(process.env, { APP_SESSION_SECRET: 'lobby-test-secret', SUPABASE_URL: 'https://lobby-test.invalid', SUPABASE_SECRET_KEY: 'test-service', FORGE_SUPERADMIN_HT_ID: '9999' });
+  const tournamentId = '70000000-0000-0000-0000-000000000010', teamId = '70000000-0000-0000-0000-000000000003';
+  const writes: Array<Record<string, unknown>> = [];
+  let operations = false;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    assert.equal(url.hostname, 'lobby-test.invalid');
+    if (url.pathname.includes('/rpc/')) { writes.push(JSON.parse(String(init?.body))); return Response.json({ ok: true }); }
+    if (url.pathname.endsWith('/tournaments')) return Response.json({ organizer_id: operations ? 7 : 8, season: 1, schedule_mode: 'length', schedule_generated_at: '2026-10-21' });
+    if (url.pathname.endsWith('/profiles')) return Response.json({ manager_name: 'Manager' });
+    if (url.pathname.endsWith('/tournament_roles')) return Response.json(null);
+    throw new Error('Unexpected external request.');
+  };
+  async function invoke(route: string, signedIn = true, extra = {}) {
+    let code = 200;
+    const response = { status(value: number) { code = value; return this; }, json() { return this; }, setHeader() {} };
+    await app({ method: 'POST', query: { route }, headers: { cookie: signedIn ? buildAppSessionCookie(7, 'lobby-test-secret', false) : undefined }, body: { tournamentId, teamId, status: 'open_to_invitations', p_manager_id: 9999, p_override: true, ...extra } } as never, response as never);
+    return code;
+  }
+  try {
+    assert.equal(await invoke('lobby-status', false), 401);
+    assert.equal(await invoke('lobby-status', true, { status: 'invalid' }), 400);
+    assert.equal(await invoke('organizer-round'), 403);
+    assert.equal(writes.length, 0);
+    assert.equal(await invoke('lobby-status'), 200);
+    assert.deepEqual(writes.pop(), { p_tournament_id: tournamentId, p_team_id: teamId, p_status: 'open_to_invitations', p_manager_id: 7 });
+    operations = true;
+    assert.equal(await invoke('lobby-status'), 200);
+    assert.equal(writes.pop()!.p_manager_id, null);
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];
+    Object.assign(process.env, oldEnv);
+  }
+});

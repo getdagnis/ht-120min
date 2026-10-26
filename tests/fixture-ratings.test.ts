@@ -420,3 +420,17 @@ test('public rating status reads preserve real errors and do not retry successfu
   const result = await readFixtureRatingStatuses(async () => ({ data: null, error: { code: '42703', message: 'legacy column missing' } }));
   assert.equal(result.error?.message, 'legacy column missing');
 });
+
+test('explicit round-only participants can share confirmed upcoming fixture ratings without joining the season', () => {
+  const context = {
+    fixture: { id: 'match', status: 'arranged', completed: false, ht_match_id: 123,
+      chpp_match_date: new Date(Date.now() + 86_400_000).toISOString(),
+      home_team: { id: 'guest', ht_team_id: 10, active: false, is_placeholder: false },
+      away_team: { id: 'active', ht_team_id: 20, active: true, is_placeholder: false } },
+    round: { season_number: 1, round_source: 'organizer', round_participants: [{ team_id: 'guest' }, { team_id: 'active' }] },
+    tournament: { season: 1, status: 'active', is_archived: false },
+  };
+  assert.doesNotThrow(() => assertEligibleFixtureRatings(context as never));
+  assert.throws(() => assertEligibleFixtureRatings({ ...context, round: { ...context.round, round_participants: [] } } as never));
+  assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, chpp_match_date: null } } as never));
+});
