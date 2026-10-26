@@ -170,7 +170,7 @@ async function invoke(request: NextRequest) {
     'update-hfi-ranks', 'update-power-rankings', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
     'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
     'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament', 'tournament-publication', 'creation-roster', 'start-tournament-season',
-    'team-membership', 'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-admission', 'reserve-teams',
+    'lobby-status', 'organizer-round', 'team-membership', 'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-admission', 'reserve-teams',
     'backfill-round-matchdetails',
   ]);
   const path = request.nextUrl.pathname;

@@ -11,6 +11,8 @@ import { Modal } from '../../Modal/Modal';
 import { SectionCard } from '../../Card/SectionCard';
 import { AdminResults, type BulkMatchUpdate } from './AdminResults';
 import { AdminAnnouncementComposer } from './AdminAnnouncementComposer';
+import { OrganizerRoundPanel } from './OrganizerRoundPanel';
+import { LobbyStatusSelect } from '../LobbyStatusSelect';
 import { ReserveAdmissionPanel } from './ReserveAdmissionPanel';
 import { TournamentSchedulePanel } from './TournamentSchedulePanel';
 import { TournamentRolesPanel } from './TournamentRolesPanel';
@@ -20,7 +22,7 @@ import { ReusableWidget } from '../../ReusableWidget/ReusableWidget';
 import { useHydrationReady } from '../../../hooks/useHydratedBrowserState';
 import { getCompatibleLeagueRestrictionOptions } from '../../../utils/team-eligibility';
 import { formatCalendarDateWithWeek } from '../../../utils/hattrick-calendar';
-import { isCurrentParticipantTeam, isPastTeam } from '../../../utils/team-state';
+import { getLobbyStatus, LOBBY_STATUSES, isCurrentParticipantTeam, isPastTeam } from '../../../utils/team-state';
 import { normalizeTournamentRegistrationType } from '../../../utils/tournament-types';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails';
 import type { TournamentAnnouncement, TournamentAnnouncementVisibility } from '../../../utils/tournament-announcements';
@@ -646,13 +648,14 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     isSiteAdmin &&
     ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
   const [showSiteAdminSettings, setShowSiteAdminSettings] = useState(false);
+  const [lobbyFilter, setLobbyFilter] = useState('all');
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
   const pastTeams = teams.filter(isPastTeam);
   const [pastTeamsExpanded, setPastTeamsExpanded] = useState<boolean | null>(null);
   const isPastTeamsExpanded = pastTeamsExpanded ?? pastTeams.length <= 8;
   const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
-  const [waitingReasons, setWaitingReasons] = useState<Record<string, string>>({});
+  const [lobbyReasons, setLobbyReasons] = useState<Record<string, string>>({});
   useEffect(() => {
     if (canManageOperationalAdmin) void loadTeamPlanningStatuses();
   }, [canManageOperationalAdmin, loadTeamPlanningStatuses, rounds]);
@@ -664,16 +667,16 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not check Waiting teams.');
+        if (!response.ok) throw new Error(data.error || 'Could not check Lobby teams.');
         if (!cancelled)
-          setWaitingReasons(
+          setLobbyReasons(
             Object.fromEntries(
               (data.rejected || []).map((row: { teamId: string; reason: string }) => [row.teamId, row.reason]),
             ),
           );
       })
       .catch(() => {
-        if (!cancelled) setWaitingReasons({});
+        if (!cancelled) setLobbyReasons({});
       });
     return () => {
       cancelled = true;
@@ -688,13 +691,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
       action === 'promote'
         ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
         : action === 'to_waiting'
-          ? `Move ${team.name} to Waiting, unchecked?`
+          ? `Move ${team.name} to Lobby, unchecked?`
           : action === 'return'
-            ? `Return ${team.name} to Waiting, checked to join when possible?`
+            ? `Return ${team.name} to Lobby, checked to join when possible?`
             : `Remove ${team.name} to Past? Its match history will be kept.`;
     const overrideWarning =
       isSiteAdmin && action === 'promote'
-        ? `\n\n${waitingReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.`
+        ? `\n\n${lobbyReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.`
         : '';
     if (action !== 'ready' && !window.confirm(description + overrideWarning)) return;
     setChangingReserveId(team.id);
@@ -1499,7 +1502,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               canManageOperationalAdmin && reserveTeams.length > 0 ? (
                                 <>
                                   <div className={adminStyles.reservePairingSelection}>
-                                    <p>Choose Waiting teams to pair in the current round:</p>
+                                    <p>Choose Lobby teams to pair in the current round:</p>
                                     {reserveTeams.map((team) => (
                                       <label key={team.id} className={adminStyles.checkboxLabel}>
                                         <input
@@ -1535,6 +1538,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               tournament.schedule_mode === 'length' ? recoverOriginalLengthRoundOne : undefined
                             }
                           />
+                          {tournament.schedule_mode === 'length' && isGenerated && canManageOperationalAdmin && (
+                            <OrganizerRoundPanel tournamentId={tournament.id} canOverride={isSiteAdmin} onChanged={async () => { await onReservesChanged(); await fetchFixturesOnly(); }} />
+                          )}
                         </div>
                       )}
 
@@ -1703,7 +1709,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     <div className={adminStyles.teamPlanningRow}>
                                       <div>
                                         <p className={adminStyles.smallNote}>
-                                          Add a manually selected Hattrick team to Waiting for review.
+                                          Add a manually selected Hattrick team to Lobby for review.
                                         </p>
                                       </div>
                                       <Button
@@ -1712,7 +1718,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         variant="secondaryAction"
                                         onClick={() => setIsReserveTeamFormOpen((open) => !open)}
                                       >
-                                        {isReserveTeamFormOpen ? 'Cancel' : 'Add to Waiting'}
+                                        {isReserveTeamFormOpen ? 'Cancel' : 'Add to Lobby'}
                                       </Button>
                                     </div>
                                     {isReserveTeamFormOpen && (
@@ -1766,8 +1772,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                   reserveValidation.validated
                                                 ? `Already CHPP validated · ${reserveValidation.managerName}`
                                                 : reserveValidation?.teamId === reserveTeamId && reserveValidation.known
-                                                  ? 'Known team — current ownership could not be verified. Add as an unverified Waiting team.'
-                                                  : 'Add as an unverified Waiting team.'}
+                                                  ? 'Known team — current ownership could not be verified. Add as an unverified Lobby team.'
+                                                  : 'Add as an unverified Lobby team.'}
                                           </p>
                                         )}
                                         {reserveTeamName && (
@@ -1780,8 +1786,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               ? 'Saving...'
                                               : reserveValidation?.teamId === reserveTeamId &&
                                                   reserveValidation.validated
-                                                ? 'Add verified team to Waiting'
-                                                : 'Add to Waiting'}
+                                                ? 'Add verified team to Lobby'
+                                                : 'Add to Lobby'}
                                           </Button>
                                         )}
                                       </form>
@@ -1904,7 +1910,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               onChange={(event) => setSelectedReserveTeamId(event.target.value)}
                                               disabled={isSavingTeam}
                                             >
-                                              <option value="">Choose Waiting team</option>
+                                              <option value="">Choose Lobby team</option>
                                               {reserveTeams.map((reserveTeam) => (
                                                 <option key={reserveTeam.id} value={reserveTeam.id}>
                                                   {reserveTeam.name}
@@ -1918,7 +1924,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                 onClick={() => void replaceTeamWithReserve(team.id)}
                                                 disabled={isSavingTeam || !selectedReserveTeamId}
                                               >
-                                                Replace with Waiting team
+                                                Replace with Lobby team
                                               </Button>
                                               <Button
                                                 size="sm"
@@ -1942,7 +1948,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             }}
                                             disabled={isSavingTeam}
                                           >
-                                            Replace with Waiting team
+                                            Replace with Lobby team
                                           </Button>
                                         ))}
                                       {!isGenerated && replacingTeamId === team.id ? (
@@ -2016,7 +2022,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               onClick={() => void changeMembership(team, 'to_waiting')}
                                               disabled={isSavingTeam}
                                             >
-                                              Waiting List
+                                              Lobby List
                                             </Button>
                                           </>
                                         )}
@@ -2040,12 +2046,16 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
                           {reserveTeams.length > 0 && (
                             <>
-                              <h3 className={adminStyles.sectionTitle}>Waiting ({reserveTeams.length})</h3>
+                              <h3 className={adminStyles.sectionTitle}>Lobby ({reserveTeams.length})</h3>
                               <p className={adminStyles.smallNote}>
-                                Checked teams join automatically when possible. Unchecked teams stay here for review.
+                                Ready to join teams enter automatically when possible. Other Lobby statuses do not request admission.
                               </p>
+                              <label>Status <select value={lobbyFilter} onChange={event => setLobbyFilter(event.target.value)}>
+                                <option value="all">All Lobby teams</option>
+                                {LOBBY_STATUSES.map(status => <option key={status} value={status}>{status === 'ready_to_join' ? 'Ready to join' : status === 'open_to_invitations' ? 'Open to invitations' : 'Hanging around'}</option>)}
+                              </select></label>
                               <ul className={adminStyles.teamList}>
-                                {reserveTeams.map((team) => (
+                                {reserveTeams.filter(team => lobbyFilter === 'all' || getLobbyStatus(team) === lobbyFilter).map((team) => (
                                   <li key={team.id} className={adminStyles.reserveTeam}>
                                     <div className={adminStyles.teamCard}>
                                       <img
@@ -2069,7 +2079,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               {team.name}
                                             </a>
                                           ) : (
-                                            <span className={adminStyles.name}>{team.name || 'Waiting team'}</span>
+                                            <span className={adminStyles.name}>{team.name || 'Lobby team'}</span>
                                           )}
                                           {fixtureWarningTeamIds.has(team.id) && (
                                             <span title={standingsText('warningIssued')}>
@@ -2124,17 +2134,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     </div>
                                     {canManageOperationalAdmin && (
                                       <div className={adminStyles.teamActions}>
-                                        <label className={adminStyles.checkboxLabel}>
-                                          <input
-                                            type="checkbox"
-                                            checked={team.actively_waiting === true}
-                                            disabled={changingReserveId !== null}
-                                            onChange={(event) =>
-                                              void changeMembership(team, 'ready', event.currentTarget.checked)
-                                            }
-                                          />
-                                          Auto promote
-                                        </label>
+                                        <LobbyStatusSelect tournamentId={tournament.id} team={team} onChanged={onReservesChanged} />
                                         <Button
                                           type="button"
                                           size="xs"
@@ -2158,8 +2158,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         >
                                           Remove
                                         </Button>
-                                        {waitingReasons[team.id] && (
-                                          <p className={adminStyles.waitingReason}>{waitingReasons[team.id]}</p>
+                                        {lobbyReasons[team.id] && (
+                                          <p className={adminStyles.waitingReason}>{lobbyReasons[team.id]}</p>
                                         )}
                                       </div>
                                     )}
@@ -2247,7 +2247,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                 onChange={(event) => setSelectedReserveTeamId(event.target.value)}
                                                 disabled={isSavingTeam}
                                               >
-                                                <option value="">Choose Waiting team</option>
+                                                <option value="">Choose Lobby team</option>
                                                 {reserveTeams.map((reserveTeam) => (
                                                   <option key={reserveTeam.id} value={reserveTeam.id}>
                                                     {reserveTeam.name}
@@ -2280,7 +2280,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               size="xs"
                                               variant="action"
                                               disabled={isSavingTeam || reserveTeams.length === 0}
-                                              title={reserveTeams.length === 0 ? 'Add a Waiting team first' : undefined}
+                                              title={reserveTeams.length === 0 ? 'Add a Lobby team first' : undefined}
                                               onClick={() => {
                                                 setReserveReplacingTeamId(team.id);
                                                 setSelectedReserveTeamId('');
@@ -2356,7 +2356,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           variant="action"
                                           onClick={() => void changeMembership(team, 'return')}
                                           disabled={isSavingTeam}
-                                          title="Return this team to Waiting, checked to join when possible"
+                                          title="Return this team to Lobby, checked to join when possible"
                                         >
                                           To waiting
                                         </Button>

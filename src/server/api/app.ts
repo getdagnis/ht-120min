@@ -25,13 +25,17 @@ import { isTournamentRole, type TournamentRole } from '../../../shared/tournamen
 import { normalizeLeagueLimit } from '../../../shared/worlddetails.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
+import { findExactPendingOutgoingChallenge, findExactPendingIncomingChallenge, hasExactAgreedChallenge } from './_lib/forge-matches.js';
+import { handleOrganizerRound } from './_lib/organizer-round.js';
+import { LOBBY_STATUSES } from '../../utils/team-state.js';
 import { normalizeGlobalChatContent } from '../../utils/global-chat.js';
 import { buildAdminAddedJoinStory } from '../../utils/tournament-activity.js';
 import { summarizeUniqueTournamentViews } from '../../utils/forge-activity-routes.js';
 import {
-  sendChppChallengeDirect,
+  sendChppChallengeDirect, viewChppChallenges, parseChppOutgoingChallenges, parseChppChallengeOffers,
 } from './_lib/chpp-challenges.js';
 import {
+  getFixtureWeekendFlag,
   getFixtureChallengeMatchPlace,
   getFixtureChallengeMatchType,
   resolveFixtureChallengeOptions,
@@ -1454,6 +1458,7 @@ type FixtureChallengeTeamRow = {
 };
 
 type FixtureChallengeMatchRow = {
+  schedule_slot_type: string | null;
   id: string;
   round_id: string;
   status: string | null;
@@ -1463,12 +1468,16 @@ type FixtureChallengeMatchRow = {
 };
 
 type FixtureChallengeRoundRow = {
+  phase_status?: string;
+  round_source?: string;
+  round_participants?: Array<{ team_id: string }>;
   id: string;
   round_number: number;
   matches: Array<Pick<FixtureChallengeMatchRow, 'id' | 'status' | 'completed'>> | null;
 };
 
 type ResolvedFixtureChallenge = {
+  isWeekendFriendly: 0 | 1;
   side: FixtureChallengeSide;
   actorTeam: FixtureChallengeTeamRow;
   opponentTeam: FixtureChallengeTeamRow;
@@ -1652,7 +1661,7 @@ async function resolveFixtureChallenge(
 
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
-    .select('id, round_number, matches(id, status, completed)')
+    .select('id, round_number, phase_status, round_source, round_participants(team_id), matches(id, status, completed)')
     .eq('tournament_id', tournamentId)
     .eq('season_number', tournament.season)
     .order('round_number', { ascending: true });
@@ -1660,7 +1669,9 @@ async function resolveFixtureChallenge(
   const currentRound = (rounds as FixtureChallengeRoundRow[] | null)?.find((round) =>
     (round.matches || []).some((match) => !match.completed && match.status !== 'misarranged'),
   );
-  if (!currentRound) {
+  const targetRound = (rounds as FixtureChallengeRoundRow[] | null)?.find(round =>
+    (round.id === currentRound?.id || round.phase_status === 'materialized') && round.matches?.some(match => match.id === matchId));
+  if (!targetRound) {
     res.status(409).json(fixtureChallengeUnavailable('There is no active tournament round to arrange.'));
     return null;
   }
@@ -1672,11 +1683,12 @@ async function resolveFixtureChallenge(
       round_id,
       status,
       completed,
+      schedule_slot_type,
       home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges),
       away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges)
     `)
     .eq('id', matchId)
-    .eq('round_id', currentRound.id)
+    .eq('round_id', targetRound.id)
     .maybeSingle();
   if (matchError) throw matchError;
   const fixture = match as FixtureChallengeMatchRow | null;
@@ -1704,8 +1716,8 @@ async function resolveFixtureChallenge(
   if (
     !actorTeam ||
     !opponentTeam ||
-    actorTeam.active === false ||
-    opponentTeam.active === false ||
+    (actorTeam.active === false && !targetRound.round_participants?.some(row => row.team_id === actorTeam.id)) ||
+    (opponentTeam.active === false && !targetRound.round_participants?.some(row => row.team_id === opponentTeam.id)) ||
     actorTeam.is_placeholder ||
     opponentTeam.is_placeholder ||
     !Number.isSafeInteger(actorTeam.ht_team_id) ||
@@ -1733,6 +1745,7 @@ async function resolveFixtureChallenge(
     matchId,
     resolved: {
       side,
+      isWeekendFriendly: getFixtureWeekendFlag(fixture.schedule_slot_type),
       actorTeam,
       opponentTeam,
       matchType: getFixtureChallengeMatchType(tournament.scoring_mode),
@@ -1799,6 +1812,20 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'Your Hattrick account no longer owns this fixture team.' });
   }
 
+  // Re-read before every send, including retries after a timeout. A pending or
+  // agreed exact-opponent offer must be reconciled rather than sent again.
+  const challengeState = await viewChppChallenges({ consumerKey, consumerSecret,
+    oauthToken: credentials.oauth_token, oauthTokenSecret: credentials.oauth_token_secret,
+    teamId: actorTeamId, isWeekendFriendly: resolved.isWeekendFriendly });
+  if (challengeState.httpStatus < 200 || challengeState.httpStatus >= 300 || (challengeState.parsed.errorCode !== undefined && challengeState.parsed.errorCode !== 0)) {
+    return res.status(502).json({ error: 'Could not verify the current Hattrick challenge state.' });
+  }
+  const outgoing = parseChppOutgoingChallenges(challengeState.rawXml);
+  const incoming = parseChppChallengeOffers(challengeState.rawXml);
+  if (findExactPendingOutgoingChallenge(outgoing, opponentTeamId) || findExactPendingIncomingChallenge(incoming, opponentTeamId) || hasExactAgreedChallenge(outgoing, incoming, opponentTeamId)) {
+    return res.status(req.method === 'GET' ? 200 : 409).json({ available: false, sent: true, reason: 'An exact-opponent challenge already exists. Refresh fixtures or check Hattrick challenges.', error: 'An exact-opponent challenge already exists. Refresh fixtures or check Hattrick challenges.' });
+  }
+
   const availability = {
     available: true as const,
     side: resolved.side,
@@ -1819,7 +1846,7 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     opponentTeamId,
     matchType: options.matchType,
     matchPlace: options.matchPlace,
-    isWeekendFriendly: 0,
+    isWeekendFriendly: resolved.isWeekendFriendly,
   });
   if (!sent.success) {
     console.warn('[Fixture challenge] CHPP challenge failed', {
@@ -2757,6 +2784,26 @@ async function loadPublicReservePlanningStatuses(
   }
 
   return statuses;
+}
+
+async function handleLobbyStatus(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const { tournamentId, teamId, status } = req.body || {};
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof tournamentId !== 'string' || !uuid.test(tournamentId) || typeof teamId !== 'string' || !uuid.test(teamId) ||
+      !LOBBY_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid Lobby change.' });
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!actor.access.canManageOperations && !session) return res.status(401).json({ error: 'Please sign in with Hattrick.' });
+  const { data, error } = await getServiceSupabase().rpc('change_tournament_lobby_status', {
+    p_tournament_id: tournamentId, p_team_id: teamId, p_status: status,
+    p_manager_id: actor.access.canManageOperations ? null : session!.userId,
+  });
+  if (error) return res.status(error.code === '42501' ? 403 : 409).json({ error: error.message });
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json(data);
 }
 
 async function handleTeamMembership(req: VercelRequest, res: VercelResponse) {
@@ -4034,6 +4081,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleGlobalChat(req, res);
       case 'reserve-teams':
         return await handleReserveTeams(req, res);
+      case 'organizer-round': {
+        if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+        const tournamentId = readString(req.body?.tournamentId || req.query.tournamentId);
+        if (!/^[0-9a-f-]{36}$/i.test(tournamentId)) return res.status(400).json({ error: 'Invalid tournament.' });
+        const actor = await requireTournamentRoleSession(req, res, tournamentId);
+        if (!actor) return;
+        if (!actor.access.canManageOperations) return res.status(403).json({ error: 'You cannot manage this schedule.' });
+        return await handleOrganizerRound(req, res, tournamentId, actor.access.isImplicitSuperadmin);
+      }
+      case 'lobby-status':
+        return await handleLobbyStatus(req, res);
       case 'team-membership':
         return await handleTeamMembership(req, res);
       case 'next-round-join':

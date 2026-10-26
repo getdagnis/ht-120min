@@ -1,3 +1,4 @@
+import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round.js';
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
@@ -339,12 +340,13 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     String(tournament.scoring_mode || '120min'),
     slotAssignments,
     tournament.schedule_mode === 'length',
+    additionalRoundParticipantIds(rounds as Array<{ round_source?: string; round_participants?: Array<{ team_id: string }> }>),
   ) as Record<string, unknown>[];
 
   return {
     tournament,
     teams,
-    rounds: roundWithMatches,
+    rounds: orderFixtureRounds(roundWithMatches as Array<typeof roundWithMatches[number] & { round_number: number; round_source?: string; reserved_slot_date?: string | null }>),
     standings,
     warnings: (warningsRaw || []) as Record<string, unknown>[],
     activityWarnings: (activityWarningsRaw || []) as Record<string, unknown>[],

@@ -48,7 +48,7 @@ function setup(oldPending = false) {
     ALTER TABLE tournament_season_slot_assignments ADD assigned_at timestamptz DEFAULT now(),
       ADD FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE SET NULL;
     ALTER TABLE matches ADD reserve_team_id uuid REFERENCES teams(id), ADD reserve_replaces_team_id uuid,
-      ADD finished_at timestamptz, ADD home_goals integer, ADD away_goals integer, ADD match_event_details jsonb,
+      ADD finished_at timestamptz, ADD went_120 boolean DEFAULT false, ADD home_goals integer, ADD away_goals integer, ADD match_event_details jsonb,
       ADD FOREIGN KEY(home_team_id) REFERENCES teams(id), ADD FOREIGN KEY(away_team_id) REFERENCES teams(id);
     CREATE TABLE fixture_warnings(team_id uuid,tournament_id uuid,round_id uuid,active boolean);
     CREATE TABLE profiles(hattrick_user_id bigint,teams_json jsonb);
@@ -98,6 +98,8 @@ function setup(oldPending = false) {
   const allowance = readFileSync(new URL('../migrations/121_limit_country_size_manager_allowance.sql', import.meta.url), 'utf8');
   sql(allowance.slice(allowance.indexOf('CREATE FUNCTION public.enforce_country_size_allowance'), allowance.indexOf('COMMIT;')));
   migration('137_reserve_waiting_and_past_actions.sql');
+  migration('148_tournament_lobby.sql');
+  migration('149_organizer_regular_rounds.sql');
 }
 
 test('phase 1 membership over applied 134, 135 and 136', { skip: !enabled }, async (t) => {
@@ -240,5 +242,76 @@ test('phase 1 membership over applied 134, 135 and 136', { skip: !enabled }, asy
     const values={ tournament_id:id(10),ht_team_id:9,name:'New',active:false,reserve_active:true };
     assert.throws(() => sql(`SELECT save_verified_tournament_registration(${json(values)},NULL,false);`), /registration is closed/);
     sql(transition()); assert.equal(state(), 't|f|f|t');
+  });
+});
+
+
+test('Lobby and explicit organizer rounds', { skip: !enabled }, async (t) => {
+  const context = () => JSON.parse(sql(`SELECT get_organizer_round_context('${id(10)}',1);`)) as { rosterVersion: string };
+  const slot = { id: 'S95-W15-weekend', kind: 'weekend_friendly', date: '2030-03-23T12:00:00Z' };
+  const roster = [{ teamId: id(1), participation: 'round_only' }, { teamId: id(3), participation: 'round_only' }];
+  const matches = [{ home_team_id: id(1), away_team_id: id(3), scheduled_for: '2030-03-23T12:00:00Z' }];
+  const save = (version = context().rosterVersion, field = roster, fixtures = matches) =>
+    `SELECT create_organizer_regular_round('${id(10)}',1,'${version}',${json(slot)},${json(field)},${json(fixtures)},false);`;
+  await t.test('exclusive statuses synchronize legacy automatic admission and reject other managers', () => {
+    setup();
+    assert.equal(sql(`SELECT lobby_status FROM teams WHERE id='${id(3)}';`), 'hanging_around');
+    sql(`SELECT change_tournament_lobby_status('${id(10)}','${id(3)}','open_to_invitations',100);`);
+    assert.equal(sql(`SELECT lobby_status,actively_waiting FROM teams WHERE id='${id(3)}';`), 'open_to_invitations|f');
+    assert.throws(() => sql(`SELECT change_tournament_lobby_status('${id(10)}','${id(3)}','ready_to_join',999);`), /another manager/);
+    sql(`SELECT change_tournament_lobby_status('${id(10)}','${id(3)}','ready_to_join',100);`);
+    assert.equal(sql(`SELECT lobby_status,actively_waiting FROM teams WHERE id='${id(3)}';`), 'ready_to_join|t');
+    assert.throws(() => sql(`UPDATE teams SET lobby_status='hanging_around' WHERE id='${id(3)}';`), /authorized service route/);
+    sql(change(3,'ready',false));
+    assert.equal(sql(`SELECT lobby_status FROM teams WHERE id='${id(3)}';`),'hanging_around');
+  });
+  await t.test('round-only participation preserves membership, fixtures, and reserved pairings', () => {
+    setup(); const before = state();
+    const result = JSON.parse(sql(save())) as { roundId: string };
+    assert.equal(state(), before);
+    assert.equal(sql(`SELECT count(*) FROM round_participants WHERE round_id='${result.roundId}';`),'2');
+    assert.equal(sql(`SELECT schedule_slot_type FROM matches WHERE round_id='${result.roundId}';`),'weekend_friendly');
+    assert.equal(sql(`SELECT count(*) FROM matches WHERE id='${id(40)}';`),'1');
+    assert.equal(sql(`SELECT phase_status FROM rounds WHERE id='${id(21)}';`),'pending');
+  });
+  await t.test('stale, duplicate and invalid roster saves leave no partial effects', () => {
+    setup(); const stale = context().rosterVersion;
+    sql(change(3,'ready',true));
+    assert.throws(() => sql(save(stale)), /changed/);
+    assert.equal(sql(`SELECT count(*) FROM rounds WHERE round_source='organizer';`),'0');
+    assert.throws(() => sql(save(context().rosterVersion, roster, [{ ...matches[0], away_team_id: id(1) }])), /exactly once/);
+    sql(save());
+    assert.throws(() => sql(save()), /already has a round/);
+    assert.equal(sql('SELECT count(*) FROM round_participants;'),'2');
+  });
+  await t.test('admission is atomic with round save and existing authorization grants stay closed', () => {
+    setup();
+    sql(save(context().rosterVersion,[roster[0],{teamId:id(3),participation:'admit'}]));
+    assert.equal(state(),'t|f|f|t');
+    assert.equal(sql(`SELECT has_function_privilege('anon','public.create_organizer_regular_round(uuid,integer,text,jsonb,jsonb,jsonb,boolean)','EXECUTE');`),'f');
+    assert.equal(sql(`SELECT has_table_privilege('anon','public.round_participants','INSERT');`),'f');
+  });
+  await t.test('failed continuing admission rolls back the entire roster and concurrent saves create one round', async () => {
+    setup(); sql('UPDATE tournaments SET max_teams=2;');
+    assert.throws(() => sql(save(context().rosterVersion,[roster[0],{teamId:id(3),participation:'admit'}])), /limit/);
+    assert.equal(state(),'f|t|f|t');
+    assert.equal(sql("SELECT count(*) FROM rounds WHERE round_source='organizer';"),'0');
+    const statement = save();
+    const results = await Promise.allSettled([sqlAsync(statement), sqlAsync(statement)]);
+    assert.equal(results.filter(result => result.status==='fulfilled').length,1);
+    assert.equal(sql("SELECT count(*) FROM rounds WHERE round_source='organizer';"),'1');
+    assert.equal(sql('SELECT count(*) FROM round_participants;'),'2');
+  });
+  await t.test('unresolved added rounds block qualification but can complete independently', () => {
+    setup();
+    const result = JSON.parse(sql(save())) as { roundId:string };
+    sql(`UPDATE rounds SET phase='postseason' WHERE id='${id(21)}';`);
+    const blocked = JSON.parse(sql(`SELECT apply_length_round_transition('${id(10)}',1,'${id(20)}','${id(21)}','[]',NULL);`));
+    assert.equal(blocked.reason,'additional_regular_round_unresolved');
+    assert.equal(sql(`SELECT phase_status FROM rounds WHERE id='${id(20)}';`),'materialized');
+    sql(`UPDATE matches SET completed=true,status='finished' WHERE round_id='${result.roundId}';`);
+    sql(`SELECT apply_length_round_transition('${id(10)}',1,'${result.roundId}',NULL,'[]',NULL);`);
+    assert.equal(sql(`SELECT phase_status FROM rounds WHERE id='${result.roundId}';`),'completed');
+    assert.equal(state(),'f|t|f|t');
   });
 });

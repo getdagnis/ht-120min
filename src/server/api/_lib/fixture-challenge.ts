@@ -65,3 +65,7 @@ export function getFixtureChallengeSide(input: {
   if (input.awayOwnerId === input.viewerUserId) return 'away';
   return null;
 }
+
+export function getFixtureWeekendFlag(slotType?: string | null): 0 | 1 {
+  return slotType === 'weekend_friendly' || slotType === 'week15_weekend_friendly' ? 1 : 0;
+}

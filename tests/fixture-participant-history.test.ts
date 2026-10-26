@@ -17,7 +17,7 @@ registerHooks({
 });
 const { FixturesView } = await import('../src/components/TournamentTabs/FixturesView.js');
 
-function renderFixture(active: boolean, side: 'home' | 'away', bye = false, isHistorical = false) {
+function renderFixture(active: boolean, side: 'home' | 'away', bye = false, isHistorical = false, mixedField = false, viewer: number | null = 99) {
   const participant = { name: 'Former participant', active, ht_team_id: 12345, hattrick_user_id: 99, manager_name: 'Original manager' };
   const opponent = { name: 'Original opponent', active: true, ht_team_id: 67890 };
   const match = {
@@ -31,13 +31,16 @@ function renderFixture(active: boolean, side: 'home' | 'away', bye = false, isHi
     chpp_match_date: '2026-10-13T19:25:00Z',
   };
   const props: React.ComponentProps<typeof FixturesView> = {
-    rounds: [{ id: 'round-1', round_number: 1, created_at: '2026-10-01T00:00:00Z', matches: [match] }],
+    rounds: [{ id: 'round-1', round_number: 1, created_at: '2026-10-01T00:00:00Z', matches: mixedField ? [match,
+      { ...match, id: 'second-owned-team', home_team: { ...participant, name: 'My other club', ht_team_id: 555 }, home_team_id: 'second-club' },
+      ...Array.from({ length: 78 }, (_, index) => ({ ...match, id: `other-${index}`, home_team: { ...opponent, name: `Unrelated club ${index}` }, away_team: opponent })),
+    ] : [match] }],
     season: 1, upcomingRoundIndex: 0, focusedRoundIndex: 0, defaultVisibleRoundsCount: 1,
     expandedRounds: { 'round-1': true }, toggleRound() {}, onExpandAllRounds() {}, onCollapseAllRounds() {},
     tournament: { id: 'cup', name: 'Cup', slug: 'cup', created_at: '2026-10-01T00:00:00Z', last_fixtures_refresh: null },
     isRefreshingFixtures: false, async handleRefreshFixtures() {}, async onRatingsChanged() {},
     copied: {}, setCopied() {}, warnings: [], liveData: {}, canJoinTournament: false,
-    isConnecting: false, onJoinWithHattrick() {}, onRatingsSignIn() {}, currentHtUserId: 99, isHistorical,
+    isConnecting: false, onJoinWithHattrick() {}, onRatingsSignIn() {}, currentHtUserId: viewer, isHistorical,
   };
   return renderToStaticMarkup(React.createElement(NextIntlClientProvider, {
     locale: 'en', messages, timeZone: 'UTC',
@@ -60,4 +63,20 @@ test('leaving keeps the actual finished fixture rendering identical on either si
 
 test('a genuinely empty fixture side still renders BYE', () => {
   assert.match(renderFixture(false, 'away', true), />BYE</);
+});
+
+
+test('My Matches defaults to every owned team in a large mixed field, including departed teams', () => {
+  const html = renderFixture(false, 'home', false, false, true);
+  assert.match(html, /My Matches/);
+  assert.match(html, /Former participant/);
+  assert.match(html, /My other club/);
+  assert.doesNotMatch(html, /Unrelated club/);
+  assert.doesNotMatch(html, /Show details/);
+});
+
+test('anonymous visitors see the complete tournament field', () => {
+  const html = renderFixture(false, 'home', false, false, true, null);
+  assert.match(html, /Unrelated club 77/);
+  assert.match(html, /All Matches/);
 });

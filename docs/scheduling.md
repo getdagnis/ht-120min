@@ -8,7 +8,7 @@ Scheduling is app-owned product logic. It creates Hattrick-friendly tournament r
 - Weeks 1-3 are blocked cup weeks.
 - Weeks 4-6 are selectable but shown with cup-risk warnings.
 - Normal tournament rounds use midweek friendly slots.
-- Week 15 weekend is optional because qualification games can block teams.
+- Week 15 weekend is optional because qualification games can block teams; the organizer-added regular-round tool can use it without regenerating the season.
 - Week 16 weekend is a regular friendly slot and is included by default.
 - Odd-team tournaments generate BYE rows instead of fake opponents.
 
@@ -339,3 +339,14 @@ suppresses Cup during live play, an identified complete matches response can
 verify availability: unresolved cup fixtures block; absence of them requires an
 upcoming league fixture beyond the reserved friendly date to establish schedule
 coverage. Empty, wrong-team or incomplete feeds remain unknown and block admission.
+
+
+## Organizer-added counted rounds
+
+The additional-round tool owns an explicit per-round roster across Active, Lobby,
+and Past teams, independent of continuing season membership. It can materialize
+alongside an unresolved reserved round, retains separate round numbers, and appears
+in calendar order. It never renumbers or overwrites the frozen pairing plan.
+All counted additional rounds must resolve before playoff qualification or final
+reserved-round completion. Details, migration prerequisites, guest standings,
+booking behavior, and acceptance: [Tournament Lobby and organizer-added rounds](tournament-lobby-and-rounds.md).

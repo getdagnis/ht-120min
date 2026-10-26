@@ -2,6 +2,14 @@ import en from './en.js';
 
 const messages = {
   ...en,
+  lobby: {
+    title: "Vestibils",
+    hanging_around: "Palieku kopienā",
+    ready_to_join: "Gatavs pievienoties",
+    open_to_invitations: "Atvērts uzaicinājumiem",
+    statusForTeam: "Komandas {team} statuss vestibilā",
+    saveError: "Neizdevās atjaunināt statusu.",
+  },
   common: {
     ...en.common,
     language: 'Valoda',
@@ -498,7 +506,7 @@ const messages = {
       joiningFromNextRoundExplainer: "Tava komanda gaidīs nākamo pieejamo pamatturnīra kārtu. Pašreizējās spēles nemainīsies.",
       pendingNextRoundNotice: "Tava komanda ir gaidīšanas sarakstā un pievienosies, kad būs pieejama vieta.",
       participantClosedReserveOpen: "Dalībnieku pieteikšanās ir slēgta. Rezerves komandu joprojām var pieteikt.",
-      waitingTeams: "Gaidīšanā",
+      waitingTeams: "Vestibils",
       registrationClosed: "Pieteikšanās turnīram ir slēgta.",
       participatingFromNextRound: "Piedalīsies no nākamās kārtas",
       joinAnotherFromNextRound: "Tu jau piedalies. Citu atbilstošu komandu var pievienot gaidīšanas sarakstam.",
@@ -1126,6 +1134,11 @@ const messages = {
       noTeamMatches: 'Šajā kārtā nav spēļu ar tavām turnīra komandām.',
     },
     FixturesView: {
+      myMatches: "Manas spēles",
+      allMatches: "Visas spēles",
+      matchView: "Spēļu skats",
+      noPersonalMatches: "Šajā sezonā tavām komandām nav spēļu.",
+
       seasonFixtures: '',
       seasonNumber: '',
       roundNumber: '',

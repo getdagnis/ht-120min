@@ -93,7 +93,7 @@ export function sectionForKey(key: string): CatalogSection {
   }
   if (key.startsWith('Home.tinder')) return 'Tinder';
   if (key.startsWith('Home.')) return 'Home';
-  if (key.startsWith('fixtures.')) return 'TournamentView';
+  if (key.startsWith('fixtures.') || key.startsWith('lobby.')) return 'TournamentView';
   return 'System';
 }
 

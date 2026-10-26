@@ -1,3 +1,4 @@
+import { getFixtureWeekendFlag } from '../_lib/fixture-challenge.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
@@ -63,6 +64,8 @@ type ForgeTeamRow = {
 };
 
 type ForgeMatchRow = {
+  schedule_slot_type: string | null;
+  round: { round_source: string; round_participants: Array<{ team_id: string }> } | null;
   id: string;
   round_id: string;
   home_team_id: string | null;
@@ -519,13 +522,18 @@ function toFixtureTeam(team: ForgeTeamRow | null): ForgeFixtureTeam | null {
 }
 
 function toFixture(match: ForgeMatchRow): ForgeFixtureRecord {
+  const roster = new Set(match.round?.round_source === 'organizer' ? match.round.round_participants.map(row => row.team_id) : []);
+  const side = (team: ForgeTeamRow | null) => {
+    const value = toFixtureTeam(team);
+    return value && roster.has(value.id) ? { ...value, active: true } : value;
+  };
   return {
     id: match.id,
     roundId: match.round_id,
     status: match.status,
     completed: match.completed === true,
-    home: toFixtureTeam(relationOne(match.home_team)),
-    away: toFixtureTeam(relationOne(match.away_team)),
+    home: side(relationOne(match.home_team)),
+    away: side(relationOne(match.away_team)),
   };
 }
 
@@ -552,6 +560,7 @@ async function inspectTeamChallenge(
   consumerKey: string | undefined,
   consumerSecret: string | undefined,
   cache: ManagerCache,
+  isWeekendFriendly: 0 | 1,
 ): Promise<ChallengeSnapshot> {
   if (!team || !team.hattrick_user_id || !team.ht_team_id) {
     return {
@@ -624,7 +633,7 @@ async function inspectTeamChallenge(
       oauthToken: credentials.oauth_token,
       oauthTokenSecret: credentials.oauth_token_secret,
       teamId: Number(team.ht_team_id),
-      isWeekendFriendly: 0,
+      isWeekendFriendly,
     });
     if (view.httpStatus < 200 || view.httpStatus >= 300) {
       return {
@@ -685,6 +694,8 @@ async function loadFixtureRows(
       completed,
       ht_match_id,
       scheduled_for,
+      schedule_slot_type,
+      round:rounds(round_source,round_participants(team_id)),
       home_team:teams!matches_home_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges),
       away_team:teams!matches_away_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges)
     `)
@@ -692,7 +703,7 @@ async function loadFixtureRows(
     if (matchIds) query = query.in('id', matchIds);
     const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + 499);
     if (error) throw error;
-    rows.push(...((data || []) as ForgeMatchRow[]));
+    rows.push(...((data || []) as unknown as ForgeMatchRow[]));
     if (!data || data.length < 500) break;
   }
   return rows;
@@ -794,6 +805,7 @@ async function buildMatchesResponse(
         consumerKey,
         consumerSecret,
         cache,
+        getFixtureWeekendFlag(row.schedule_slot_type),
       ),
       inspectTeamChallenge(
         supabase,
@@ -802,6 +814,7 @@ async function buildMatchesResponse(
         consumerKey,
         consumerSecret,
         cache,
+        getFixtureWeekendFlag(row.schedule_slot_type),
       ),
     ]);
     const homeOpponentHtId = fixture.away?.htTeamId || 0;
@@ -975,7 +988,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
         oauthToken: credentials.oauth_token,
         oauthTokenSecret: credentials.oauth_token_secret,
         teamId: side.htTeamId,
-        isWeekendFriendly: 0,
+        isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
       });
       if (view.httpStatus < 200 || view.httpStatus >= 300 || (view.parsed.errorCode !== undefined && view.parsed.errorCode !== 0)) {
         return res.status(502).json({ error: `Cannot verify ${side.name}'s challenge state.` });
@@ -1042,7 +1055,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
     oauthToken: credentials.oauth_token,
     oauthTokenSecret: credentials.oauth_token_secret,
     teamId: context.target.team.htTeamId,
-    isWeekendFriendly: 0,
+    isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
   });
   if (view.httpStatus < 200 || view.httpStatus >= 300) return res.status(502).json({ error: `CHPP challenge state failed (${view.httpStatus}).` });
   if (view.parsed.errorCode !== undefined && view.parsed.errorCode !== 0) {
@@ -1066,7 +1079,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       oauthTokenSecret: credentials.oauth_token_secret,
       teamId: context.target.team.htTeamId,
       trainingMatchId: existingOutgoing.trainingMatchId,
-      isWeekendFriendly: 0,
+      isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
     });
     if (!withdrawn.success) return res.status(502).json({ error: withdrawn.errorMessage || 'Hattrick could not withdraw this challenge.' });
     if (req.body?.compactResponse === true) return res.status(200).json({
@@ -1095,7 +1108,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       opponentTeamId: opponentHtTeamId,
       matchType: 1,
       matchPlace: requestedMatchPlace ?? context.target.matchPlace,
-      isWeekendFriendly: 0,
+      isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
     });
     if (!sent.success) return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.' });
     if (req.body?.compactResponse === true) return res.status(200).json({
@@ -1121,7 +1134,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
     oauthTokenSecret: credentials.oauth_token_secret,
     teamId: context.target.team.htTeamId,
     trainingMatchId: existingIncoming.trainingMatchId,
-    isWeekendFriendly: 0,
+    isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
   });
   if (!accepted.success) return res.status(502).json({ error: accepted.errorMessage || 'Hattrick could not accept this challenge.' });
   if (req.body?.compactResponse === true) return res.status(200).json({

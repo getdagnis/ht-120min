@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
+
+import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
@@ -111,6 +113,8 @@ import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView, type ChatAuthorProfile } from '../../components/TournamentTabs/ChatView';
+import { TeamByline } from '../../components/TeamByline/TeamByline';
+import { LobbyStatusSelect } from '../../components/TournamentTabs/LobbyStatusSelect';
 import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { TournamentAdmin, type TournamentAdminController } from '../../components/TournamentTabs/Admin/TournamentAdmin';
 import { useTournamentAdminState } from '../../components/TournamentTabs/Admin/useTournamentAdminState';
@@ -397,6 +401,7 @@ export interface Team {
   reapply_season_number?: number | null;
   reserve_active?: boolean;
   actively_waiting?: boolean;
+  lobby_status?: import('../../utils/team-state').LobbyStatus;
   reserve_joined_at?: string | null;
   team_rank?: number | null;
   power_rating?: number | null;
@@ -469,6 +474,8 @@ export interface Tournament {
 export interface RoundWithMatches {
   id: string;
   round_number: number;
+  round_source?: 'scheduled' | 'organizer';
+  round_participants?: Array<{ team_id: string; participation: 'round_only' | 'admit' }>;
   created_at: string;
   season_number?: number;
   phase?: 'regular' | 'postseason';
@@ -635,6 +642,8 @@ function restoreFixtureSnapshot(snapshot: SeasonFixturesSnapshot): RoundWithMatc
     created_at: round.created_at,
     phase: round.phase,
     phase_status: round.phase_status,
+    round_source: round.round_source,
+    round_participants: round.round_participants,
     reserved_slot_date: round.reserved_slot_date,
     matches: round.matches
       .map((match) => ({
@@ -2028,7 +2037,7 @@ export const TournamentView: React.FC<{
           }))
           .sort(compareFixtures),
       }));
-      setRounds(newRounds as RoundWithMatches[]);
+      setRounds(orderFixtureRounds(newRounds as RoundWithMatches[]));
       setStandings(
         calculateSeasonSlotStandings(
           teams.map((team) => toStandingTeam(team)),
@@ -2037,6 +2046,7 @@ export const TournamentView: React.FC<{
           tournament.scoring_mode as '120m' | '120min' | 'average120' | 'points' | 'appg',
           seasonSlotAssignments,
           tournament.schedule_mode === 'length',
+          additionalRoundParticipantIds(newRounds as RoundWithMatches[]),
         ),
       );
     }
@@ -6901,6 +6911,8 @@ export const TournamentView: React.FC<{
                     <li key={team.id}>
                       {team.logo_url && <img src={team.logo_url} alt="" />}
                       <span>{team.name}</span>
+                      <TeamByline mode="standings" teamId={team.ht_team_id} teamName={team.name} managerName={team.manager_name} managerHtId={team.hattrick_user_id} countryName={team.country_name} countryId={team.country_id} />
+                      <LobbyStatusSelect tournamentId={tournament.id} team={team} canEdit={team.hattrick_user_id === Number(myHtUserId) || Boolean(roleAccess?.canManageOperations)} onChanged={async () => { await fetchData({ showLoader: false, invalidate: false, fresh: true }); }} />
                       {team.hattrick_user_id === Number(myHtUserId) && (
                         <Button
                           size="xs"
