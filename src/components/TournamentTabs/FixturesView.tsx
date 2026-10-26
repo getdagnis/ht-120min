@@ -284,6 +284,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const fixtureText = useTranslations('fixtures');
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
+  const [showMisarrangedMatches, setShowMisarrangedMatches] = React.useState(false);
   const [viewChoice, setViewChoice] = React.useState<{ context: string; view: 'mine' | 'all' } | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
   const teamFilterRef = React.useRef<HTMLDivElement | null>(null);
@@ -461,9 +462,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const filteredRounds = React.useMemo(() => {
     const result = rounds.map((round) => ({
       ...round,
-      matches: round.matches.filter((match) => fixtureView === 'mine'
-        ? isOwnedMatch(match)
-        : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
+      matches: round.matches.filter((match) =>
+        (showMisarrangedMatches || match.status !== 'misarranged') &&
+        (fixtureView === 'mine'
+          ? isOwnedMatch(match)
+          : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
+      ),
     })).filter((round) => round.matches.length > 0 || (fixtureView === 'all' && !selectedTeamId));
     if (fixtureView === 'mine') {
       const finished = (round: typeof result[number]) => round.matches.every((match) => match.completed || match.status === 'misarranged');
@@ -472,7 +476,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       result.sort((a, b) => Number(finished(a)) - Number(finished(b)) || (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!));
     }
     return result;
-  }, [rounds, fixtureView, selectedTeamId, isOwnedMatch]);
+  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch]);
   const selectedTeamName = fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
@@ -938,6 +942,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   </div>
                 )}
               </div>
+            )}
+            {rounds.length > 0 && (
+              <button
+                type="button"
+                className={styles.fixturesHeaderAction}
+                aria-pressed={showMisarrangedMatches}
+                onClick={() => setShowMisarrangedMatches((show) => !show)}
+              >
+                <span>{uiText(showMisarrangedMatches ? 'showMisarrangedOn' : 'showMisarrangedOff')}</span>
+              </button>
             )}
             {rounds.length > 0 && (
               <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
