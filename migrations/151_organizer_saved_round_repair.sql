@@ -128,3 +128,5 @@ END $$;
 REVOKE ALL ON FUNCTION public.save_verified_organizer_round(uuid,integer,text,jsonb,jsonb,jsonb,boolean,uuid,uuid,text,bigint) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.save_verified_organizer_round(uuid,integer,text,jsonb,jsonb,jsonb,boolean,uuid,uuid,text,bigint) TO service_role;
 COMMIT;
+
+-- applied!

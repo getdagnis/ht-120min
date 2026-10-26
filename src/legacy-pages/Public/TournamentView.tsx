@@ -6910,38 +6910,42 @@ export const TournamentView: React.FC<{
                   {reserveTeams.map((team) => (
                     <li key={team.id}>
                       {team.logo_url && <img src={team.logo_url} alt="" />}
-                      <span>{team.name}</span>
-                      <TeamByline mode="standings" teamId={team.ht_team_id} teamName={team.name} managerName={team.manager_name} managerHtId={team.hattrick_user_id} countryName={team.country_name} countryId={team.country_id} />
-                      <LobbyStatusSelect tournamentId={tournament.id} team={team} canEdit={team.hattrick_user_id === Number(myHtUserId) || Boolean(roleAccess?.canManageOperations)} onChanged={async () => { await fetchData({ showLoader: false, invalidate: false, fresh: true }); }} />
-                      {team.hattrick_user_id === Number(myHtUserId) && (
-                        <Button
-                          size="xs"
-                          variant="secondaryAction"
-                          disabled={withdrawingPendingTeamId !== null}
-                          onClick={async () => {
-                            if (!window.confirm(uiText('withdrawNextRoundConfirm'))) return;
-                            setWithdrawingPendingTeamId(team.id);
-                            try {
-                              const response = await fetch('/api/app?route=next-round-join', {
-                                method: 'POST',
-                                credentials: 'same-origin',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id }),
-                              });
-                              const result = (await response.json()) as { error?: string };
-                              if (!response.ok)
-                                throw new Error(result.error || 'Could not withdraw this registration.');
-                              await fetchData({ showLoader: false, invalidate: false, fresh: true });
-                            } catch (error) {
-                              alert(error instanceof Error ? error.message : 'Could not withdraw this registration.');
-                            } finally {
-                              setWithdrawingPendingTeamId(null);
-                            }
-                          }}
-                        >
-                          {uiText('withdrawNextRound')}
-                        </Button>
-                      )}
+                      <div className={styles.lobbyTeamDetails}>
+                        <span className={styles.lobbyTeamName}>{team.name}</span>
+                        <TeamByline mode="standings" teamId={team.ht_team_id} teamName={team.name} managerName={team.manager_name} managerHtId={team.hattrick_user_id} countryName={team.country_name} countryId={team.country_id} />
+                      </div>
+                      <div className={styles.lobbyTeamActions}>
+                        <LobbyStatusSelect tournamentId={tournament.id} team={team} canEdit={team.hattrick_user_id === Number(myHtUserId) || Boolean(roleAccess?.canManageOperations)} onChanged={async () => { await fetchData({ showLoader: false, invalidate: false, fresh: true }); }} />
+                        {team.hattrick_user_id === Number(myHtUserId) && (
+                          <Button
+                            size="xs"
+                            variant="secondaryAction"
+                            disabled={withdrawingPendingTeamId !== null}
+                            onClick={async () => {
+                              if (!window.confirm(uiText('withdrawNextRoundConfirm'))) return;
+                              setWithdrawingPendingTeamId(team.id);
+                              try {
+                                const response = await fetch('/api/app?route=next-round-join', {
+                                  method: 'POST',
+                                  credentials: 'same-origin',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id }),
+                                });
+                                const result = (await response.json()) as { error?: string };
+                                if (!response.ok)
+                                  throw new Error(result.error || 'Could not withdraw this registration.');
+                                await fetchData({ showLoader: false, invalidate: false, fresh: true });
+                              } catch (error) {
+                                alert(error instanceof Error ? error.message : 'Could not withdraw this registration.');
+                              } finally {
+                                setWithdrawingPendingTeamId(null);
+                              }
+                            }}
+                          >
+                            {uiText('withdrawNextRound')}
+                          </Button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

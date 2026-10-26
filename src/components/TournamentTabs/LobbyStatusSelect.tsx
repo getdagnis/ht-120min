@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { getLobbyStatus, LOBBY_STATUSES, type CurrentParticipantTeamState, type LobbyStatus } from '../../utils/team-state';
+import styles from './LobbyStatusSelect.module.sass';
 
 export function LobbyStatusSelect({ tournamentId, team, onChanged, canEdit = true }: {
   tournamentId: string;
@@ -27,10 +28,12 @@ export function LobbyStatusSelect({ tournamentId, team, onChanged, canEdit = tru
       setError(cause instanceof Error ? cause.message : text('saveError'));
     } finally { setBusy(false); }
   }
-  return <div>
-    {canEdit ? <select aria-label={text('statusForTeam', { team: team.name })} value={status} disabled={busy} onChange={(event) => void change(event.target.value as LobbyStatus)}>
-      {LOBBY_STATUSES.map(value => <option key={value} value={value}>{text(value)}</option>)}
-    </select> : <span>{text(status)}</span>}
-    {error && <p role="alert">{error}</p>}
+  return <div className={styles.root}>
+    {canEdit ? <span className={styles.selectWrap}>
+      <select className={styles.select} aria-label={text('statusForTeam', { team: team.name })} value={status} disabled={busy} onChange={(event) => void change(event.target.value as LobbyStatus)}>
+        {LOBBY_STATUSES.map(value => <option key={value} value={value}>{text(value)}</option>)}
+      </select>
+    </span> : <span>{text(status)}</span>}
+    {error && <p className={styles.error} role="alert">{error}</p>}
   </div>;
 }
