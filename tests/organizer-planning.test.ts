@@ -56,7 +56,7 @@ test('final verification refuses missing, unknown, conflicting and pending obser
   assert.match(validateFinalObservations([pair], teams, {}, [], false)!, /incomplete/);
   assert.match(validateFinalObservations([pair], teams, { ...checks, [teams[0].id]: { ...checks[teams[0].id], state: 'unknown' } }, [], false)!, /unknown/);
   const pending = { ...checks, [teams[0].id]: { ...checks[teams[0].id], pendingOpponentIds: [2] } };
-  assert.match(validateFinalObservations([pair], teams, pending, [], true)!, /pending/);
+  assert.match(validateFinalObservations([pair], teams, pending, [], true)!, /outgoing challenges/);
   assert.equal(validateFinalObservations([pair], teams, pending, [], true, [pair]), null);
   const booked = { ...checks[teams[0].id], state: 'booked' as const, booking: { matchId: 100, homeId: 1, awayId: 2, kickoff: '2026-10-31T10:00:00Z' } };
   assert.equal(validateFinalObservations([pair], teams, { ...checks, [teams[0].id]: booked }, [], false), null);

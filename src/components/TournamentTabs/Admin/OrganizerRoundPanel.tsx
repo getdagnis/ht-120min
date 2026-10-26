@@ -85,7 +85,6 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   const locked = (pair: LengthSchedulePairing) => protectedPairs.some(row => pairKey(row) === pairKey(pair)) || pairIsBooked(pair, selected, checks);
   const playingIds = new Set((pairs || []).flatMap(pair => [pair.homeTeamId, pair.awayTeamId]));
   const playingRoster = selection.filter(row => playingIds.has(row.teamId));
-  const playingTeams = selected.filter(team => playingIds.has(team.id));
   const validation = pairs ? validateOrganizerPairings(playingRoster, pairs, selected) : null;
   const previewIssue = pairs ? validateFinalObservations(pairs, selected, checks, protectedPairs, Boolean(roundId), target ? asPairs(target) : []) : null;
   const roster = flagRoster(selected);
@@ -96,12 +95,21 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     calendarSlot && !checks[selected.find(team => team.ht_team_id === value.htTeamId)?.id || '']?.flagsOngoing &&
       Date.parse(value.fetchedAt) >= flagFreshnessBoundary
       ? value : { ...value, homeUnknown: true, awayUnknown: true }]));
-  let kickoffError: string | null = null;
-  const kickoffs = (pairs || []).map(pair => {
-    if (locked(pair) && target) return target.matches.find(match => match.home_team_id === pair.homeTeamId && match.away_team_id === pair.awayTeamId)?.scheduled_for;
-    try { return calendarSlot ? serializeOrganizerPairings(calendarSlot, [pair], selected)[0].scheduled_for : null; }
-    catch (cause) { kickoffError = cause instanceof Error ? cause.message : 'Kickoff is unknown.'; return null; }
+  const kickoffResults = (pairs || []).map(pair => {
+    if (locked(pair) && target) {
+      return {
+        scheduledFor: target.matches.find(match => match.home_team_id === pair.homeTeamId && match.away_team_id === pair.awayTeamId)?.scheduled_for,
+        error: null,
+      };
+    }
+    try {
+      return { scheduledFor: calendarSlot ? serializeOrganizerPairings(calendarSlot, [pair], selected)[0].scheduled_for : null, error: null };
+    } catch (cause) {
+      return { scheduledFor: null, error: cause instanceof Error ? cause.message : 'Kickoff is unknown.' };
+    }
   });
+  const kickoffs = kickoffResults.map(result => result.scheduledFor);
+  const kickoffError = kickoffResults.find(result => result.error !== null)?.error ?? null;
   const pastKickoff = (pairs || []).some((pair, i) => !locked(pair) && kickoffs[i] && Date.parse(kickoffs[i]!) <= now);
   const gains = new Set<number>(), gainingTeams = new Set<string>();
   for (const pair of pairs || []) {
@@ -118,7 +126,11 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   useEffect(() => {
     if (!context || !touched) return;
     try { localStorage.setItem(context.storageKey, JSON.stringify({ slotId, roundId, selection, pairs, baseline })); }
-    catch { setError('Browser could not save the working draft. Export CSV before leaving.'); }
+    catch {
+      // Keep the storage failure visible so the organizer can export a backup.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError('Browser could not save the working draft. Export CSV before leaving.');
+    }
   }, [context, touched, slotId, roundId, selection, pairs, baseline]);
 
   function edited() { setTouched(true); setFinalRun(null); setScanRun(null); setSuccess(null); }
@@ -245,7 +257,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
       if (!run) {
         let result: { verification: string };
         try { result = await request<{ verification: string }>({ ...proposal, action: 'begin-verification' }, controller.current!.signal); }
-        catch (cause) { throw new Error(`${cause instanceof Error ? cause.message : 'Verification could not start.'} Nothing was saved. Try Verify and save again.`); }
+        catch (cause) { throw new Error(`${cause instanceof Error ? cause.message : 'Verification could not start.'} Nothing was saved. Try Verify and save again.`, { cause }); }
         run = { token: result.verification, proposal, done: [] }; setFinalRun(run);
       }
       const pending = run.proposal.roster.filter(row => !run!.done.includes(row.teamId));
@@ -261,7 +273,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
           result = await request<{ results: SlotObservation[] }>({ ...run.proposal, action: 'check', verification: run.token,
             teamIds: batch }, controller.current!.signal);
         } catch (cause) {
-          throw new Error(`${cause instanceof Error ? cause.message : 'Availability check failed.'} Final verification stopped at ${run.done.length}/${run.proposal.roster.length}. Nothing was saved. Use Retry / resume final verification.`);
+          throw new Error(`${cause instanceof Error ? cause.message : 'Availability check failed.'} Final verification stopped at ${run.done.length}/${run.proposal.roster.length}. Nothing was saved. Use Retry / resume final verification.`, { cause });
         }
         observations = { ...observations, ...Object.fromEntries(result.results.map(row => [row.teamId, row])) };
         setChecks(observations);
@@ -296,7 +308,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
         result = await request<{ roundNumber: number }>({ ...run.proposal, action: 'save', verification: run.token }, controller.current!.signal);
       } catch (cause) {
         setFinalRun(null);
-        throw new Error(`${cause instanceof Error ? cause.message : 'Save response unavailable.'} Reload roster and fixtures before trying again; the save was not confirmed.`);
+        throw new Error(`${cause instanceof Error ? cause.message : 'Save response unavailable.'} Reload roster and fixtures before trying again; the save was not confirmed.`, { cause });
       }
       try { localStorage.removeItem(context.storageKey); } catch { /* The next restore still requires validation. */ }
       setTouched(false); setFinalRun(null); setContext(null); setPairs(null); setSelection([]); setSavedDraft(null);

@@ -69,5 +69,5 @@ test('published values override registered keys without mutating source or repla
 test('Lobby intention translations and personal fixture labels retain their locale overrides', () => {
   assert.equal(getDictionary('lv').lobby.ready_to_join, 'Gatavs pievienoties');
   assert.equal(getDictionary('lv').PublicUI.FixturesView.myMatches, 'Manas spēles');
-  assert.equal(getDictionary('en').lobby.open_to_invitations, 'Open to invitations');
+  assert.equal(getDictionary('en').lobby.open_to_invitations, 'Available as reserve');
 });

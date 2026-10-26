@@ -395,7 +395,7 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
   let draft;
   let preferences: Awaited<ReturnType<typeof loadPairingPreferences>> = {};
   const historicalOpener = tournament.slug === 'around-the-world' && seasonNumber === 1;
-  let pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked' = 'ranked';
+  let pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked';
   try {
     preferences = await loadPairingPreferences(supabase, tournamentId, roster || [], req.body?.action === 'preview');
     const normal = buildLengthScheduleDraft(scheduleInput);
