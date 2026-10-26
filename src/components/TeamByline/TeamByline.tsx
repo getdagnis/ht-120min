@@ -331,7 +331,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           <div className={styles.matchEvents}>
             {matchNotice && (
               <div className={styles.goalsRow}>
-                <span className={styles.goalItem}>{matchNotice}</span>
+                <span className={`${styles.goalItem} ${styles.matchNotice}`}>{matchNotice}</span>
               </div>
             )}
             {groupedGoals.length > 0 && (
