@@ -17,7 +17,7 @@ export function getRoundDisplayParts(round: DisplayRound, rounds: DisplayRound[]
     .sort((a, b) => Date.parse(b.reserved_slot_date!) - Date.parse(a.reserved_slot_date!))[0] : undefined;
   if (!preceding) return { number: round.round_number, suffix: ' Extra' };
   const slot = round.reserved_slot_kind === 'weekend_friendly' ? 'Weekend' : 'Mid-week';
-  return { number: preceding.round_number, suffix: ` ${slot} Extra` };
+  return { number: preceding.round_number, suffix: ` .5 ${slot} Extra` };
 }
 
 export function getRoundDisplayLabel(round: DisplayRound, rounds: DisplayRound[]) {
