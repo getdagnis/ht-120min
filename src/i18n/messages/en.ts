@@ -1160,6 +1160,7 @@ const messages = {
     },
     FixturesView: {
       yourNextMatch: 'Your next match',
+      yourPreviousMatches: 'Your previous matches',
       nextRoundMatchesForYourTeams: 'Next round matches for your teams',
       nextRoundNumber: 'Next round (Round {round})',
       currentRoundNumber: 'Current round (Round {round})',

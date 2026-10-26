@@ -999,7 +999,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         </div>
       )}
       {rounds.length > 0 && filteredRounds.length === 0 && <p role="status">{uiText('noPersonalMatches')}</p>}
-      {filteredRounds.slice(0, visibleRoundsCount).map((round) => {
+      {filteredRounds.slice(0, visibleRoundsCount).map((round, roundIndex) => {
         const isNextRound = round.id === currentRound?.id;
         const isFocusedRound = round.id === focusedRound?.id;
         const isPendingRound = round.phase_status === 'pending';
@@ -1012,6 +1012,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           !isPendingRound &&
           round.matches.length > 0 &&
           round.matches.every((m) => m.completed || m.status === 'misarranged');
+        const startsPreviousMatches = fixtureView === 'mine' && allFinished && (
+          roundIndex === 0 || filteredRounds[roundIndex - 1].matches.some(
+            (match) => !match.completed && match.status !== 'misarranged',
+          )
+        );
 
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
@@ -1032,7 +1037,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         }
         const isCurrentRound = nowMs > 0 && currentRoundStartsAt !== null &&
           getStockholmWallClock(new Date(nowMs)).getTime() >= currentRoundStartsAt.getTime();
-        const roundTitleKey = !isHistorical && isNextRound && !allFinished
+        const roundTitleKey = !isHistorical && isFocusedRound && !allFinished
           ? isCurrentRound ? 'currentRoundNumber' : 'nextRoundNumber'
           : !isHistorical && allFinished && round.round_number === lastFinishedRoundNumber
             ? 'lastRoundNumber'
@@ -1079,7 +1084,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         };
 
         return (
-          <div key={round.id} data-round-id={round.id}>
+          <div key={round.id} data-round-id={round.id} className={startsPreviousMatches ? styles.previousMatches : undefined}>
+            {startsPreviousMatches && (
+              <h3 className={styles.personalMatchTitle}>{uiText('yourPreviousMatches')}</h3>
+            )}
             <SectionCard
               highlighted={isFocusedRound}
               collapsible

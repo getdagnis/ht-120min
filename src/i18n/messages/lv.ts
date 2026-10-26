@@ -1136,6 +1136,7 @@ const messages = {
     },
     FixturesView: {
       yourNextMatch: 'Tava nākamā spēle',
+      yourPreviousMatches: 'Tavas iepriekšējās spēles',
       nextRoundMatchesForYourTeams: 'Tavu komandu nākamās kārtas spēles',
       nextRoundNumber: 'Nākamā kārta (Kārta {round})',
       currentRoundNumber: 'Pašreizējā kārta (Kārta {round})',
