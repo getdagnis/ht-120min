@@ -50,8 +50,10 @@ export function getFocusedFixtureRoundIndex<T extends FocusRound>(
   if (!isNextWeekWindowOpen(now)) {
     const currentWeek = getHattrickWeekDetails(now);
     const currentWeekRoundIndex = materializedRoundIndices
-      .filter((index) => hasFixtureInCurrentWeek(rounds[index], currentWeek))
-      .at(-1);
+      .find((index) =>
+        rounds[index].matches.some((match) => !match.completed) &&
+        hasFixtureInCurrentWeek(rounds[index], currentWeek),
+      );
 
     if (currentWeekRoundIndex !== undefined) return currentWeekRoundIndex;
   }
