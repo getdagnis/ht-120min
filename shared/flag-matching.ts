@@ -11,7 +11,7 @@ export function canFlagTeamsPair(a: FlagHunterTeam, b: FlagHunterTeam) {
     && !(a.genderId && b.genderId && a.genderId !== b.genderId);
 }
 /** Edmonds alternating-tree/blossom matching, cardinality only. Tested against exhaustive small graphs. */
-export function maximumFlagMatching(roster: FlagHunterTeam[], seed: string, forcedByeId: number | null = null): FlagDraft {
+export function maximumFlagMatching(roster: FlagHunterTeam[], seed: string, forcedByeId: number | null = null, initialPairs: FlagDraft['pairs'] = []): FlagDraft {
   const teams = [...roster].sort((a, b) => a.htTeamId - b.htTeamId);
   if (forcedByeId !== null && (teams.length % 2 === 0 || !teams.some(team => team.htTeamId === forcedByeId))) throw new Error('A BYE override requires an odd roster and an included team.');
   if (new Set(teams.map(team => team.htTeamId)).size !== teams.length) throw new Error('Duplicate Hattrick team in roster.');
@@ -20,6 +20,15 @@ export function maximumFlagMatching(roster: FlagHunterTeam[], seed: string, forc
     a.htTeamId !== forcedByeId && b.htTeamId !== forcedByeId && canFlagTeamsPair(a, b))
     .sort((x, y) => seededFlagTie(seed, `edge:${a.htTeamId}:${x.b.htTeamId}`) - seededFlagTie(seed, `edge:${a.htTeamId}:${y.b.htTeamId}`)).map(x => x.i));
   const match = Array<number>(n).fill(-1);
+  // A repair begins with surviving pairs, but augmenting paths may revisit all
+  // of them to recover the maximum number of matches.
+  for (const pair of initialPairs) {
+    const a = teams.findIndex(team => team.htTeamId === pair.homeId);
+    const b = teams.findIndex(team => team.htTeamId === pair.awayId);
+    if (a >= 0 && b >= 0 && match[a] < 0 && match[b] < 0 && graph[a].includes(b)) {
+      match[a] = b; match[b] = a;
+    }
+  }
   let parent = Array<number>(n).fill(-1), base = Array.from({ length: n }, (_, i) => i), used = Array<boolean>(n).fill(false);
   let blossom = Array<boolean>(n).fill(false);
   const commonBase = (a: number, b: number) => {

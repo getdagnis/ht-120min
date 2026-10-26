@@ -1,7 +1,7 @@
 import { canFlagTeamsPair, maximumFlagMatching, seededFlagTie as tie } from './flag-matching.js';
 import { HATTRICK_WORLD_DETAILS } from './worlddetails.js';
 import { getCountryActiveTeamCount } from './country-active-team-counts.js';
-import { flagBenefit, type FlagCollection, type FlagDraft, type FlagHunterTeam } from './flag-hunters.js';
+import { flagBenefit, type FlagCollection, type FlagDraft, type FlagHunterTeam, type FlagPair } from './flag-hunters.js';
 
 export const FLAG_COUNTRIES = Object.values(HATTRICK_WORLD_DETAILS).filter(country => country.countryId !== null).map(country => country.leagueId);
 export type CollectionStatus = 'collecting' | 'complete' | 'unavailable' | 'unknown';
@@ -92,16 +92,27 @@ function sharedShortages(collectors: FlagPriority[]): FlagShortage[] {
 
 type Slot = [number, number]; // -1 is an unpaired slot, not a fake Hattrick team.
 interface EdgeScore { priority: bigint; managers: bigint; gains: number; mutual: number; rare: number; seeded: number }
-interface Score extends EdgeScore { singleManagerBye: number; usefulBye: number }
+interface Score extends EdgeScore { singleManagerBye: number; usefulBye: number; changes: number; repeats: number }
+export interface FlagPairingOptions {
+  managerFirst?: boolean;
+  baseline?: FlagPair[];
+  baselineByes?: number[];
+  previousPairs?: FlagPair[];
+  /** Gains already secured by booked matches from the same round. */
+  gainingManagerIds?: number[];
+}
 const empty = (): EdgeScore => ({ priority: 0n, managers: 0n, gains: 0, mutual: 0, rare: 0, seeded: 0 });
 const bitCount = (value: bigint) => { let count = 0; for (; value; value &= value - 1n) count++; return count; };
-function compare(a: Score, b: Score) {
+function compare(a: Score, b: Score, options: FlagPairingOptions) {
+  if (options.baseline && a.changes !== b.changes) return b.changes - a.changes;
+  const coverage = bitCount(a.managers) - bitCount(b.managers);
+  if (options.managerFirst && coverage) return coverage;
   // Exact lexicographic priority bits: no numeric weight can reverse an earlier collecting need.
   if (a.priority !== b.priority) return a.priority > b.priority ? 1 : -1;
   const rareDifference = a.rare - b.rare;
   const rareOrder = Math.abs(rareDifference) > Number.EPSILON * 32 * Math.max(1, Math.abs(a.rare), Math.abs(b.rare)) ? rareDifference : 0;
   return bitCount(a.managers) - bitCount(b.managers) || a.gains - b.gains || rareOrder
-    || b.singleManagerBye - a.singleManagerBye || b.usefulBye - a.usefulBye || a.seeded - b.seeded;
+    || b.repeats - a.repeats || b.singleManagerBye - a.singleManagerBye || b.usefulBye - a.usefulBye || a.seeded - b.seeded;
 }
 function partitions(ids: number[]): Slot[][] {
   if (!ids.length) return [[]];
@@ -109,11 +120,12 @@ function partitions(ids: number[]): Slot[][] {
   return rest.flatMap((second, i) => partitions(rest.filter((_, j) => i !== j)).map(tail => [[first, second] as Slot, ...tail]));
 }
 
-export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<string, FlagCollection>, seed: string, forcedByeId: number | null = null): ScarcityDraft {
+export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<string, FlagCollection>, seed: string, forcedByeId: number | null = null, options: FlagPairingOptions = {}): ScarcityDraft {
+  const compareScores = (a: Score, b: Score) => compare(a, b, options);
   if (forcedByeId !== null && (roster.length % 2 === 0 || !roster.some(team => team.htTeamId === forcedByeId))) throw new Error('A BYE override requires an odd roster and an included team.');
   const analysis = analyzeFlagRoster(roster, flags, seed), teams = new Map(roster.map(team => [team.htTeamId, team]));
   const priorityBits = new Map(analysis.priorities.filter(row => row.priority !== null).map((row, i, all) => [row.teamId, 1n << BigInt(all.length - i - 1)]));
-  const managerIds = [...new Set(roster.map(team => team.managerId).filter((id): id is number => id !== null))].sort((a, b) => a - b);
+  const managerIds = [...new Set([...roster.map(team => team.managerId).filter((id): id is number => id !== null), ...(options.gainingManagerIds || [])])].sort((a, b) => a - b);
   const managerBits = new Map(managerIds.map((id, i) => [id, 1n << BigInt(i)]));
   const managerTeams = new Map(managerIds.map(id => [id, roster.filter(team => team.managerId === id).length]));
   const priorityRows = new Map(analysis.priorities.map(row => [row.teamId, row]));
@@ -133,30 +145,40 @@ export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<stri
     if (a < 0 || b < 0) { const id = Math.max(a, b); return id < 0 ? [] : [[id, -1]]; }
     if (a === forcedByeId || b === forcedByeId || !canFlagTeamsPair(teams.get(a)!, teams.get(b)!)) return [];
     const ab = edges.get(`${a}:${b}`)!, ba = edges.get(`${b}:${a}`)!;
-    if (ab.priority !== ba.priority) return [ab.priority > ba.priority ? [a, b] : [b, a]];
+    if (!options.managerFirst && !options.baseline && ab.priority !== ba.priority) return [ab.priority > ba.priority ? [a, b] : [b, a]];
+    if (options.baseline || options.managerFirst) return [[a, b], [b, a]];
     if (ab.managers === ba.managers && ab.gains === ba.gains && ab.rare === ba.rare) return [ab.seeded > ba.seeded ? [a, b] : [b, a]];
     return [[a, b], [b, a]];
   };
   const score = (slots: Slot[]): Score => {
-    const result: Score = { ...empty(), singleManagerBye: 0, usefulBye: 0 };
+    const result: Score = { ...empty(), singleManagerBye: 0, usefulBye: 0, changes: 0, repeats: 0 };
+    for (const id of options.gainingManagerIds || []) result.managers |= managerBits.get(id) ?? 0n;
     for (const [a, b] of slots) {
+      if (options.baseline) {
+        for (const id of [a, b].filter(id => id >= 0)) {
+          const old = options.baseline.find(pair => pair.homeId === id || pair.awayId === id);
+          if (old && (old.homeId !== a || old.awayId !== b)) result.changes++;
+          if (!old && b >= 0 && options.baselineByes?.includes(id)) result.changes++;
+        }
+      }
       if (b < 0) {
         if (managerTeams.get(teams.get(a)!.managerId!) === 1) result.singleManagerBye++;
         result.usefulBye += priorityRows.get(a)?.usefulOpponentIds.length ?? 0; continue;
       }
       const edge = edges.get(`${a}:${b}`)!;
+      if (options.previousPairs?.some(pair => (pair.homeId === a && pair.awayId === b) || (pair.homeId === b && pair.awayId === a))) result.repeats++;
       result.priority |= edge.priority; result.managers |= edge.managers; result.gains += edge.gains; result.mutual += edge.mutual;
       result.rare += edge.rare; result.seeded += edge.seeded;
     }
     return result;
   };
-  const start = maximumFlagMatching(roster, seed, forcedByeId);
+  const start = maximumFlagMatching(roster, seed, forcedByeId, options.baseline);
   let slots: Slot[] = [...start.pairs.map(pair => [pair.homeId, pair.awayId] as Slot),
     ...[...start.unresolvedIds, ...(start.byeId === null ? [] : [start.byeId])].map(id => [id, -1] as Slot)];
   // Optimize individual venues before considering reassignment.
   for (let i = 0; i < slots.length; i++) {
     const options = orientations(slots[i]);
-    for (const option of options) { const candidate = slots.map((slot, j) => j === i ? option : slot); if (compare(score(candidate), score(slots)) > 0) slots = candidate; }
+    for (const option of options) { const candidate = slots.map((slot, j) => j === i ? option : slot); if (compareScores(score(candidate), score(slots)) > 0) slots = candidate; }
   }
   let evaluations = 0, limited = false;
   const BUDGET = 60000; // Fixed bounded search, not a scoring weight or organizer setting.
@@ -176,9 +198,10 @@ export function createScarcityDraft(roster: FlagHunterTeam[], flags: Record<stri
         const candidateScore: Score = { priority: restScore.priority | patchScore.priority, managers: restScore.managers | patchScore.managers,
           gains: restScore.gains + patchScore.gains, mutual: restScore.mutual + patchScore.mutual,
           rare: restScore.rare + patchScore.rare, seeded: restScore.seeded + patchScore.seeded,
+          changes: restScore.changes + patchScore.changes, repeats: restScore.repeats + patchScore.repeats,
           singleManagerBye: restScore.singleManagerBye + patchScore.singleManagerBye, usefulBye: restScore.usefulBye + patchScore.usefulBye };
-        if (compare({ ...candidateScore, seeded: 0 }, { ...currentScore, seeded: 0 }) > 0
-          && compare(candidateScore, bestScore) > 0) { best = candidate; bestScore = candidateScore; }
+        if (compareScores({ ...candidateScore, seeded: 0 }, { ...currentScore, seeded: 0 }) > 0
+          && compareScores(candidateScore, bestScore) > 0) { best = candidate; bestScore = candidateScore; }
       };
       visit(0, []);
     }

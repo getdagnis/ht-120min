@@ -4088,7 +4088,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const actor = await requireTournamentRoleSession(req, res, tournamentId);
         if (!actor) return;
         if (!actor.access.canManageOperations) return res.status(403).json({ error: 'You cannot manage this schedule.' });
-        return await handleOrganizerRound(req, res, tournamentId, actor.access.isImplicitSuperadmin);
+        return await handleOrganizerRound(req, res, tournamentId, actor.access.isImplicitSuperadmin, actor.userId);
       }
       case 'lobby-status':
         return await handleLobbyStatus(req, res);

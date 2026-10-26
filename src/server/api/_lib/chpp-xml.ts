@@ -24,6 +24,8 @@ export interface ChppTeamOption {
   homeFlagLeagueIds?: number[];
   awayFlagLeagueIds?: number[];
   flagsFetchedAt?: string;
+  homeFlagsUnknown?: boolean;
+  awayFlagsUnknown?: boolean;
   powerRating?: number;
   powerGlobalRank?: number;
   powerLeagueRank?: number;

@@ -33,7 +33,13 @@ be admitted for subsequent rounds. This round only is the default. Continuing
 admission uses the established slot-aware admission operation; existing verified
 site-admin overrides remain server-controlled.
 
-The preview generates balanced pairings from played-opponent history and supports
+The [pairing assistant](organizer-pairing-assistant.md) adds batched slot-specific
+checks, manager-first flag proposals, CSV recovery, final verification, and a
+separate saved-round repair workflow. Migrations 150 and 151 are prepared, not applied;
+its checks and repair tests are authored but unrun. The balanced preview remains
+available alongside flag-aware proposals.
+
+The preview supports
 opponent edits, venue swaps, and explicit BYEs. Every selected team must appear
 exactly once; duplicate registrations of the same known Hattrick club are rejected
 within this round. The server recalculates planned kickoffs from the canonical
@@ -86,15 +92,18 @@ use the same confirmed future CHPP kickoff guard as ordinary participants.
 
 ## Rollout and evidence
 
-Migrations `148_tournament_lobby.sql` and `149_organizer_regular_rounds.sql` are
-prepared locally, **not applied to Supabase**. They depend on the existing staged
+Migration `148_tournament_lobby.sql` has no applied marker in this checkout;
+`149_organizer_regular_rounds.sql` carries an owner-added applied marker. Neither
+is independently live-verified here. Assistant foundation 150 and separate saved-repair migration 151 are
+prepared locally and **not applied by the agent**. These depend on the existing staged
 schedule/membership migrations, including 137. Check installed functions and run
 the existing membership/season-slot preflights before owner-authorized application;
 this work does not resolve the separately documented missing-slot blocker.
 Preserve all owner migration markers.
 
-Apply the verified prerequisite migrations, then 148 and 149, before deploying
-this application's new public projections and API. Invalidate affected tournament
+Verify prerequisites and the installed 148/149 state, then apply 150 before deploying
+this application's new public projections and API. Apply 151 separately to enable
+saved-round repair; it is not required for the checker/generator/creation milestone. Invalidate affected tournament
 caches and reload old tabs. Do not roll back to an application unaware of additional
 rounds while those rounds exist; keep data/schema and use a compatible forward fix.
 Do not remove roster tables as a routine rollback.

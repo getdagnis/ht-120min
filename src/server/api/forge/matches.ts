@@ -6,6 +6,7 @@ import { getServiceSupabase } from '../_lib/supabase.js';
 import { isForgeEnabled } from '../../forge-availability.js';
 import { compareTournamentListing } from '../../../utils/tournament-collections.js';
 import { getMatchDateForRound } from '../../../utils/match-schedule.js';
+import { getRoundDisplayLabel } from '../../../../shared/round-display.js';
 import {
   acceptChppChallengeDirect,
   parseChppChallengeOffers,
@@ -88,6 +89,9 @@ type ForgeRoundRow = {
   created_at: string;
   season_number: number;
   round_number: number;
+  round_source?: string | null;
+  reserved_slot_kind?: string | null;
+  reserved_slot_date?: string | null;
   phase: 'regular' | 'postseason';
   phase_status: 'pending' | 'materialized' | 'completed';
   matches?: Array<{ completed: boolean | null; status?: string | null }> | null;
@@ -280,7 +284,7 @@ async function loadMaterializedRounds(
 ) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('id, tournament_id, created_at, season_number, round_number, phase, phase_status, matches(id, completed, status)')
+    .select('id, tournament_id, created_at, season_number, round_number, round_source, reserved_slot_kind, reserved_slot_date, phase, phase_status, matches(id, completed, status)')
     .eq('tournament_id', tournament.id)
     .eq('season_number', tournament.season || 1)
     .eq('phase', 'regular')
@@ -319,7 +323,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
   const seasonByTournament = new Map(tournaments.map((tournament) => [tournament.id, tournament.season || 1]));
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
-    .select('id, tournament_id, created_at, season_number, round_number, phase, phase_status')
+    .select('id, tournament_id, created_at, season_number, round_number, round_source, reserved_slot_kind, reserved_slot_date, phase, phase_status')
     .in('tournament_id', tournamentIds)
     .order('round_number', { ascending: true });
   if (roundsError) throw roundsError;
@@ -492,6 +496,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
       season,
       status: tournament.status,
       currentRoundNumber: round?.round_number ?? null,
+      currentRoundLabel: round ? getRoundDisplayLabel(round, tournamentRounds) : null,
       roundDate,
       matchCount: fixtures.length,
       bookedCount,
@@ -721,9 +726,15 @@ async function buildMatchesResponse(
 ) {
   const materializedRounds = await loadMaterializedRounds(supabase, tournament);
   const round = selectForgeRound(materializedRounds, options.roundNumber);
-  const roundOptions = materializedRounds
+  const roundOptions = [...materializedRounds]
+    .sort((a, b) => {
+      const first = Date.parse(a.reserved_slot_date || ''), second = Date.parse(b.reserved_slot_date || '');
+      return Number.isFinite(first) && Number.isFinite(second)
+        ? first - second || a.round_number - b.round_number : a.round_number - b.round_number;
+    })
     .map((candidate) => ({
       roundNumber: candidate.round_number,
+      roundLabel: getRoundDisplayLabel(candidate, materializedRounds),
       fixtureCount: candidate.matches?.length || 0,
       hasUnfinishedFixtures: candidate.phase_status === 'materialized'
         && Boolean(candidate.matches?.some((match) => match.completed !== true && match.status !== 'misarranged')),
@@ -902,6 +913,7 @@ async function buildMatchesResponse(
     currentRound: {
       id: round.id,
       roundNumber: round.round_number,
+      roundLabel: getRoundDisplayLabel(round, materializedRounds),
       phase: round.phase,
       phaseStatus: round.phase_status,
     },

@@ -18,7 +18,7 @@ test('Flag Hunters API protects reads, filters admissions and persists verified 
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = init?.method || (input instanceof Request ? input.method : 'GET');
     calls.push({ url, method });
-    assert.ok(method === 'GET' || (method === 'PATCH' && url.pathname.endsWith('/profiles')),
+    assert.ok(method === 'GET' || (method === 'POST' && url.pathname.endsWith('/rpc/save_team_flag_snapshot')),
       'handler may save only manager profile flag data and must never send a challenge');
     if (url.hostname === 'chpp.hattrick.org') {
       assert.equal(url.searchParams.get('file'), 'teamdetails'); assert.equal(url.searchParams.get('includeFlags'), 'true');
@@ -28,10 +28,11 @@ test('Flag Hunters API protects reads, filters admissions and persists verified 
     }
     assert.equal(url.hostname, 'flag-hunters-test.invalid', 'no real Supabase calls');
     if (url.pathname.endsWith('/tournaments')) return Response.json({ id: 'tournament', slug: 'around-the-world', name: 'Around the World' });
-    if (url.pathname.endsWith('/profiles') && method === 'PATCH') {
-      assert.equal(url.searchParams.get('hattrick_user_id'), 'eq.10');
-      profileTeams = JSON.parse(String(init?.body)).teams_json;
-      return Response.json({ hattrick_user_id: 10 });
+    if (url.pathname.endsWith('/rpc/save_team_flag_snapshot') && method === 'POST') {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.p_manager_id, 10); assert.equal(body.p_team_id, 1);
+      profileTeams = profileTeams.map(team => team.teamId === body.p_team_id ? { ...team, ...body.p_patch } : team);
+      return Response.json(true);
     }
     if (url.pathname.endsWith('/profiles') && url.searchParams.get('select') === 'teams_json') return Response.json({ teams_json: profileTeams });
     if (url.pathname.endsWith('/profiles') && !url.searchParams.get('select')?.includes('oauth_token')) return Response.json([{ hattrick_user_id: 10, country_id: 48 }]);
@@ -66,14 +67,16 @@ test('Flag Hunters API protects reads, filters admissions and persists verified 
     assert.deepEqual((result.payload as { flags: { home: number[]; away: number[] } }).flags.home, []);
     assert.deepEqual((result.payload as { flags: { home: number[]; away: number[] } }).flags.away, []);
     assert.equal(profileTeams[0]?.flagsFetchedAt, (result.payload as { flags: { fetchedAt: string } }).flags.fetchedAt);
+    assert.equal(profileTeams[0]?.homeFlagsUnknown, false);
+    assert.equal(profileTeams[0]?.awayFlagsUnknown, false);
     assert.deepEqual(profileTeams[0]?.homeFlagLeagueIds, []);
     assert.deepEqual(profileTeams[0]?.awayFlagLeagueIds, []);
     const serialized = JSON.stringify(result.payload);
     assert.equal(serialized.includes('mock-token'), false); assert.equal(serialized.includes('oauth'), false);
     flagsPresent = false;
-    const writes = calls.filter(call => call.method === 'PATCH').length;
+    const writes = calls.filter(call => call.method === 'POST').length;
     await assert.rejects(() => invoke('POST', true, { htTeamId: 1 }), /omitted/);
-    assert.equal(calls.filter(call => call.method === 'PATCH').length, writes);
+    assert.equal(calls.filter(call => call.method === 'POST').length, writes);
   } finally {
     globalThis.fetch = oldFetch;
     for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];

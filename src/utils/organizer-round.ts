@@ -6,9 +6,12 @@ export interface OrganizerRoundTeam {
   id: string; name: string; ht_team_id?: number | null; active: boolean; reserve_active: boolean; is_placeholder?: boolean;
   country_name?: string | null; league_level?: number | null; team_rank?: number | null;
   power_rating?: number | null; lobby_status?: string;
+  hattrick_user_id?: number | null; manager_name?: string | null;
+  country_id?: number | null; league_id?: number | null; gender_id?: number | null;
 }
 export interface OrganizerRoundSelection { teamId: string; participation: RoundParticipation }
 export interface OrganizerRoundHistory {
+  round_id?: string;
   home_team_id: string | null; away_team_id: string | null; completed: boolean;
   status: string | null; schedule_resolution?: string; scheduled_for?: string | null;
 }

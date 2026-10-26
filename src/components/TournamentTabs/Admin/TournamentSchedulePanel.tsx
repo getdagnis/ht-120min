@@ -12,6 +12,7 @@ import {
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
 import { getPostseasonRoundLabel, type LengthScheduleDraft } from '../../../utils/length-schedule';
+import { getRoundDisplayLabel } from '../../../../shared/round-display';
 import { isCurrentParticipantTeam } from '../../../utils/team-state';
 
 const RESTORE_ROUND_1_PANIC_MODE = false;
@@ -134,6 +135,8 @@ interface TournamentSchedulePanelProps {
     phase?: 'regular' | 'postseason';
     phase_status?: 'pending' | 'materialized' | 'completed';
     reserved_slot_date?: string | null;
+    reserved_slot_kind?: string | null;
+    round_source?: string | null;
     matches: Array<{ id: string; status?: string; home_team?: { name?: string } | null; away_team?: { name?: string } | null }>;
   }>;
   isRepairingRound?: boolean;
@@ -1101,7 +1104,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           {lengthRounds.map((round) => {
             const isCompleted = round.phase_status === 'completed';
             const isExpanded = expandedCompletedRounds[round.id] ?? round.matches.length <= 8;
-            const roundLabel = `Round ${round.round_number}${
+            const roundLabel = `${getRoundDisplayLabel(round, lengthRounds)}${
               round.phase === 'postseason'
                 ? ` — ${getPostseasonRoundLabel(lengthRounds.filter(item => item.phase === 'postseason' && item.round_number <= round.round_number).length, lengthRounds.filter(item => item.phase === 'postseason').length)}`
                 : ''

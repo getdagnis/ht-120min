@@ -6,6 +6,16 @@ implementation is a private Forge roster and round-one playground at
 local server integration for its flag-oriented opener. A tournament collection
 remains deferred.
 
+The [organizer pairing assistant](organizer-pairing-assistant.md) now reuses this
+engine for additional rounds with explicitly selected Active/Lobby/Past teams.
+Its opt-in scoring favors manager coverage before scarcity, and repairs prefer
+fewer changed teams before flag improvements. The Forge prototype's original
+strict-scarcity default and historical opener remain unchanged. Both flag-fetch
+paths now persist directional uncertainty using a concurrency-safe profile merge.
+Migration 150 is required for the shared cache writes and assistant foundation;
+151 separately enables saved repair. Both and all new runtime checks are pending
+owner verification.
+
 ## Existing schedule generator integration
 
 The authorized `generate-length-schedule` handler uses the ordinary calendar-first

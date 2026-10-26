@@ -2,34 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getManagerChppCredentials } from '../_lib/matchmaker.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
-import { normalizeFlagCountries, resolveFlagCountryId, type FlagHunterTeam, type FlagCollection } from '../../../../shared/flag-hunters.js';
+import { resolveFlagCountryId, type FlagHunterTeam, type FlagCollection } from '../../../../shared/flag-hunters.js';
 
 const positiveId = (value: unknown) => {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 };
 
-/** Reuse parsed LeagueIDs but do not mistake an omitted Flags element for an empty collection. */
-export function parseFlagHunterDetails(xml: string, htTeamId: number) {
-  if (/<ErrorCode>\s*[1-9]\d*\s*<\/ErrorCode>/i.test(xml)) throw new Error('Hattrick returned an error while retrieving flags.');
-  const blocks = [...xml.matchAll(/<Team>([\s\S]*?)<\/Team>/gi)].map(match => match[1]);
-  const block = blocks.find(item => Number(item.match(/<TeamID>\s*(\d+)\s*<\/TeamID>/i)?.[1]) === htTeamId);
-  if (!block) throw new Error('Hattrick did not return the requested team.');
-  const flags = block.match(/<Flags>([\s\S]*?)<\/Flags>/i)?.[1];
-  if (flags === undefined || !/<HomeFlags(?:\s*\/\s*>|>[\s\S]*?<\/HomeFlags>)/i.test(flags)
-    || !/<AwayFlags(?:\s*\/\s*>|>[\s\S]*?<\/AwayFlags>)/i.test(flags)) {
-    throw new Error('Hattrick omitted the flag collections; they remain unknown.');
-  }
-  const parsed = parseTeamDetailsXml(xml, htTeamId);
-  const leagueId = positiveId(parsed.leagueId);
-  if (!leagueId) throw new Error('Hattrick omitted the team LeagueID.');
-  const countryId = positiveId(parsed.countryId);
-  const home = normalizeFlagCountries(parsed.homeFlagLeagueIds), away = normalizeFlagCountries(parsed.awayFlagLeagueIds);
-  return { leagueId, countryId, genderId: positiveId(parsed.genderId), flagCountryId: resolveFlagCountryId(countryId),
-    home: home.ids, away: away.ids, homeUnknown: home.unknown, awayUnknown: away.unknown };
-}
+export { parseFlagHunterDetails } from '../_lib/flag-collections.js';
+import { parseFlagHunterDetails, persistTeamFlagSnapshot } from '../_lib/flag-collections.js';
 
 export default async function handleFlagHunters(req: VercelRequest, res: VercelResponse) {
   // Check Forge enablement here as well: the outer testing dispatcher permits an existing admin session.
@@ -81,17 +63,14 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
     home: details.home, away: details.away, homeUnknown: details.homeUnknown, awayUnknown: details.awayUnknown, fetchedAt: new Date().toISOString() };
   // Keep successful CHPP collections in the existing manager team record so
   // schedule generation can use them independently of this browser tab.
-  const { data: profile, error: profileError } = await supabase.from('profiles')
-    .select('teams_json').eq('hattrick_user_id', team.managerId).maybeSingle();
-  if (profileError || !profile) return res.status(502).json({ error: 'Flags were retrieved but could not be saved. Retry this team.' });
-  const previous = Array.isArray(profile.teams_json) ? profile.teams_json : [];
-  const matching = previous.find(item => Number(item?.teamId) === team.htTeamId);
-  const updated = { ...(matching || { teamId: team.htTeamId, teamName: team.name }),
-    leagueId: details.leagueId, countryId: details.countryId,
-    homeFlagLeagueIds: flags.home, awayFlagLeagueIds: flags.away, flagsFetchedAt: flags.fetchedAt };
-  const next = matching ? previous.map(item => Number(item?.teamId) === team.htTeamId ? updated : item) : [...previous, updated];
-  const { data: saved, error: saveError } = await supabase.from('profiles').update({ teams_json: next })
-    .eq('hattrick_user_id', team.managerId).select('hattrick_user_id').maybeSingle();
-  if (saveError || !saved) return res.status(502).json({ error: 'Flags were retrieved but could not be saved. Retry this team.' });
+  try {
+    await persistTeamFlagSnapshot(supabase, team.managerId, team.htTeamId, {
+      leagueId: details.leagueId, countryId: details.countryId,
+      homeFlagLeagueIds: flags.home, awayFlagLeagueIds: flags.away,
+      flagsFetchedAt: flags.fetchedAt, homeFlagsUnknown: flags.homeUnknown, awayFlagsUnknown: flags.awayUnknown,
+    }, { teamId: team.htTeamId, teamName: team.name });
+  } catch {
+    return res.status(502).json({ error: 'Flags were retrieved but could not be saved. Retry this team.' });
+  }
   return res.status(200).json({ team: { ...team, leagueId: details.leagueId, countryId: details.countryId, flagCountryId: details.flagCountryId, genderId: details.genderId }, flags });
 }

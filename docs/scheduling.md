@@ -343,10 +343,19 @@ coverage. Empty, wrong-team or incomplete feeds remain unknown and block admissi
 
 ## Organizer-added counted rounds
 
+The [organizer pairing assistant](organizer-pairing-assistant.md) extends this
+workflow with batched selected-slot checks, manager-first flag proposals,
+minimal-change draft repair, and transactional repair of selected organizer rounds.
+Final verification reuses the small check batches; the final save performs no
+roster-wide CHPP fetching. Foundation migration 150 and separate saved-repair
+migration 151 are prepared; runtime verification remains pending.
+
 The additional-round tool owns an explicit per-round roster across Active, Lobby,
 and Past teams, independent of continuing season membership. It can materialize
 alongside an unresolved reserved round, retains separate round numbers, and appears
-in calendar order. It never renumbers or overwrites the frozen pairing plan.
+in calendar order. Its visible title uses the preceding scheduled round and slot,
+for example `Round 2 Weekend Extra` between scheduled Rounds 2 and 3, while its
+stored round number remains distinct. It never renumbers or overwrites the frozen pairing plan.
 All counted additional rounds must resolve before playoff qualification or final
 reserved-round completion. Details, migration prerequisites, guest standings,
 booking behavior, and acceptance: [Tournament Lobby and organizer-added rounds](tournament-lobby-and-rounds.md).

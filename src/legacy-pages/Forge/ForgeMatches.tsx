@@ -24,6 +24,7 @@ interface TournamentOption {
   season: number;
   status: string | null;
   currentRoundNumber: number | null;
+  currentRoundLabel?: string | null;
   roundDate: string | null;
   matchCount: number;
   bookedCount: number;
@@ -35,6 +36,7 @@ interface TournamentOption {
 
 interface RoundOption {
   roundNumber: number;
+  roundLabel?: string;
   fixtureCount: number;
   hasUnfinishedFixtures: boolean;
 }
@@ -77,7 +79,7 @@ function isByeTeam(team: ForgeTeamView) {
 interface MatchesResponse {
   tournaments?: TournamentOption[];
   tournament?: { id: string; name: string; season: number };
-  currentRound?: { id: string; roundNumber: number; phase: string; phaseStatus: string } | null;
+  currentRound?: { id: string; roundNumber: number; roundLabel?: string; phase: string; phaseStatus: string } | null;
   roundOptions?: RoundOption[];
   fixtures?: ForgeFixtureView[];
   fixtureErrors?: Array<{ matchId: string; error: string }>;
@@ -461,7 +463,7 @@ export function ForgeMatchesSection() {
     const tournamentId = selectedTournamentId;
     const roundNumber = data?.currentRound?.roundNumber;
     if (!tournamentId || !roundNumber || bulkRunning || refreshingData || Object.keys(busyActions).length) return;
-    if (!window.confirm(`Book eligible matches in ${data?.tournament?.name}, Round ${roundNumber}?\n\nThis will refresh Hattrick data, send Cup Rules challenges, then accept matching challenges. It performs real Hattrick actions.`)) return;
+    if (!window.confirm(`Book eligible matches in ${data?.tournament?.name}, ${data?.currentRound?.roundLabel || `Round ${roundNumber}`}?\n\nThis will refresh Hattrick data, send Cup Rules challenges, then accept matching challenges. It performs real Hattrick actions.`)) return;
 
     stopBulk.current = false;
     setBulkRunning(true);
@@ -738,7 +740,7 @@ export function ForgeMatchesSection() {
                 >
                   {data.roundOptions.map((round) => (
                     <option key={round.roundNumber} value={round.roundNumber}>
-                      Round {round.roundNumber} ({round.fixtureCount} matches)
+                      {round.roundLabel || `Round ${round.roundNumber}`} ({round.fixtureCount} matches)
                       {round.hasUnfinishedFixtures ? ' · unfinished' : ' · completed'}
                     </option>
                   ))}
@@ -772,7 +774,7 @@ export function ForgeMatchesSection() {
                         </div>
                         <div className={styles.overviewMeta}>
                           <span>Season {tournament.season}</span>
-                          {tournament.currentRoundNumber && <span>Round {tournament.currentRoundNumber}</span>}
+                          {tournament.currentRoundNumber && <span>{tournament.currentRoundLabel || `Round ${tournament.currentRoundNumber}`}</span>}
                           <span>{tournament.teams.length} teams</span>
                           {tournament.roundDate && <span>Next round {formatRoundDate(tournament.roundDate)}</span>}
                         </div>
@@ -836,7 +838,7 @@ export function ForgeMatchesSection() {
                 <div className={styles.roundHeading}>
                   <h2 className={styles.roundTitle}>{data.tournament?.name}</h2>
                   <div className={styles.roundActions}>
-                    <span className={styles.roundMeta}>Round {data.currentRound.roundNumber}</span>
+                    <span className={styles.roundMeta}>{data.currentRound.roundLabel || `Round ${data.currentRound.roundNumber}`}</span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1059,7 +1061,7 @@ export function ForgeMatchesSection() {
                     </strong>
                     <span className={styles.bookingTournamentMeta}>
                       {tournament.currentRoundNumber
-                        ? `Round ${tournament.currentRoundNumber}`
+                        ? tournament.currentRoundLabel || `Round ${tournament.currentRoundNumber}`
                         : 'No materialized round'}
                       {tournament.roundDate && ` · Next round: ${formatRoundDate(tournament.roundDate)}`}
                     </span>

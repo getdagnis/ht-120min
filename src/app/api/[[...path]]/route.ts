@@ -177,7 +177,9 @@ async function invoke(request: NextRequest) {
   const finishedLiveResult = path === '/api/chpp/live-matches' && result.results &&
     Object.values(result.results).some((value) => value && typeof value === 'object' && 'status' in value && value.status === 'finished');
   const isMutation =
-    (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route)) && !(query.route === 'reserve-admission' && input.action === 'lookup')) ||
+    (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route)) &&
+      !(query.route === 'reserve-admission' && input.action === 'lookup') &&
+      !(query.route === 'organizer-round' && input.action !== 'save')) ||
     (path === '/api/teams/refresh-fixtures' && input.dryRun !== true &&
       !['suggest_ht_matches', 'team_planning_statuses'].includes(String(input.action))) || finishedLiveResult ||
     (path === '/api/matchmaker/teams' && Boolean(query.managerId)) ||

@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl';
 import React from 'react';
 import { orderFixtureRounds } from '../../utils/organizer-round';
+import { getRoundDisplayLabel, getRoundDisplayParts } from '../../../shared/round-display';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
@@ -97,6 +98,7 @@ interface FixturesViewProps {
     phase_round_number?: number;
     phase_status?: 'pending' | 'materialized' | 'completed';
     reserved_slot_date?: string | null;
+    reserved_slot_kind?: string | null;
     matches: FixtureMatch[];
   }[];
   season: number;
@@ -1042,6 +1044,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           : !isHistorical && allFinished && round.round_number === lastFinishedRoundNumber
             ? 'lastRoundNumber'
             : 'roundNumber';
+        const displayRound = getRoundDisplayParts(round, rounds);
 
         const formatMatch = (m: FixtureMatch, isNext: boolean) => {
           const hasPenaltyShootout =
@@ -1070,12 +1073,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         };
 
         const handleCopy = () => {
-          let table = `[b]${tournament?.name}[/b]\n[link=http://ht-120min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches
+          let table = `[b]${tournament?.name}[/b]\n[link=http://ht-120min.vercel.app/t/${tournament?.slug}]\n\n[b]${getRoundDisplayLabel(round, rounds).toUpperCase()}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches
             .map((m) => formatMatch(m, !m.completed && m.status !== 'misarranged'))
             .join(' ')}[/table]`;
 
           if (nextRound) {
-            table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
+            table += `\n[b]Next: ${getRoundDisplayLabel(nextRound, rounds).toUpperCase()}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
           }
           table += `\nFull fixtures: [link=http://ht-120min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
           navigator.clipboard.writeText(table);
@@ -1097,7 +1100,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 <div className={styles.roundHeader}>
                   <>
                     <span>
-                      {uiText(roundTitleKey, { round: round.round_number })}
+                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}
                       {round.phase === 'postseason'
                         ? uiText(
                             rounds.filter(
