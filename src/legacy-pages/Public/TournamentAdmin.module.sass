@@ -358,6 +358,28 @@
 .pastTeam
   background: var(--table-bg)
 
+.pastTeamList
+  margin-bottom: 0.75rem
+
+.pastTeamCheckbox
+  width: 1rem
+  height: 1rem
+  margin: 0
+  flex: 0 0 1rem
+  accent-color: var(--accent)
+  cursor: pointer
+
+.pastTeamBulkActions
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.75rem
+  margin: 0 0 2rem
+
+  span
+    color: var(--text60)
+    font-size: 0.85rem
+
 .teamCard
   display: flex
   align-items: flex-start
@@ -517,6 +539,15 @@
 
   .teamActions
     justify-content: flex-start
+
+  .teamList li.pastTeam
+    flex-direction: row
+
+    .teamCard
+      flex: 1 1 12rem
+
+    .teamActions
+      flex: 1 1 100%
 
 .inlineReplace
   display: flex

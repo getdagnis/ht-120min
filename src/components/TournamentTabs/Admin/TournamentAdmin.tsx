@@ -50,6 +50,148 @@ import type { TournamentOwnerRecord, TournamentRoleRecord } from './TournamentRo
 
 const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
+interface PastTeamSelectionContextValue {
+  selectedIds: ReadonlySet<string>;
+  selectedCount: number;
+  totalCount: number;
+  processedCount: number;
+  toggle: (teamId: string, checked: boolean) => void;
+  toggleAll: () => void;
+  moveSelected: () => void;
+}
+
+const PastTeamSelectionContext = React.createContext<PastTeamSelectionContextValue | null>(null);
+
+function usePastTeamSelection() {
+  const selection = React.useContext(PastTeamSelectionContext);
+  if (!selection) throw new Error('Past team selection is unavailable.');
+  return selection;
+}
+
+function PastTeamSelectionProvider({
+  teams,
+  tournamentId,
+  busy,
+  setBusy,
+  onChanged,
+  showNotice,
+  children,
+}: {
+  teams: Team[];
+  tournamentId: string;
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
+  onChanged: () => void | Promise<void>;
+  showNotice: (message: string) => void;
+  children: React.ReactNode;
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [processedCount, setProcessedCount] = useState(0);
+  const selectedTeams = teams.filter((team) => selectedIds.includes(team.id));
+  const selectedSet = new Set(selectedTeams.map((team) => team.id));
+  const toggle = (teamId: string, checked: boolean) => {
+    setSelectedIds((ids) => checked ? [...new Set([...ids, teamId])] : ids.filter((id) => id !== teamId));
+  };
+  const toggleAll = () => {
+    setSelectedIds(selectedTeams.length === teams.length ? [] : teams.map((team) => team.id));
+  };
+  const moveSelected = async () => {
+    if (busy || selectedTeams.length === 0) return;
+    const selected = [...selectedTeams];
+    if (!window.confirm(
+      `Move ${selected.length} selected Past ${selected.length === 1 ? 'team' : 'teams'} to Lobby, checked to join when possible?`,
+    )) return;
+
+    setBusy(true);
+    setProcessedCount(0);
+    const failures: Array<{ team: Team; reason: string }> = [];
+    let moved = 0;
+    let processed = 0;
+    try {
+      for (const team of selected) {
+        try {
+          const response = await fetch('/api/app?route=team-membership', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tournamentId, teamId: team.id, action: 'return' }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Membership could not be changed.');
+          moved += 1;
+        } catch (error) {
+          failures.push({ team, reason: error instanceof Error ? error.message : 'Membership could not be changed.' });
+        } finally {
+          processed += 1;
+          setProcessedCount(processed);
+        }
+      }
+      setSelectedIds(failures.map(({ team }) => team.id));
+      if (moved > 0) await onChanged();
+      if (failures.length > 0) {
+        showNotice(`${moved} ${moved === 1 ? 'team' : 'teams'} moved to Lobby. ${failures.length} failed:\n${
+          failures.map(({ team, reason }) => `${team.name}: ${reason}`).join('\n')
+        }`);
+      }
+    } catch (error) {
+      showNotice(`${moved} ${moved === 1 ? 'team was' : 'teams were'} moved to Lobby, but the lists could not be refreshed. ${
+        error instanceof Error ? error.message : ''
+      }`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <PastTeamSelectionContext.Provider value={{
+      selectedIds: selectedSet,
+      selectedCount: selectedTeams.length,
+      totalCount: teams.length,
+      processedCount,
+      toggle,
+      toggleAll,
+      moveSelected: () => void moveSelected(),
+    }}>
+      {children}
+    </PastTeamSelectionContext.Provider>
+  );
+}
+
+function PastTeamCheckbox({ team, disabled }: { team: Team; disabled: boolean }) {
+  const selection = usePastTeamSelection();
+  return (
+    <input
+      type="checkbox"
+      className={adminStyles.pastTeamCheckbox}
+      aria-label={`Select ${team.name} to move to Lobby`}
+      checked={selection.selectedIds.has(team.id)}
+      disabled={disabled}
+      onChange={(event) => selection.toggle(team.id, event.currentTarget.checked)}
+    />
+  );
+}
+
+function PastTeamBulkActions({ disabled, busy }: { disabled: boolean; busy: boolean }) {
+  const selection = usePastTeamSelection();
+  return (
+    <div className={adminStyles.pastTeamBulkActions}>
+      <Button type="button" size="sm" variant="secondaryAction" disabled={disabled} onClick={selection.toggleAll}>
+        {selection.selectedCount === selection.totalCount ? 'Clear selection' : 'Select all'}
+      </Button>
+      {selection.selectedCount > 0 && (
+        <>
+          <span>{selection.selectedCount} selected</span>
+          <Button type="button" size="sm" variant="action" disabled={disabled} onClick={selection.moveSelected}>
+            {busy
+              ? `Moving ${selection.processedCount}/${selection.selectedCount}...`
+              : 'Move selected to Lobby'}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 const ADMIN_PANELS = [
   { id: 'settings', label: 'Tournament Settings', description: 'General tournament settings' },
   { id: 'schedule', label: 'Generate Schedule', description: 'Generate, reschedule, or add tournament matches' },
@@ -655,6 +797,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const [pastTeamsExpanded, setPastTeamsExpanded] = useState<boolean | null>(null);
   const isPastTeamsExpanded = pastTeamsExpanded ?? pastTeams.length <= 8;
   const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
+  const [isReturningPastTeams, setIsReturningPastTeams] = useState(false);
   const [lobbyReasons, setLobbyReasons] = useState<Record<string, string>>({});
   useEffect(() => {
     if (canManageOperationalAdmin) void loadTeamPlanningStatuses();
@@ -682,11 +825,26 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
       cancelled = true;
     };
   }, [canManageOperationalAdmin, tournament.id, teams]);
+  const sendMembershipChange = async (
+    teamId: string,
+    action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
+    ready?: boolean,
+  ) => {
+    const response = await fetch('/api/app?route=team-membership', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId: tournament.id, teamId, action, ready }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Membership could not be changed.');
+  };
   const changeMembership = async (
     team: Team,
     action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
     ready?: boolean,
   ) => {
+    if (isReturningPastTeams) return;
     const description =
       action === 'promote'
         ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
@@ -702,14 +860,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     if (action !== 'ready' && !window.confirm(description + overrideWarning)) return;
     setChangingReserveId(team.id);
     try {
-      const response = await fetch('/api/app?route=team-membership', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action, ready }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Membership could not be changed.');
+      await sendMembershipChange(team.id, action, ready);
       setAdmissionSelection((ids) => ids.filter((id) => id !== team.id));
       await onReservesChanged();
     } catch (error) {
@@ -2193,9 +2344,27 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   {isPastTeamsExpanded ? 'Hide' : 'Show'}
                                 </Button>
                               </h3>
-                              <ul id="admin-past-teams" className={adminStyles.teamList} hidden={!isPastTeamsExpanded}>
+                              <PastTeamSelectionProvider
+                                teams={pastTeams}
+                                tournamentId={tournament.id}
+                                busy={isReturningPastTeams}
+                                setBusy={setIsReturningPastTeams}
+                                onChanged={onReservesChanged}
+                                showNotice={alert}
+                              >
+                              <ul
+                                id="admin-past-teams"
+                                className={`${adminStyles.teamList} ${adminStyles.pastTeamList}`}
+                                hidden={!isPastTeamsExpanded}
+                              >
                                 {pastTeams.map((team) => (
                                   <li key={team.id} className={adminStyles.pastTeam}>
+                                    {canManageOperationalAdmin && (
+                                      <PastTeamCheckbox
+                                        team={team}
+                                        disabled={isReturningPastTeams || Boolean(changingReserveId) || isSavingTeam}
+                                      />
+                                    )}
                                     <div className={adminStyles.teamCard}>
                                       <img
                                         src={team.logo_url || DEFAULT_TEAM_LOGO}
@@ -2240,9 +2409,12 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </span>
                                           )}
                                         </div>
-                                        {team.ht_team_id && (
-                                          <div className={adminStyles.teamMeta}>ID: {team.ht_team_id}</div>
-                                        )}
+                                        <div className={adminStyles.teamMeta}>
+                                          Manager: {team.manager_name?.trim() && !['Bot team', 'Admin added'].includes(team.manager_name.trim())
+                                            ? team.manager_name.trim()
+                                            : 'Unknown'}
+                                          {team.ht_team_id ? ` · ID: ${team.ht_team_id}` : null}
+                                        </div>
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
@@ -2364,7 +2536,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           size="xs"
                                           variant="action"
                                           onClick={() => void changeMembership(team, 'return')}
-                                          disabled={isSavingTeam}
+                                          disabled={isSavingTeam || isReturningPastTeams || Boolean(changingReserveId)}
                                           title="Return this team to Lobby, checked to join when possible"
                                         >
                                           To waiting
@@ -2374,6 +2546,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   </li>
                                 ))}
                               </ul>
+                              {canManageOperationalAdmin && isPastTeamsExpanded && (
+                                <PastTeamBulkActions
+                                  disabled={isReturningPastTeams || Boolean(changingReserveId) || isSavingTeam}
+                                  busy={isReturningPastTeams}
+                                />
+                              )}
+                              </PastTeamSelectionProvider>
                             </>
                           )}
 
