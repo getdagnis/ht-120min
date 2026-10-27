@@ -4,7 +4,7 @@
   p, h3
     margin: 0
   details
-    border-top: 1px solid #344359
+    border-top: 1px solid var(--border-transp)
     padding: .8rem 0
   summary
     cursor: pointer
@@ -26,4 +26,39 @@
   align-items: center
   gap: 1rem
   padding: .65rem 0
-  border-top: 1px solid #27364b
+  border-top: 1px solid var(--border-transp)
+
+.statusBadge
+  display: inline-flex
+  align-items: center
+  padding: .12rem .4rem
+  border: 1px solid currentColor
+  border-radius: var(--radius-md)
+  font-size: .7rem
+  font-weight: 800
+
+.available
+  color: white
+  border-color: var(--accent-3)
+  background: var(--accent-3)
+
+.qualifier
+  color: var(--warning)
+
+.booked
+  color: var(--danger)
+  border-color: var(--bg-danger-border)
+  background: var(--bg-danger)
+
+.date
+  color: var(--text-muted)
+  font-size: .8em
+
+.matchAvailable
+  color: var(--rating-a)
+
+.matchOccupied
+  color: var(--rating-d)
+
+.matchBothOccupied
+  color: var(--rating-f)

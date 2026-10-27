@@ -33,6 +33,21 @@ export default async function handleScheduling(req: VercelRequest, res: VercelRe
   const slot = slots.find(item => item.id === slotId) || (!slotId ? slots.find(item => item.htWeek === 15 && item.kind === 'weekend_friendly') || slots[0] : null);
   if (!slot) return res.status(400).json({ error: 'Choose a valid calendar slot.' });
   if (req.method === 'GET') {
+    const rounds: Array<{ id: string; tournament_id: string; season_number: number; round_number: number; phase_status: string | null }> = [];
+    for (let offset = 0; tournamentIds.length; offset += 500) {
+      const page = await db.from('rounds').select('id,tournament_id,season_number,round_number,phase_status').in('tournament_id', tournamentIds).order('id').range(offset, offset + 499);
+      if (page.error) throw page.error;
+      rounds.push(...(page.data || []).filter(round => round.season_number === (visibleTournaments.find(tournament => tournament.id === round.tournament_id)?.season || 1)));
+      if ((page.data || []).length < 500) break;
+    }
+    const fixtures: Array<{ id: string; round_id: string; home_team_id: string | null; away_team_id: string | null; scheduled_for: string | null; ht_match_id: number | null }> = [];
+    const roundIds = rounds.map(round => round.id);
+    for (let offset = 0; roundIds.length; offset += 500) {
+      const page = await db.from('matches').select('id,round_id,home_team_id,away_team_id,scheduled_for,ht_match_id').in('round_id', roundIds).eq('status', 'misarranged').eq('completed', false).order('id').range(offset, offset + 499);
+      if (page.error) throw page.error;
+      fixtures.push(...(page.data || []));
+      if ((page.data || []).length < 500) break;
+    }
     const observations: Array<{ ht_team_id: number; observation: unknown }> = [];
     for (let offset = 0; ; offset += 500) {
       const page = await db.from('forge_slot_observations').select('ht_team_id,observation').eq('slot_id', slot.id).order('ht_team_id').range(offset, offset + 499);
@@ -41,7 +56,7 @@ export default async function handleScheduling(req: VercelRequest, res: VercelRe
       if ((page.data || []).length < 500) break;
     }
     return res.status(200).json({ collections: collections.data, selectedCollection: selected.id, tournaments: visibleTournaments,
-      teams: teams.map(({ oauth_token: _token, oauth_token_secret: _secret, ...team }) => team), slots, selectedSlot: slot.id, observations: observations.filter(row => teams.some(team => team.ht_team_id === row.ht_team_id)), batchSize: PLANNING_BATCH_SIZE });
+      teams: teams.map(({ oauth_token: _token, oauth_token_secret: _secret, ...team }) => team), slots, selectedSlot: slot.id, rounds, fixtures, observations: observations.filter(row => teams.some(team => team.ht_team_id === row.ht_team_id)), batchSize: PLANNING_BATCH_SIZE });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const ids: unknown = req.body?.teamIds;
