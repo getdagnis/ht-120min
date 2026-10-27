@@ -298,7 +298,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
   const regularRoundIds = new Set(
     rounds
-      .filter((round) => round.phase !== 'postseason')
+      .filter((round) => round.phase !== 'postseason' && round.is_unscored !== true)
       .map((round) => String(round.id)),
   );
   const regularStandingMatches = matches.filter((match) => regularRoundIds.has(String(match.round_id)));

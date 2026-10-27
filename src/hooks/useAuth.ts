@@ -315,7 +315,7 @@ export const useAuth = () => {
           registration_type,
           created_at,
           is_featured,
-          rounds ( round_number, matches ( completed, status ) )
+          rounds ( round_number, is_unscored, matches ( completed, status ) )
         `)
         .eq('organizer_id', uid)
         .neq('status', 'archived')

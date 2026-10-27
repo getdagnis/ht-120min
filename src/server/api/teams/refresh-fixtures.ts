@@ -1237,6 +1237,7 @@ async function handleTeamPlanningStatuses(req: VercelRequest, res: VercelRespons
   const { data: roundRows, error: roundsError } = await supabase
     .from('rounds')
     .select('season_number, round_number, matches(ht_match_id, completed, status)')
+    .eq('is_unscored', false)
     .eq('tournament_id', tournamentId);
   if (roundsError) return res.status(500).json({ error: roundsError.message });
 

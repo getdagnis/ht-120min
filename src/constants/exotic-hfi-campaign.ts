@@ -85,6 +85,7 @@ type ExoticHfiMatch = {
 
 type ExoticHfiRound = {
   round_number?: number | null;
+  is_unscored?: boolean | null;
   matches?: ExoticHfiMatch[] | null;
 };
 
@@ -100,7 +101,7 @@ function isCompletedMatch(match: ExoticHfiMatch) {
 }
 
 function getExoticHfiProgress(tournament: ExoticHfiSortable) {
-  const rounds = tournament.rounds ?? [];
+  const rounds = (tournament.rounds ?? []).filter(round => !round.is_unscored);
   const matches = rounds.flatMap((round) => round.matches || []);
   const completedMatches = matches.filter(isCompletedMatch).length;
   const completedRounds = rounds

@@ -55,7 +55,7 @@ export async function checkReserveAdmission(
   const { data: tournament, error: tournamentError } = await supabase.from('tournaments').select('id, season, schedule_mode, status, is_archived, max_teams, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception').eq('id', tournamentId).single();
   if (tournamentError) throw tournamentError;
   if (tournament.is_archived || tournament.schedule_mode !== 'length' || ['finished', 'stopped', 'archived'].includes(tournament.status)) throw new Error('Reserve admission is available for running staged schedules.');
-  const { data: rounds, error: roundError } = await supabase.from('rounds').select('id, round_number, phase, phase_status, reserved_slot_id, reserved_slot_kind, reserved_slot_date').eq('tournament_id', tournamentId).eq('season_number', tournament.season).order('round_number');
+  const { data: rounds, error: roundError } = await supabase.from('rounds').select('id, round_number, phase, phase_status, reserved_slot_id, reserved_slot_kind, reserved_slot_date').eq('is_unscored', false).eq('tournament_id', tournamentId).eq('season_number', tournament.season).order('round_number');
   if (roundError) throw roundError;
   const round = rounds?.find(round => round.phase_status === 'materialized');
   if (!round || round.phase !== 'regular' || rounds?.some(round => round.phase === 'postseason' && round.phase_status !== 'pending')) throw new Error('Reserves can enter the current regular round before playoffs begin.');

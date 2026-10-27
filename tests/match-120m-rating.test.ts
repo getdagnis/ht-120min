@@ -241,7 +241,7 @@ test('reversed venues keep distinct performances with their fixture participants
   assert.equal(result?.away?.team_id, 'away');
   assert.equal(result?.away?.grade, 'B+');
   assert.equal(queries[0].columns.includes('tournament_id'), false);
-  assert.equal(queries[1].columns, 'tournament_id,season_number');
+  assert.equal(queries[1].columns, 'tournament_id,season_number,is_unscored');
   assert.equal(queries[2].filters.id, 'tournament');
   match.match_event_details = rawDetails;
   const legacy = await prepareMatch120mRatings(supabase, 'fixture');
@@ -249,6 +249,9 @@ test('reversed venues keep distinct performances with their fixture participants
   assert.equal(legacy?.away?.grade, 'B+');
   match.actual_ht_home_team_id = 999;
   assert.equal(await prepareMatch120mRatings(supabase, 'fixture'), null);
+  match.actual_ht_home_team_id = 202;
+  rows.rounds = { tournament_id: 'tournament', season_number: 1, is_unscored: true };
+  assert.equal(await prepareMatch120mRatings(supabase, 'fixture'), null, 'unscored fixtures never create a second rating');
 });
 
 test('rating database failures are returned for reporting instead of escaping into progression', async () => {

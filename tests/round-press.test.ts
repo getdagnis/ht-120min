@@ -409,3 +409,16 @@ test('configured writer selects Cloudflare and defaults to Gemini when provider 
   });
   assert.equal(gemini.provider, 'gemini');
 });
+
+test('unscored earlier rounds do not contribute to standings before a later round', () => {
+  const input = buildRoundPressInput({
+    tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' },
+    seasonNumber: 1, roundNumber: 3, teams: [home, away],
+    rounds: [
+      { id: 'round-1', round_number: 1, matches: [match('counted', 'round-1')] },
+      { id: 'extra', round_number: 2, is_unscored: true, matches: [match('extra-match', 'extra')] },
+      { id: 'round-3', round_number: 3, matches: [match('current', 'round-3')] },
+    ],
+  });
+  assert.equal(input.previousContext?.standingsBeforeRound?.find(team => team.teamId === home.id)?.played, 1);
+});

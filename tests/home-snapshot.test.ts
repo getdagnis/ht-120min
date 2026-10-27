@@ -396,3 +396,19 @@ test('Home roster embedding names its foreign key when a preferences junction al
   await buildHomeSnapshot(supabase, now);
   assert.ok(requests.some((url) => url.pathname.endsWith('/tournaments')));
 });
+
+test('Home match counts exclude unscored organizer rounds', async () => {
+  const item = { ...tournament, is_featured: true, rounds: [
+    { id: 'counted', created_at: '2026-09-01T12:00:00Z', round_number: 1, season_number: 1, matches: [
+      { id: 'm1', completed: true, status: 'finished', home_team_id: 'team', away_team_id: 'other', scheduled_for: '2026-09-30T12:00:00Z', home_team: null },
+    ] },
+    { id: 'extra', created_at: '2026-09-01T12:00:00Z', round_number: 2, season_number: 1, is_unscored: true, matches: [
+      { id: 'm2', completed: true, status: 'finished', home_team_id: 'team', away_team_id: 'other', scheduled_for: '2026-10-02T12:00:00Z', home_team: null },
+    ] },
+  ] };
+  const { supabase } = client(url => url.pathname.endsWith('/tournaments') && url.searchParams.get('select') !== 'id,updated_at' ? [item] : sources(url));
+  const data = parseHomeSnapshot(await buildHomeSnapshot(supabase, now));
+  const cup = [...data.openTournaments, ...data.activeTournaments, ...data.featuredTournaments].find(row => row.id === 'cup');
+  assert.equal(cup?.totalMatches, 1);
+  assert.equal(cup?.completedMatches, 1);
+});

@@ -2082,13 +2082,14 @@ function roundPressMatch(value: unknown, snapshotTeams?: Map<string, RoundPressT
 
 function roundPressRounds(rows: unknown[], snapshotTeams?: Map<string, RoundPressTeamSource>): RoundPressRoundSource[] {
   return rows
-    .map((value) => {
+    .map((value): RoundPressRoundSource | null => {
       const row = asRecord(value);
       const roundNumber = row ? positiveInteger(row.round_number) : null;
       if (!row || typeof row.id !== 'string' || !roundNumber) return null;
       return {
         id: row.id,
         round_number: roundNumber,
+        is_unscored: row.is_unscored === true,
         matches: Array.isArray(row.matches)
           ? row.matches.map((match) => roundPressMatch(match, snapshotTeams)).filter((match): match is RoundPressMatchSource => Boolean(match))
           : [],
@@ -2283,6 +2284,7 @@ async function loadRoundPressEligibility(
   const { data, error } = await supabase
     .from('rounds')
     .select('round_number, matches(home_team_id, away_team_id, completed, status, scheduled_for)')
+    .eq('is_unscored', false)
     .eq('tournament_id', tournamentId)
     .eq('season_number', seasonNumber)
     .order('round_number', { ascending: true });
@@ -2403,7 +2405,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     teams = Array.from(snapshotTeams.values());
   } else {
     const [{ data: roundRows, error: roundsError }, { data: teamRows, error: teamsError }] = await Promise.all([
-      supabase.from('rounds').select('id, round_number').eq('tournament_id', tournamentId).eq('season_number', seasonNumber).order('round_number', { ascending: true }),
+      supabase.from('rounds').select('id, round_number, is_unscored').eq('tournament_id', tournamentId).eq('season_number', seasonNumber).order('round_number', { ascending: true }),
       supabase.from('teams').select('id, name, ht_team_id, manager_name, country_name, country_id, league_id').eq('tournament_id', tournamentId),
     ]);
     if (roundsError) throw roundsError;
@@ -2425,7 +2427,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
       list.push(match);
       matchesByRound.set(match.round_id, list);
     });
-    rounds = (roundRows || []).map((row) => ({ id: row.id, round_number: Number(row.round_number), matches: matchesByRound.get(row.id) || [] }));
+    rounds = (roundRows || []).map((row) => ({ id: row.id, round_number: Number(row.round_number), is_unscored: row.is_unscored === true, matches: matchesByRound.get(row.id) || [] }));
   }
 
   const selectedRound = rounds.find((round) => round.round_number === roundNumber);

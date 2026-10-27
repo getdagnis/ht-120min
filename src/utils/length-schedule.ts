@@ -132,9 +132,9 @@ export function getFullRoundRobinRoundCount(teamCount: number) {
 }
 
 export function getRegularPhaseMatches<T>(
-  rounds: Array<{ phase?: CompetitionPhase | null; matches: T[] }>,
+  rounds: Array<{ phase?: CompetitionPhase | null; round_source?: string | null; is_unscored?: boolean | null; matches: T[] }>,
 ): T[] {
-  return rounds.filter((round) => round.phase !== 'postseason').flatMap((round) => round.matches);
+  return rounds.filter((round) => round.phase !== 'postseason' && !round.is_unscored).flatMap((round) => round.matches);
 }
 
 export function deriveTournamentFormats(input: { teamCount: number; safeRoundCount: number }) {

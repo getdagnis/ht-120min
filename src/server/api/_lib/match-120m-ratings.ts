@@ -18,8 +18,9 @@ export async function prepareMatch120mRatings(supabase: SupabaseClient, matchId:
   if (error) throw error;
   if (!match?.completed || !match.match_event_details) return null;
   const { data: round, error: roundError } = await supabase.from('rounds')
-    .select('tournament_id,season_number').eq('id', match.round_id).single();
+    .select('tournament_id,season_number,is_unscored').eq('id', match.round_id).single();
   if (roundError) throw roundError;
+  if (round.is_unscored) return null;
   const { data: tournament, error: tournamentError } = await supabase.from('tournaments')
     .select('scoring_mode,season').eq('id', round.tournament_id).single();
   if (tournamentError) throw tournamentError;
@@ -37,8 +38,8 @@ export async function prepareMatch120mRatings(supabase: SupabaseClient, matchId:
       (actualHome === awayPlayer.ht_team_id && actualAway === homePlayer.ht_team_id))) return null;
   // Saved details normally follow fixture sides; older/raw snapshots may still
   // follow Hattrick venue sides. Identify each performance by its club ID.
-  const homeIds = [home?.ht_team_id, homePlayer.ht_team_id];
-  const awayIds = [away?.ht_team_id, awayPlayer.ht_team_id];
+  const homeIds = [home?.ht_team_id ?? null, homePlayer.ht_team_id];
+  const awayIds = [away?.ht_team_id ?? null, awayPlayer.ht_team_id];
   const matchesSide = (teamId: number | null, ids: (number | null)[]) =>
     teamId !== null && ids.includes(teamId);
   const mapped = matchesSide(details.home?.teamId ?? null, homeIds) &&

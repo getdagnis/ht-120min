@@ -27,6 +27,7 @@ interface HomeRound {
   created_at: string;
   round_number: number;
   season_number?: number | null;
+  is_unscored?: boolean;
   matches: HomeMatch[] | null;
 }
 
@@ -165,7 +166,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
           id, name, slug, created_at, schedule_start_slot, schedule_generated_at, registration_closed_at, description, show_description, is_featured, is_private, is_test, status, is_archived,
           season, thumbnail_index, image_url, country_limit, country_limit_format, scoring_mode, league_category, max_teams,
           rounds (
-            id, created_at, round_number, season_number,
+            id, created_at, round_number, season_number, is_unscored,
             matches (
               id, completed, status, home_team_id, away_team_id, scheduled_for, chpp_match_date, finished_at, went_120,
               home_team:teams!matches_home_team_id_fkey(country_name)
@@ -255,7 +256,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     }
 
     const currentRounds = (tournament.rounds || []).filter(
-      (round) => (round.season_number ?? tournament.season) === tournament.season,
+      (round) => !round.is_unscored && (round.season_number ?? tournament.season) === tournament.season,
     );
     if (tournament.teams.length >= 1000 || (tournament.rounds || []).length >= 1000 || currentRounds.some((round) => (round.matches || []).length >= 1000)) {
       throw new Error('Home relation bound exceeded.');

@@ -23,6 +23,7 @@ interface StoredRound {
   phase_status: 'pending' | 'materialized' | 'completed';
   phase_round_number?: number;
   round_source?: 'scheduled' | 'organizer';
+  is_unscored?: boolean;
   round_participants?: Array<{ team_id: string }>;
   reserved_slot_id: string | null;
   reserved_slot_kind: 'midweek_friendly' | 'weekend_friendly' | null;
@@ -129,7 +130,7 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
       supabase
         .from('rounds')
         .select(`
-          id, round_number, phase, phase_round_number, phase_status, round_source, round_participants(team_id), reserved_slot_id, reserved_slot_kind, reserved_slot_date,
+          id, round_number, phase, phase_round_number, phase_status, round_source, is_unscored, round_participants(team_id), reserved_slot_id, reserved_slot_kind, reserved_slot_date,
           matches (
             id, home_team_id, away_team_id, home_slot_id, away_slot_id, status, completed,
             home_goals, away_goals, went_120, total_minutes,
@@ -171,7 +172,7 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
   return {
     tournament,
     season,
-    rounds: (roundRows || []) as unknown as StoredRound[],
+    rounds: ((roundRows || []) as unknown as StoredRound[]).filter(round => !round.is_unscored),
     slots: slotRows,
     assignments: assignmentRows,
     teams: (teams || []).filter(team => team.reserve_active !== true && team.is_placeholder !== true) as TeamRow[],

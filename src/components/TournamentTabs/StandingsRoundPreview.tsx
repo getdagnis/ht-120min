@@ -17,6 +17,7 @@ export interface StandingsPreviewMatch {
 export interface StandingsPreviewRound {
   id: string;
   round_number: number;
+  is_unscored?: boolean;
   matches: StandingsPreviewMatch[];
 }
 
@@ -130,10 +131,11 @@ export const StandingsRoundPreview: React.FC<StandingsRoundPreviewProps> = ({
   const uiText = useTranslations('PublicUI.StandingsRoundPreview');
   if ((seasonStatus !== 'ongoing' && seasonStatus !== 'finished') || rounds.length === 0) return null;
 
-  const lastRound = [...rounds]
+  const countedRounds = rounds.filter(round => !round.is_unscored);
+  const lastRound = [...countedRounds]
     .reverse()
     .find((round) => round.matches.length > 0 && round.matches.every(isFinishedMatch));
-  const nextRound = rounds.find((round) => round.matches.some((match) => !isFinishedMatch(match)));
+  const nextRound = countedRounds.find((round) => round.matches.some((match) => !isFinishedMatch(match)));
 
   if (!lastRound && !nextRound) return null;
 

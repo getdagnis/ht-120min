@@ -357,12 +357,13 @@ test('Round 1 recovery is guarded and only replaces that round fixtures', () => 
   assert.match(roundOneRecoveryMigration, /GRANT EXECUTE ON FUNCTION public\.recover_length_schedule_round_one/);
 });
 
-test('regular standings input excludes postseason rounds', () => {
+test('regular standings input excludes postseason and unscored rounds', () => {
   const regularMatch = { id: 'regular' };
   const finalMatch = { id: 'final' };
   assert.deepEqual(getRegularPhaseMatches([
     { phase: 'regular', matches: [regularMatch] },
     { phase: 'postseason', matches: [finalMatch] },
+    { phase: 'regular', round_source: 'organizer', is_unscored: true, matches: [{ id: 'unscored-organizer' }] },
     { matches: [{ id: 'legacy' }] },
   ]), [regularMatch, { id: 'legacy' }]);
 });

@@ -41,6 +41,7 @@ export interface RoundPressMatchSource {
 export interface RoundPressRoundSource {
   id: string;
   round_number: number;
+  is_unscored?: boolean;
   matches: RoundPressMatchSource[];
 }
 
@@ -186,7 +187,7 @@ function standingsBeforeRound(
 ) {
   if (roundNumber <= 1 || teams.length === 0) return undefined;
   const priorMatches = rounds
-    .filter((round) => round.round_number < roundNumber)
+    .filter((round) => round.round_number < roundNumber && !round.is_unscored)
     .flatMap((round) => round.matches)
     .map((match): Match => ({
       home_team_id: match.home_team_id,
