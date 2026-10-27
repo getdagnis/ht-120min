@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWeekendPreview, type WeekendTeam } from '../src/utils/forge-weekend-preview.js';
+import { createWeekendPreview, shuffleWeekendPreview, type WeekendTeam } from '../src/utils/forge-weekend-preview.js';
 import type { SlotObservation } from '../shared/organizer-planning.js';
+
+test('shuffle includes unmatched teams and drops previous make-up annotations', () => {
+  const result = shuffleWeekendPreview([{ homeTeamId: '1', awayTeamId: '2', originalFixtureId: 'old' },
+    { homeTeamId: '3', awayTeamId: '4' }], ['5'], () => 0);
+  assert.deepEqual(result, { pairs: [{ homeTeamId: '2', awayTeamId: '3' }, { homeTeamId: '4', awayTeamId: '5' }], unmatched: ['1'] });
+});
 
 test('weekend preview prioritizes one missed fixture and excludes unavailable or non-active teams', () => {
   const teams: WeekendTeam[] = Array.from({ length: 6 }, (_, index) => ({ id: String(index + 1), name: `Team ${index + 1}`,

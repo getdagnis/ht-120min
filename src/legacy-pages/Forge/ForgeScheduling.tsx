@@ -4,7 +4,7 @@ import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import type { SlotObservation } from '../../../shared/organizer-planning';
 import styles from './ForgeScheduling.module.sass';
-import { createWeekendPreview, swapWeekendOpponents, type WeekendPair } from '../../utils/forge-weekend-preview';
+import { createWeekendPreview, shuffleWeekendPreview, swapWeekendOpponents, type WeekendPair } from '../../utils/forge-weekend-preview';
 
 type Team = { id: string; tournament_id: string; name: string; ht_team_id: number | null; active: boolean; reserve_active: boolean; manager_name: string | null; hattrick_user_id: number | null; gender_id?: number | null };
 type Data = { rounds: Array<{ id: string; tournament_id: string; round_number: number; phase_status: string | null }>; fixtures: Array<{ id: string; round_id: string; home_team_id: string | null; away_team_id: string | null; scheduled_for: string | null; ht_match_id: number | null }>; collections: Array<{ id: string; title: string }>; selectedCollection: string; selectedSlot: string; slots: Array<{ id: string; htSeason: number; htWeek: number; kind: string }>; tournaments: Array<{ id: string; name: string }>; teams: Team[]; observations: Array<{ ht_team_id: number; observation: SlotObservation }>; batchSize: number };
@@ -129,6 +129,7 @@ export function ForgeScheduling() {
           <p>Review the pairings. This round will not count toward standings.</p>
           {preview.pairs.map((pair, index) => <p key={`${pair.homeTeamId}:${pair.awayTeamId}`}>{teams.find(team => team.id === pair.homeTeamId)?.name} vs {teams.find(team => team.id === pair.awayTeamId)?.name}{pair.originalFixtureId && ' · possible make-up'} <label> Swap opponent with <select value="" onChange={event => { const updated = swapWeekendOpponents(preview.pairs, index, Number(event.target.value), teams); if (updated) setPreview(current => current ? { ...current, pairs: updated } : current); else setError('These teams cannot be paired due to their manager or team compatibility.'); }}><option value="">Choose match</option>{preview.pairs.map((other, otherIndex) => otherIndex === index ? null : <option key={other.homeTeamId} value={otherIndex}>{teams.find(team => team.id === other.homeTeamId)?.name} vs {teams.find(team => team.id === other.awayTeamId)?.name}</option>)}</select></label> <Button size="xs" onClick={() => setPreview(current => current ? { ...current, pairs: current.pairs.map((item, i) => i === index ? { ...item, homeTeamId: item.awayTeamId, awayTeamId: item.homeTeamId } : item) } : current)}>Swap venue</Button></p>)}
           {preview.unmatched.length > 0 && <p>Unmatched: {preview.unmatched.map(id => teams.find(team => team.id === id)?.name).join(', ')}</p>}
+          <Button disabled={busy || preview.pairs.length === 0} onClick={() => setPreview(current => current ? { ...current, ...shuffleWeekendPreview(current.pairs, current.unmatched) } : current)}>Shuffle pairs</Button>
           <Button disabled={busy || preview.pairs.length === 0} onClick={() => void savePreview()}>Verify and save unscored round</Button>
         </div>}
         <h4>Previous misarranged matches</h4>

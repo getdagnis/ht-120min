@@ -1,6 +1,7 @@
 import { canFlagTeamsPair, maximumFlagMatching } from '../../shared/flag-matching.js';
 import type { FlagHunterTeam } from '../../shared/flag-hunters.js';
 import type { SlotObservation } from '../../shared/organizer-planning.js';
+import { shuffleScheduleTeamIds } from './schedule-draft.js';
 
 export interface WeekendTeam {
   id: string; name: string; ht_team_id: number | null; hattrick_user_id: number | null;
@@ -8,6 +9,13 @@ export interface WeekendTeam {
 }
 export interface WeekendMissedFixture { id: string; roundNumber: number; homeTeamId: string | null; awayTeamId: string | null }
 export interface WeekendPair { homeTeamId: string; awayTeamId: string; originalFixtureId?: string }
+
+export function shuffleWeekendPreview(pairs: WeekendPair[], unmatched: string[], random: () => number = Math.random) {
+  const ids = shuffleScheduleTeamIds([...pairs.flatMap(pair => [pair.homeTeamId, pair.awayTeamId]), ...unmatched], random);
+  const shuffled: WeekendPair[] = [];
+  for (let i = 0; i + 1 < ids.length; i += 2) shuffled.push({ homeTeamId: ids[i]!, awayTeamId: ids[i + 1]! });
+  return { pairs: shuffled, unmatched: ids.length % 2 ? [ids[ids.length - 1]!] : [] };
+}
 
 export function createWeekendPreview(teams: WeekendTeam[], checks: ReadonlyMap<number, SlotObservation>, fixtures: WeekendMissedFixture[]) {
   const roster: FlagHunterTeam[] = teams.filter(team => team.active && !team.reserve_active && team.ht_team_id && team.hattrick_user_id &&

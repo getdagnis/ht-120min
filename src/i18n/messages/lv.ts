@@ -1,3 +1,13 @@
+// before adding translations remember – similar character count and natural sounding go way before literal translation..
+// it needs to go well with the apps ui not be a direct word-by-word translation.
+// implemented english texts have followed that same rule from start, so should other languages.
+// so think from scratch. what needs to be said. don't translate directly.
+// bad example for english translation: 
+
+// good example:
+      // showMisarrangedOff: "Nesarunātās spēles: Nerādīt",
+      // showMisarrangedOn: "Nesarunātās spēles: Rādīt",
+
 import en from './en.js';
 
 const messages = {
@@ -58,8 +68,8 @@ const messages = {
     autoArrangeTeamFixturesDisabled: 'Nesarunāt {team} mačus automātiski',
     autoArrangeTooltip: 'Tavus mačus sistēma centīsies noorganizēt automātiski. Ja otra komanda nebūs devusi šādu atļauju, tad tai tiks nosūtīts izaicinājums.',
     autoArrangeLoadError: 'Neizdevās ielādēt automātiskas organizēšanas statusu.',
-    autoShareMyRatings: 'Automātiski kopīgot manus paredzamos reitingus',
-    autoShareTeamRatings: 'Automātiski kopīgot {team} paredzamos reitingus',
+    autoShareMyRatings: 'Automātiski dalīties ar reitingiem',
+    autoShareTeamRatings: 'Automātiski dalīties ar {team} reitingiem',
     autoShareRatingsTooltip: 'Kad mača norādījumi ir iestatīti, paredzamie reitingi tiek automātiski kopīgoti ar pretinieku. Vēlākās izmaiņas tiek kopīgotas, nospiežot maču atjaunošanas pogu. Izslēdzot šo iespēju, automātiski kopīgotie reitingi tiek noņemti; manuāli kopīgotie paliek.',
     autoShareRatingsLoadError: 'Neizdevās ielādēt automātiskas reitingu kopīgošanas iestatījumus. Mēģini vēlreiz vai atkārtoti pieraksties ar Hattrick.',
     autoShareRatingsSaveError: 'Neizdevās saglabāt automātiskas reitingu kopīgošanas iestatījumu. Lūdzu, mēģini vēlreiz.',
@@ -1156,8 +1166,8 @@ const messages = {
       filterFixturesByTeam: "",
       aLLTEAMS: "",
       mYTEAMS: "",
-      showMisarrangedOff: "RĀDĪT NEPAREIZI IEPLĀNOTĀS SPĒLES: IZSLĒGTS",
-      showMisarrangedOn: "RĀDĪT NEPAREIZI IEPLĀNOTĀS SPĒLES: IESLĒGTS",
+      showMisarrangedOff: "Nesarunātās spēles: Nerādīt",
+      showMisarrangedOn: "Nesarunātās spēles: Rādīt",
       eXPANDALL: "",
       cOLLAPSEALL: "",
       continueBrowsing: "",
