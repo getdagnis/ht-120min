@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
@@ -32,16 +32,28 @@ export function ForgeScheduling() {
   const [error, setError] = useState(''), [progress, setProgress] = useState(''), [busy, setBusy] = useState(false);
   const [groups, setGroups] = useState<string[]>(['Active', 'Lobby', 'Past']);
   const [preview, setPreview] = useState<{ tournamentId: string; pairs: WeekendPair[]; unmatched: string[] } | null>(null);
-  async function load(collectionId = collection, slotId = slot) {
-    setError('');
+  const fetchScheduling = useCallback(async (collectionId: string, slotId: string): Promise<Data> => {
+    const params = new URLSearchParams(); if (collectionId) params.set('collectionId', collectionId); if (slotId) params.set('slotId', slotId);
+    const response = await fetch(`/api/testing/scheduling?${params}`, { credentials: 'include', cache: 'no-store' });
+    const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load scheduling.');
+    return body as Data;
+  }, []);
+  const load = useCallback(async (collectionId: string, slotId: string) => {
     try {
-      const params = new URLSearchParams(); if (collectionId) params.set('collectionId', collectionId); if (slotId) params.set('slotId', slotId);
-      const response = await fetch(`/api/testing/scheduling?${params}`, { credentials: 'include', cache: 'no-store' });
-      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not load scheduling.');
+      const body = await fetchScheduling(collectionId, slotId);
       setData(body); setCollection(body.selectedCollection); setSlot(body.selectedSlot); setPreview(null);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load scheduling.'); }
-  }
-  useEffect(() => { void load('', ''); }, []);
+  }, [fetchScheduling]);
+  useEffect(() => {
+    let active = true;
+    void fetchScheduling('', '').then(body => {
+      if (!active) return;
+      setData(body); setCollection(body.selectedCollection); setSlot(body.selectedSlot); setPreview(null);
+    }).catch(cause => {
+      if (active) setError(cause instanceof Error ? cause.message : 'Could not load scheduling.');
+    });
+    return () => { active = false; };
+  }, [fetchScheduling]);
   const checks = useMemo(() => new Map(data?.observations.map(row => [row.ht_team_id, row.observation]) || []), [data]);
   async function scan(ids: number[]) {
     if (!data || busy || !ids.length) return;
@@ -112,8 +124,8 @@ export function ForgeScheduling() {
   return <SectionCard title="Scheduling"><div className={styles.workspace}>
     <h3>Availability</h3><p>Observations are snapshots; bookings can change after a check.</p>
     {error && <p role="alert">{error}</p>}{!data ? <p>Loading scheduling…</p> : <>
-      <div className={styles.controls}><label>Collection <select disabled={busy} value={collection} onChange={event => { setCollection(event.target.value); void load(event.target.value, slot); }}>{data.collections.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-      <label>Friendly slot <select disabled={busy} value={slot} onChange={event => { setSlot(event.target.value); void load(collection, event.target.value); }}>{data.slots.map(item => <option key={item.id} value={item.id}>S{item.htSeason} · W{item.htWeek} · {item.kind === 'weekend_friendly' ? 'Weekend' : 'Midweek'}</option>)}</select></label></div>
+      <div className={styles.controls}><label>Collection <select disabled={busy} value={collection} onChange={event => { setError(''); setCollection(event.target.value); void load(event.target.value, slot); }}>{data.collections.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+      <label>Friendly slot <select disabled={busy} value={slot} onChange={event => { setError(''); setSlot(event.target.value); void load(collection, event.target.value); }}>{data.slots.map(item => <option key={item.id} value={item.id}>S{item.htSeason} · W{item.htWeek} · {item.kind === 'weekend_friendly' ? 'Weekend' : 'Midweek'}</option>)}</select></label></div>
       <div className={styles.controls}>{['Active', 'Lobby', 'Past'].map(group => <label key={group}><input type="checkbox" disabled={busy} checked={groups.includes(group)} onChange={event => setGroups(previous => event.target.checked ? [...previous, group] : previous.filter(value => value !== group))} /> {group}</label>)}</div>
       <div className={styles.controls}><Button disabled={busy || !ids.length} onClick={() => void scan(ids)}>Scan selected teams</Button><Button disabled={busy || !pending.length} onClick={() => void scan(pending)}>Resume / retry</Button><Button disabled={busy} onClick={exportCsv}>Export CSV</Button></div>
       <p aria-live="polite">{progress || `${data.tournaments.length} tournaments · ${ids.length} unique teams`}</p>

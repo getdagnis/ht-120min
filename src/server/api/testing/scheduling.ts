@@ -56,7 +56,12 @@ export default async function handleScheduling(req: VercelRequest, res: VercelRe
       if ((page.data || []).length < 500) break;
     }
     return res.status(200).json({ collections: collections.data, selectedCollection: selected.id, tournaments: visibleTournaments,
-      teams: teams.map(({ oauth_token: _token, oauth_token_secret: _secret, ...team }) => team), slots, selectedSlot: slot.id, rounds, fixtures, observations: observations.filter(row => teams.some(team => team.ht_team_id === row.ht_team_id)), batchSize: PLANNING_BATCH_SIZE });
+      teams: teams.map(team => {
+        const safeTeam = { ...team };
+        delete safeTeam.oauth_token;
+        delete safeTeam.oauth_token_secret;
+        return safeTeam;
+      }), slots, selectedSlot: slot.id, rounds, fixtures, observations: observations.filter(row => teams.some(team => team.ht_team_id === row.ht_team_id)), batchSize: PLANNING_BATCH_SIZE });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const ids: unknown = req.body?.teamIds;

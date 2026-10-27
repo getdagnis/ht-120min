@@ -4,9 +4,6 @@
 // so think from scratch. what needs to be said. don't translate directly.
 // bad example for english translation: 
 
-// good example:
-      // showMisarrangedOff: "Nesarunātās spēles: Nerādīt",
-      // showMisarrangedOn: "Nesarunātās spēles: Rādīt",
 
 import en from './en.js';
 
