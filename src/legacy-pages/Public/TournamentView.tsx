@@ -20,7 +20,9 @@ import {
   invalidateTournamentData,
   loadTournamentPrivateData,
   readTournamentPublicData,
+  readTournamentSeasonPublicData,
 } from '../../app/_data/tournament-actions';
+import { readRemainingTournamentSpotlights } from '../../app/_data/spotlight-actions';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 
@@ -121,6 +123,7 @@ import { useTournamentAdminState } from '../../components/TournamentTabs/Admin/u
 import { NewsTab } from '../../components/TournamentTabs/NewsTab';
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { DiscordInvite } from '../../components/DiscordInvite/DiscordInvite';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { LeaveTournamentWidget } from '../../components/LeaveTournament/LeaveTournamentWidget';
 import { RepresentedCountries } from '../../components/RepresentedCountries/RepresentedCountries';
@@ -800,8 +803,12 @@ export const TournamentView: React.FC<{
   );
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
-  const managerSpotlight = initialData?.managerSpotlight || null;
-  const managerSpotlights = initialData?.managerSpotlights || [];
+  const [spotlightData, setSpotlightData] = useState(() => ({
+    managerSpotlight: initialData?.managerSpotlight || null,
+    managerSpotlights: initialData?.managerSpotlights || [],
+    hasMore: initialData?.managerSpotlightsHasMore,
+  }));
+  const { managerSpotlight, managerSpotlights } = spotlightData;
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
   const [activityWarnings, setActivityWarnings] = useState<any[]>(
     () => initialData?.activityWarnings || initialData?.warnings || [],
@@ -1886,6 +1893,7 @@ export const TournamentView: React.FC<{
         const tournamentData = data.tournament as unknown as Tournament;
         setTournament((current) => ({ ...current, ...tournamentData }));
         setTeams(data.teams as unknown as Team[]);
+        setSpotlightData({ managerSpotlight: data.managerSpotlight, managerSpotlights: data.managerSpotlights, hasMore: data.managerSpotlightsHasMore });
         setRounds(reviveInitialRounds(data));
         setStandings(data.standings as unknown as TeamStanding[]);
         setSeasonSlots(data.seasonSlots);
@@ -5751,6 +5759,24 @@ export const TournamentView: React.FC<{
     window.location.href = '/api/auth/init';
   };
 
+  const [historyLoadError, setHistoryLoadError] = useState<number | null>(null);
+  const [historyRetry, setHistoryRetry] = useState(0);
+  useEffect(() => {
+    const current = Number(tournament?.season || 1);
+    const historyNumber = Number(searchParams.get('historySeason')) || [...seasons].filter((entry) => entry.status === 'finished').sort((a, b) => b.season_number - a.season_number)[0]?.season_number;
+    const number = activeTab === 'history' ? historyNumber : selectedSeasonNumber < current ? selectedSeasonNumber : null;
+    const season = seasons.find((entry) => entry.season_number === number);
+    if (!tournament?.slug || !number || !season || (season as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded) return;
+    let cancelled = false;
+    readTournamentSeasonPublicData(tournament.slug, number).then((data) => {
+      if (cancelled) return;
+      if (!data) throw new Error('Season unavailable.');
+      setHistoryLoadError(null);
+      setSeasons((current) => current.map((entry) => entry.season_number === number ? { ...entry, ...data, publicSnapshotLoaded: true } as TournamentSeason : entry));
+    }).catch(() => { if (!cancelled) setHistoryLoadError(number); });
+    return () => { cancelled = true; };
+  }, [activeTab, searchParams, selectedSeasonNumber, seasons, tournament?.slug, tournament?.season, historyRetry]);
+
   if (loading) {
     return (
       <div className={styles.view}>
@@ -5864,6 +5890,8 @@ export const TournamentView: React.FC<{
     .sort((a, b) => b.season_number - a.season_number);
   const selectedHistorySeasonNumber =
     Number(searchParams.get('historySeason')) || historySeasons[0]?.season_number || null;
+  const requestedHistorySeason = activeTab === 'history' ? seasons.find((season) => season.season_number === selectedHistorySeasonNumber) : isViewingHistoricalSeason ? selectedSeason : null;
+  const waitingForHistory = Boolean(requestedHistorySeason && !(requestedHistorySeason as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded);
   const handleHistorySeasonChange = (seasonNumber: number) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('tab', 'history');
@@ -6726,7 +6754,12 @@ export const TournamentView: React.FC<{
         </div>
       </Modal>
 
-      {activeTab === 'history' && (
+      {waitingForHistory && ['history', 'fixtures', 'standings'].includes(activeTab) && (
+        <div className={styles.loading} role={historyLoadError === requestedHistorySeason?.season_number ? 'alert' : 'status'}>
+          {historyLoadError === requestedHistorySeason?.season_number ? <Button variant="primary" onClick={() => setHistoryRetry((value) => value + 1)}>{uiText('tryAgain')}</Button> : t('loading')}
+        </div>
+      )}
+      {activeTab === 'history' && !waitingForHistory && (
         <div className={styles.historyContainer}>
           <TournamentHistory
             seasons={seasons.map((season) => ({
@@ -6758,7 +6791,7 @@ export const TournamentView: React.FC<{
         </div>
       )}
 
-      {activeTab === 'fixtures' && (
+      {activeTab === 'fixtures' && !waitingForHistory && (
         <div className={styles.fixturesContainer}>
           {fixtureRefreshError && (
             <div className={styles.refreshError} role="alert">
@@ -6828,7 +6861,7 @@ export const TournamentView: React.FC<{
         }
       />
 
-      {activeTab === 'standings' && (
+      {activeTab === 'standings' && !waitingForHistory && (
         <div className={styles.standingsContainer}>
           <div className={styles.mainColumn}>
             {selectedSeasonChampion && (
@@ -6976,6 +7009,7 @@ export const TournamentView: React.FC<{
             )}
           </div>
           <aside className={styles.statsSidebar}>
+            <DiscordInvite />
             {tournament.forum_id && tournament.forum_id > 0 && (
               <a
                 href={`https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?t=${tournament.forum_id}`}
@@ -7041,9 +7075,11 @@ export const TournamentView: React.FC<{
                 />
               )}
             <ManagerSpotlight
-              key={tournament.id}
+              key={`${tournament.id}:${managerSpotlight?.managerId || "none"}`}
+              loadRemaining={() => readRemainingTournamentSpotlights(tournament.id)}
               spotlight={managerSpotlight}
               spotlights={managerSpotlights}
+              hasMore={spotlightData.hasMore}
               tournament={{
                 name: tournament.name,
                 countryLimit: tournament.country_limit,
