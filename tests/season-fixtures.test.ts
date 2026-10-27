@@ -3,6 +3,15 @@ import test from 'node:test';
 
 import { buildSeasonFixturesSnapshot, isMissingMatchEventDetails } from '../src/utils/season-fixtures';
 
+test('snapshot retains the scoring flag independently of round source', () => {
+  const snapshot = buildSeasonFixturesSnapshot(1, [
+    { id: 'extra', round_number: 5, created_at: '2026-10-27T00:00:00Z', is_unscored: true, matches: [] },
+    { id: 'counted', round_number: 6, created_at: '2026-10-27T00:00:00Z', round_source: 'organizer', is_unscored: false, matches: [] },
+  ]);
+  assert.equal(snapshot.rounds[0].is_unscored, true);
+  assert.equal(snapshot.rounds[1].is_unscored, false);
+});
+
 test('season fixture snapshots retain the rendered fixture data without refetching teams', () => {
   const snapshot = buildSeasonFixturesSnapshot(
     1,

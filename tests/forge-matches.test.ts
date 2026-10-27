@@ -194,7 +194,7 @@ test('base round loads without CHPP while bounded state reads affect only reques
     if (table === 'tournaments') data = [{ id: 'tournament-1', name: 'Cup', slug: 'cup', season: 1,
       status: 'ongoing', is_archived: false, is_test: false, scoring_mode: null }];
     if (table === 'rounds') data = [{ id: 'round-1', tournament_id: 'tournament-1', created_at: '2026-10-15',
-      season_number: 1, round_number: 1, phase: 'regular', phase_status: 'materialized',
+      season_number: 1, round_number: 1, phase: 'regular', phase_status: 'materialized', is_unscored: true,
       matches: rows.map(row => ({ completed: row.completed, status: row.status })) }];
     if (table === 'matches') {
       const filter = url.searchParams.get('id') || '';
@@ -218,6 +218,8 @@ test('base round loads without CHPP while bounded state reads affect only reques
     };
     const base = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'base' });
     assert.equal(base.status, 200);
+    assert.equal((base.body.currentRound as { roundLabel: string }).roundLabel, 'Round 1 · Unscored');
+    assert.equal((base.body.roundOptions as Array<{ roundLabel: string }>)[0].roundLabel, 'Round 1 · Unscored');
     const baseFixtures = base.body.fixtures as Array<{ id: string; home: { chppState: string; canChallenge: boolean } }>;
     assert.deepEqual(baseFixtures.map(fixture => fixture.id), ['match-1', 'match-2']);
     assert.ok(baseFixtures.every(fixture => fixture.home.chppState === 'CHECKING' && !fixture.home.canChallenge));

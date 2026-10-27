@@ -19,7 +19,10 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
   const db = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await db.from('tournaments').select('season,schedule_mode,schedule_generated_at').eq('id', tournamentId).maybeSingle();
   if (tournamentError) throw tournamentError;
-  if (!tournament || tournament.schedule_mode !== 'length' || !tournament.schedule_generated_at) return res.status(409).json({ error: 'Choose a generated staged season.' });
+  if (!tournament || !tournament.schedule_generated_at ||
+      (tournament.schedule_mode !== 'length' && !(unscored && ['single', 'double', 'recurring'].includes(tournament.schedule_mode || '')))) {
+    return res.status(409).json({ error: unscored ? 'Choose a generated season.' : 'Choose a generated staged season.' });
+  }
   const seasonNumber = tournament.season || 1;
   const { data, error } = await db.rpc('get_organizer_round_context', { p_tournament_id: tournamentId, p_season_number: seasonNumber });
   if (error) throw error;
@@ -32,10 +35,10 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
   const seasonMatch = context.rounds.find(round => round.reserved_slot_id)?.reserved_slot_id?.match(/^S(\d+)-/);
   const htSeason = seasonMatch ? Number(seasonMatch[1]) : null;
   const slots = buildCalendarSlots(now, 32, { includeWeek15WeekendFriendly: true }).filter(slot =>
-    slot.selectable && slot.htSeason === htSeason && context.teams.some(team => !team.is_placeholder &&
+    slot.selectable && (unscored || slot.htSeason === htSeason) && context.teams.some(team => !team.is_placeholder &&
       (getScheduledDateForSlot(slot, { countryName: team.country_name, leagueLevel: team.league_level })?.getTime() ?? 0) > now.getTime()) &&
     !context.rounds.some(round => round.reserved_slot_id === slot.id) &&
-    !context.rounds.some(round => round.phase === 'postseason' && (round.phase_status !== 'pending' || !round.reserved_slot_date || new Date(round.reserved_slot_date).getTime() <= slot.nominalDate.getTime())),
+    (unscored || !context.rounds.some(round => round.phase === 'postseason' && (round.phase_status !== 'pending' || !round.reserved_slot_date || new Date(round.reserved_slot_date).getTime() <= slot.nominalDate.getTime()))),
   );
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'GET') {

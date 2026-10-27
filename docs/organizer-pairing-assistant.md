@@ -190,3 +190,16 @@ or staged progression. The optional make-up label in a draft is only a pairing
 hint: no reference or result is transferred. Historical manual linking remains
 separate. Migration 153 must be applied before deploying this code; it is
 prepared locally and has not been applied by the agent.
+
+Migration 154 extends this same unscored save to generated `single`, `double`
+and `recurring` schedules. The private wrapper enables the legacy path only for
+its transaction; counted organizer actions retain their staged-season guard.
+Legacy schedules need neither a staged season plan nor reserved-slot metadata,
+and completed playoffs do not block an unscored extra. Existing rounds, season
+state and membership remain unchanged. Only paired Active teams are saved;
+unmatched teams and BYEs are excluded. Apply 154 after 153 before using this
+path. It has been tested in disposable local PostgreSQL, not applied to Supabase.
+
+Public fixture snapshots retain `is_unscored` independently of `round_source`.
+Public Fixtures and Forge Matches show `Unscored` from that persisted flag;
+round source and calendar slot do not imply scoring status.

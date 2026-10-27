@@ -263,3 +263,9 @@ Forge unscored organizer rounds: migration 153 and the local save/booking
 handoff are prepared; migration application and real CHPP/Supabase verification
 remain owner actions. These rounds are excluded from standings and progression;
 manual historical result linking remains separate.
+
+Legacy unscored extras: migration 154 extends the existing verified save to
+generated single/double/recurring schedules without converting the tournament
+or changing its season plan. Local disposable PostgreSQL covers creation,
+paired-only rosters and unchanged membership/season state. Migration 154 is
+prepared and has not been applied to Supabase by the agent.

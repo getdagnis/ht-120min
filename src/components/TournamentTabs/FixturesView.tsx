@@ -1115,7 +1115,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 <div className={styles.roundHeader}>
                   <>
                     <span>
-                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}{round.is_unscored && ' · Unscored'}
+                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}{round.is_unscored === true && ' · Unscored'}
                       {round.phase === 'postseason'
                         ? uiText(
                             rounds.filter(

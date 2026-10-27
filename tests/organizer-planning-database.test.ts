@@ -31,6 +31,7 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
     sql(readFileSync(new URL('../migrations/151_organizer_saved_round_repair.sql', import.meta.url), 'utf8'));
     assert.match(sql('SELECT organizer_saved_repair_enabled();'), /t/);
     sql(readFileSync(new URL('../migrations/153_unscored_organizer_rounds.sql', import.meta.url), 'utf8'));
+    sql(readFileSync(new URL('../migrations/154_unscored_legacy_schedule_rounds.sql', import.meta.url), 'utf8'));
     sql(`INSERT INTO tournaments(id,season,schedule_mode,schedule_generated_at,status) VALUES('${uuid(100)}',1,'length',now(),'active');
       ${Array.from({ length: 6 }, (_, i) => `INSERT INTO teams(id,tournament_id,name,ht_team_id,hattrick_user_id,active) VALUES('${uuid(i + 1)}','${uuid(100)}','Team ${i + 1}',${i + 1},${i + 1},true);`).join('\n')}`);
     const output = sql(`DO $$
@@ -135,5 +136,49 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
         EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Unscored rounds cannot%' THEN RAISE; END IF; END;
       END $$; SELECT 'unscored creation assertions completed';`);
     assert.match(unscored, /unscored creation assertions completed/);
+    const legacy = sql(`DO $$
+      DECLARE mode text; tournament uuid; roster jsonb; pairs jsonb; version text; result jsonb; rid uuid;
+        verification uuid:='${uuid(401)}';
+        slot jsonb:=jsonb_build_object('id','legacy-weekend','kind','weekend_friendly','date',now()+interval '7 days');
+      BEGIN
+        FOREACH mode IN ARRAY ARRAY['single','double','recurring'] LOOP
+          tournament:=gen_random_uuid();
+          INSERT INTO tournaments(id,season,schedule_mode,schedule_generated_at,status)
+            VALUES(tournament,2,mode,now()-interval '30 days','active');
+          INSERT INTO tournament_seasons(tournament_id,season_number,status) VALUES(tournament,2,'ongoing');
+          INSERT INTO teams(id,tournament_id,name,ht_team_id,hattrick_user_id,active,reserve_active)
+            SELECT gen_random_uuid(),tournament,'Legacy '||i,i,i,i<>4,i=4 FROM generate_series(1,4) i;
+          -- Legacy schedules have no reserved-slot metadata or staged plan;
+          -- an already completed playoff must not block an unscored extra.
+          INSERT INTO rounds(tournament_id,season_number,round_number,phase,phase_status)
+            VALUES(tournament,2,1,'postseason','completed');
+          SELECT jsonb_agg(jsonb_build_object('teamId',id,'participation','round_only') ORDER BY ht_team_id)
+            INTO roster FROM teams WHERE tournament_id=tournament AND ht_team_id IN (1,2);
+          SELECT jsonb_build_array(jsonb_build_object('home_team_id',roster->0->>'teamId',
+            'away_team_id',roster->1->>'teamId','scheduled_for',slot->>'date')) INTO pairs;
+          INSERT INTO tournament_slot_checks(tournament_id,season_number,slot_id,team_id,checked_at,observation,verification_id,proposal_hash,actor_id)
+            SELECT tournament,2,'legacy-weekend',id,now(),'{"state":"free","challengesKnown":true,"pendingOpponentIds":[]}',verification,'legacy',0
+            FROM teams WHERE tournament_id=tournament AND ht_team_id IN (1,2);
+          version:=get_organizer_round_context(tournament,2)->>'rosterVersion';
+          BEGIN
+            PERFORM save_verified_organizer_round(tournament,2,version,slot,roster,pairs,false,NULL,verification,'legacy',0);
+            RAISE EXCEPTION 'legacy counted save accepted';
+          EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Choose an ongoing staged season%' THEN RAISE; END IF; END;
+          result:=save_unscored_verified_organizer_round(tournament,2,version,slot,roster,pairs,false,verification,'legacy',0);
+          rid:=(result->>'roundId')::uuid;
+          IF NOT EXISTS(SELECT 1 FROM rounds WHERE id=rid AND is_unscored AND round_source='organizer' AND phase_status='materialized')
+            OR (SELECT count(*) FROM matches WHERE round_id=rid)<>1
+            OR (SELECT count(*) FROM round_participants WHERE round_id=rid)<>2 THEN
+            RAISE EXCEPTION 'legacy unscored fixtures or paired roster missing'; END IF;
+          IF (SELECT schedule_mode FROM tournaments WHERE id=tournament)<>mode
+            OR (SELECT count(*) FROM teams WHERE tournament_id=tournament AND active)<>3
+            OR (SELECT count(*) FROM teams WHERE tournament_id=tournament AND reserve_active)<>1
+            OR (SELECT schedule_plan_json FROM tournament_seasons WHERE tournament_id=tournament) IS NOT NULL
+            OR (SELECT phase_status FROM rounds WHERE tournament_id=tournament AND round_number=1)<>'completed' THEN
+            RAISE EXCEPTION 'legacy season or membership changed'; END IF;
+          IF current_setting('ht120.unscored_round',true)='true' THEN RAISE EXCEPTION 'unscored creation context leaked'; END IF;
+        END LOOP;
+      END $$; SELECT 'legacy unscored assertions completed';`);
+    assert.match(legacy, /legacy unscored assertions completed/);
   } finally { sql(`DROP DATABASE ${database};`, 'postgres'); }
 });

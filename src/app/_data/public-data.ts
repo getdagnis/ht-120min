@@ -88,9 +88,9 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   if (!tournament) return null;
   // All archived seasons are included and selected locally. Current season and
   // UTC spotlight day are explicit inputs; a season rollover cannot reuse S1.
-  // V3 also discards cached fixture payloads that contained prediction values.
+  // V4 discards older round payloads that did not carry is_unscored.
   return unstable_cache(() => buildTournamentInitialData(tournament),
-    ['tournament-public-v3', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
+    ['tournament-public-v4', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
     { revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentCacheTag(String(tournament.id)), tournamentSlugCacheTag(slug)] },
   )();
 });

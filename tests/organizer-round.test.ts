@@ -4,8 +4,17 @@ import { additionalRoundParticipantIds, generateOrganizerPairings, orderFixtureR
 import { buildCalendarSlots } from '../src/utils/hattrick-calendar.js';
 import { calculateSeasonSlotStandings } from '../src/utils/standings.js';
 import { getFixtureWeekendFlag } from '../src/server/api/_lib/fixture-challenge.js';
+import { getRoundDisplayLabel } from '../shared/round-display.js';
 
 const teams: OrganizerRoundTeam[] = Array.from({ length: 160 }, (_, i) => ({ id: `team-${i}`, name: `Team ${i}`, active: i < 130, reserve_active: i >= 130 && i < 150, country_name: 'Latvia', league_level: 4 }));
+
+test('round labels show Unscored only from the persisted scoring flag', () => {
+  const scheduled = { round_number: 4, reserved_slot_date: '2030-03-20T00:00:00Z' };
+  const extra = { round_number: 8, round_source: 'organizer', reserved_slot_kind: 'weekend_friendly', reserved_slot_date: '2030-03-23T00:00:00Z' };
+  assert.equal(getRoundDisplayLabel({ ...extra, is_unscored: true }, [scheduled, extra]), 'Round 4 .5 Weekend Extra · Unscored');
+  assert.equal(getRoundDisplayLabel(extra, [scheduled, extra]), 'Round 4 .5 Weekend Extra');
+  assert.equal(getRoundDisplayLabel({ ...scheduled, is_unscored: true }, [scheduled]), 'Round 4 · Unscored');
+});
 
 test('large mixed rosters pair every selected team exactly once, including odd fields', () => {
   for (const field of [teams, teams.slice(0, 159)]) {

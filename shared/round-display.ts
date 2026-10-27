@@ -1,6 +1,7 @@
 export interface DisplayRound {
   round_number: number;
   round_source?: string | null;
+  is_unscored?: boolean;
   phase?: string | null;
   reserved_slot_kind?: string | null;
   reserved_slot_date?: string | null;
@@ -22,5 +23,5 @@ export function getRoundDisplayParts(round: DisplayRound, rounds: DisplayRound[]
 
 export function getRoundDisplayLabel(round: DisplayRound, rounds: DisplayRound[]) {
   const { number, suffix } = getRoundDisplayParts(round, rounds);
-  return `Round ${number}${suffix}`;
+  return `Round ${number}${suffix}${round.is_unscored === true ? ' · Unscored' : ''}`;
 }
