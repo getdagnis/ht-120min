@@ -180,3 +180,13 @@ another authenticated team's credentials; personal challenges require the team's
 own authorization. The scanner does not change fixtures, membership or bookings.
 Migration 152 is prepared locally and requires owner application before using the
 new view; no live database or CHPP verification is implied.
+
+Forge Scheduling can create an unscored organizer round after an explicit,
+proposal-bound availability recheck. Migration 153 adds the protected
+`rounds.is_unscored` marker and an atomic wrapper around the existing verified
+save; fixtures remain ordinary organizer fixtures for Forge booking. Unscored
+rounds do not contribute to standings, season-history statistics, 120m ratings,
+or staged progression. The optional make-up label in a draft is only a pairing
+hint: no reference or result is transferred. Historical manual linking remains
+separate. Migration 153 must be applied before deploying this code; it is
+prepared locally and has not been applied by the agent.

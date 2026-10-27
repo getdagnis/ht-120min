@@ -24,7 +24,8 @@ test('tournament public builder calculates fixture dates with Home snapshots dis
         const table = url.pathname.split('/').at(-1);
         let data = [];
         if (table === 'tournaments') data = { id: 'cup', season: 1, scoring_mode: '120min', organizer_id: 0 };
-        if (table === 'rounds') data = [{ id: 'round', created_at: '2026-10-01T00:00:00Z', round_number: 1 }];
+        if (table === 'rounds') data = [{ id: 'round', created_at: '2026-10-01T00:00:00Z', round_number: 1 }, { id: 'extra', created_at: '2026-10-02T00:00:00Z', round_number: 2, is_unscored: true }];
+        if (table === 'teams') data = [{ id: 'a', name: 'A', active: true, ht_team_id: 1 }, { id: 'b', name: 'B', active: true, ht_team_id: 2 }];
         if (table === 'tournament_seasons') data = [{ id: 'season', season_number: 1 }];
         if (table === 'tournament_season_slots') {
           // A slow optional slot read must not delay the independent fixture read.
@@ -33,13 +34,15 @@ test('tournament public builder calculates fixture dates with Home snapshots dis
         }
         if (table === 'matches') {
           matchesStarted();
-          data = [{ id: 'match', round_id: 'round', scheduled_for: '2026-10-03T12:00:00Z', completed: false, home_team: null, away_team: null }];
+          data = [{ id: 'match', round_id: 'round', scheduled_for: '2026-10-03T12:00:00Z', completed: true, home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, went_120: true, home_team: null, away_team: null }, { id: 'extra-match', round_id: 'extra', scheduled_for: '2026-10-04T12:00:00Z', completed: true, home_team_id: 'a', away_team_id: 'b', home_goals: 2, away_goals: 0, went_120: true, home_team: null, away_team: null }];
         }
         return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
       };
       const { buildTournamentInitialData } = await import('./src/app/_data/public-data.ts');
       const result = await buildTournamentInitialData({ id: 'cup', season: 1, scoring_mode: '120min', organizer_id: 0 });
       assert.equal(result.rounds[0].matches[0].match_date, '2026-10-03T12:00:00.000Z');
+      assert.equal(result.rounds[1].is_unscored, true);
+      assert.equal(result.standings.find(team => team.teamId === 'a').played, 1);
       assert.ok(!requests.some((path) => path.includes('public_snapshots') || path.includes('/rpc/')));
       console.log('PASS');
     `,

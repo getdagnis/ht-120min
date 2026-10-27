@@ -258,3 +258,8 @@ npm test
 Forge Scheduling availability: local implementation adds shared, private collection-wide
 slot observations in migration 152, separate from organizer verification receipts.
 Migration 152 has not been applied or verified against live Supabase or CHPP.
+
+Forge unscored organizer rounds: migration 153 and the local save/booking
+handoff are prepared; migration application and real CHPP/Supabase verification
+remain owner actions. These rounds are excluded from standings and progression;
+manual historical result linking remains separate.

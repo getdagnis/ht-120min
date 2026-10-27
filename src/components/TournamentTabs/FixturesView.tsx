@@ -93,6 +93,7 @@ interface FixturesViewProps {
     id: string;
     round_number: number;
     round_source?: 'scheduled' | 'organizer';
+    is_unscored?: boolean;
     created_at: string;
     phase?: 'regular' | 'postseason';
     phase_round_number?: number;
@@ -1114,7 +1115,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 <div className={styles.roundHeader}>
                   <>
                     <span>
-                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}
+                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}{round.is_unscored && ' · Unscored'}
                       {round.phase === 'postseason'
                         ? uiText(
                             rounds.filter(

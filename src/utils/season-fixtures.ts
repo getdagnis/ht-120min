@@ -51,6 +51,7 @@ export interface SeasonFixtureRoundSnapshot {
   id: string;
   round_number: number;
   round_source?: 'scheduled' | 'organizer';
+  is_unscored?: boolean;
   round_participants?: Array<{ team_id: string; participation: 'round_only' | 'admit' }>;
   created_at: string;
   phase?: 'regular' | 'postseason';
@@ -129,6 +130,7 @@ interface SnapshotSourceRound {
   id: string;
   round_number: number;
   round_source?: 'scheduled' | 'organizer';
+  is_unscored?: boolean;
   round_participants?: Array<{ team_id: string; participation: 'round_only' | 'admit' }>;
   created_at: string;
   phase?: 'regular' | 'postseason';
@@ -166,7 +168,7 @@ export function buildSeasonFixturesSnapshot(
       round_number: round.round_number,
       created_at: round.created_at,
       ...(round.phase ? { phase: round.phase } : {}),
-      ...(round.round_source ? { round_source: round.round_source, round_participants: round.round_participants } : {}),
+      ...(round.round_source ? { round_source: round.round_source, is_unscored: round.is_unscored, round_participants: round.round_participants } : {}),
       ...(round.phase_status ? { phase_status: round.phase_status } : {}),
       ...(round.reserved_slot_date !== undefined ? { reserved_slot_date: round.reserved_slot_date } : {}),
       matches: round.matches.map((match) => ({

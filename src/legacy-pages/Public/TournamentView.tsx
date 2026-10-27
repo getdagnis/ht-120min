@@ -475,6 +475,7 @@ export interface RoundWithMatches {
   id: string;
   round_number: number;
   round_source?: 'scheduled' | 'organizer';
+  is_unscored?: boolean;
   round_participants?: Array<{ team_id: string; participation: 'round_only' | 'admit' }>;
   created_at: string;
   season_number?: number;
@@ -643,6 +644,7 @@ function restoreFixtureSnapshot(snapshot: SeasonFixturesSnapshot): RoundWithMatc
     phase: round.phase,
     phase_status: round.phase_status,
     round_source: round.round_source,
+    is_unscored: round.is_unscored,
     round_participants: round.round_participants,
     reserved_slot_date: round.reserved_slot_date,
     matches: round.matches
@@ -1541,7 +1543,7 @@ export const TournamentView: React.FC<{
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
-  const departureRound = rounds.find((round) => round.phase_status === 'materialized');
+  const departureRound = rounds.find((round) => !round.is_unscored && round.phase_status === 'materialized');
   const [departureNoticeContainer, setDepartureNoticeContainer] = useState<HTMLDivElement | null>(null);
   const participantTeams = teams.filter(isCurrentParticipantTeam);
   const reserveTeams = teams.filter(isWaitingTeam);
@@ -2675,7 +2677,7 @@ export const TournamentView: React.FC<{
     tournament?.schedule_mode === 'length' &&
     rounds.some(
       (round) =>
-        round.phase_status === 'materialized' &&
+        !round.is_unscored && round.phase_status === 'materialized' &&
         round.matches.length > 0 &&
         round.matches.every((match) => match.completed || match.status === 'misarranged') &&
         rounds.some((next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending'),
@@ -3509,7 +3511,7 @@ export const TournamentView: React.FC<{
     return buildSeasonHistorySnapshot(
       teams.map((team) => toStandingTeam(team)),
       rounds
-        .filter((round) => round.phase !== 'postseason')
+        .filter((round) => round.phase !== 'postseason' && !round.is_unscored)
         .flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       tournament.scoring_mode as any,
       seasonSlots,
@@ -3536,11 +3538,11 @@ export const TournamentView: React.FC<{
 
     const now = new Date().toISOString();
     const finishedAt = resolveSeasonFinishedAt(
-      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      rounds.filter(round => !round.is_unscored).flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       existingSeason?.finished_at || now,
     );
     const startedAt = resolveSeasonStartedAt(
-      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      rounds.filter(round => !round.is_unscored).flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       existingSeason?.started_at || tournament.schedule_generated_at || null,
     );
     const { data, error } = await supabase
@@ -3630,7 +3632,7 @@ export const TournamentView: React.FC<{
   const handleFinishSeason = async () => {
     if (!tournament || isFinalizingSeason) return;
     if (tournament.schedule_mode === 'length') {
-      if (rounds.some((round) => round.phase_status !== 'completed')) {
+      if (rounds.some((round) => !round.is_unscored && round.phase_status !== 'completed')) {
         alert('Resolve every reserved round before finishing this staged season.');
         return;
       }
@@ -3826,7 +3828,8 @@ export const TournamentView: React.FC<{
       if (matchesError) throw matchesError;
 
       const roundNumberById = new Map(seasonRounds.map((round) => [round.id, round.round_number]));
-      const matches = (seasonMatches || []) as MatchWithTeams[];
+      const countedRoundIds = new Set(seasonRounds.filter(round => !round.is_unscored).map(round => round.id));
+      const matches = ((seasonMatches || []) as MatchWithTeams[]).filter(match => countedRoundIds.has(match.round_id));
       const historicalTeamIds = new Set(
         [
           ...matches.flatMap((match) => [match.home_team_id, match.away_team_id]),
@@ -5051,7 +5054,7 @@ export const TournamentView: React.FC<{
 
   const repairCurrentLengthRound = async () => {
     if (!tournament || tournament.schedule_mode !== 'length') return;
-    const currentRound = rounds.find((round) => round.phase_status === 'materialized' && round.phase === 'regular');
+    const currentRound = rounds.find((round) => !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular');
     if (!currentRound) return;
     if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`))
       return;
@@ -5628,7 +5631,7 @@ export const TournamentView: React.FC<{
       round.phase === 'regular' &&
       round.phase_status === 'pending' &&
       round.round_number ===
-        (rounds.find((current) => current.phase_status === 'materialized')?.round_number ?? -1) + 1,
+        (rounds.find((current) => !current.is_unscored && current.phase_status === 'materialized')?.round_number ?? -1) + 1,
   );
   const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && canManageOperationalAdmin && !isGenerated);
