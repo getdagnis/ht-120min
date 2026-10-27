@@ -64,6 +64,7 @@ const messages = {
     activityRoundFinished: '<tournament></tournament> Round {round} matches have finished.',
     activityRoundReport: '<tournament></tournament> Round {round} <report>press report has been published.</report>',
     chatTitle: 'HT-120min chat',
+    chatDiscordInvite: 'Join #HT-120min Discord!',
     chatLoadMore: 'Load More',
     chatPlaceholder: 'Say something...',
     chatEmojiPicker: 'Quick emoji picker',

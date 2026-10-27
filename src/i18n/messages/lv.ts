@@ -133,6 +133,7 @@ const messages = {
     activityRoundFinished: 'Turnīrā <tournament></tournament> noslēgusies {round}. kārta.',
     activityRoundReport: 'Publicēts turnīra <tournament></tournament> {round}. kārtas <report>apskats.</report>',
     chatTitle: 'HT-120min čats',
+    chatDiscordInvite: 'Ienāc #HT-120min Discord!',
     chatLoadMore: 'Ielādēt vēl',
     chatPlaceholder: 'Saki kaut ko...',
     chatEmojiPicker: 'Ātrā emocijzīmju izvēle',
