@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import Image from 'next/image';
 import { Tooltip } from '../Tooltip/Tooltip';
 import chatStyles from './ChatView.module.sass';
-import discordIcon from '../../assets/discord-bubble.svg';
 import sharedStyles from '../../legacy-pages/Public/TournamentView.module.sass';
 import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
@@ -17,6 +15,7 @@ import {
   type TournamentEmojiContext,
 } from '../../utils/tournament-emoji-options';
 import { DEFAULT_TOURNAMENT_CHAT_WELCOME, withChatWelcome } from '../../utils/chat-welcome';
+import { renderChatMarkup } from '../../utils/chat-markup';
 
 export interface ChatMessage {
   id: string;
@@ -308,7 +307,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <div
                     className={`${chatStyles.chatBubble} ${isBigEmoji ? chatStyles.bigEmojiBubble : ''} ${msg.global_message ? chatStyles.globalMessage : ''}`}
                   >
-                    <span className={`${chatStyles.chatContent} ${isBigEmoji ? chatStyles.bigEmoji : ''}`}>{msg.content}</span>
+                    <span className={`${chatStyles.chatContent} ${isBigEmoji ? chatStyles.bigEmoji : ''}`}>{renderChatMarkup(msg.content)}</span>
                   </div>
                 </div>
               </div>
@@ -365,15 +364,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </Button>
           </div>
         )}
-        <a
-          className={chatStyles.discordInvite}
-          href="https://discord.gg/5brBQTYxk"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image src={discordIcon} alt="" className={chatStyles.discordIcon} />
-          <span>{t('chatDiscordInvite')}</span>
-        </a>
       </div>
     </>
   );
