@@ -11,3 +11,5 @@ ALTER TABLE public.forge_slot_observations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.forge_slot_observations FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.forge_slot_observations TO service_role;
 COMMIT;
+
+-- applied!

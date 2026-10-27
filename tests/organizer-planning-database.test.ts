@@ -30,6 +30,7 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
     assert.match(sql('SELECT organizer_saved_repair_enabled();'), /f/);
     sql(readFileSync(new URL('../migrations/151_organizer_saved_round_repair.sql', import.meta.url), 'utf8'));
     assert.match(sql('SELECT organizer_saved_repair_enabled();'), /t/);
+    sql(readFileSync(new URL('../migrations/153_unscored_organizer_rounds.sql', import.meta.url), 'utf8'));
     sql(`INSERT INTO tournaments(id,season,schedule_mode,schedule_generated_at,status) VALUES('${uuid(100)}',1,'length',now(),'active');
       ${Array.from({ length: 6 }, (_, i) => `INSERT INTO teams(id,tournament_id,name,ht_team_id,hattrick_user_id,active) VALUES('${uuid(i + 1)}','${uuid(100)}','Team ${i + 1}',${i + 1},${i + 1},true);`).join('\n')}`);
     const output = sql(`DO $$
@@ -92,5 +93,47 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
       END $$;
       SELECT 'organizer repair assertions completed';`);
     assert.match(output, /organizer repair assertions completed/);
+    const unscored = sql(`DO $$
+      DECLARE slot jsonb:=jsonb_build_object('id','unscored-weekend','kind','weekend_friendly','date',now()+interval '7 days');
+        roster jsonb; pairs jsonb; version text; result jsonb; rid uuid; verification uuid:='${uuid(201)}';
+      BEGIN
+        SELECT jsonb_agg(jsonb_build_object('teamId',id,'participation','round_only') ORDER BY ht_team_id) INTO roster FROM teams WHERE id IN ('${uuid(1)}','${uuid(2)}');
+        pairs:=jsonb_build_array(jsonb_build_object('home_team_id','${uuid(1)}','away_team_id','${uuid(2)}','scheduled_for',slot->>'date'));
+        INSERT INTO tournament_slot_checks(tournament_id,season_number,slot_id,team_id,checked_at,observation,verification_id,proposal_hash,actor_id)
+          SELECT '${uuid(100)}',1,'unscored-weekend',id,now(),jsonb_build_object('state','free','challengesKnown',true,'pendingOpponentIds','[]'::jsonb),verification,'unscored',0 FROM teams WHERE id IN ('${uuid(1)}','${uuid(2)}');
+        version:=get_organizer_round_context('${uuid(100)}',1)->>'rosterVersion';
+        result:=save_unscored_verified_organizer_round('${uuid(100)}',1,version,slot,roster,pairs,false,verification,'unscored',0);
+        rid:=(result->>'roundId')::uuid;
+        IF NOT EXISTS(SELECT 1 FROM rounds WHERE id=rid AND is_unscored AND round_source='organizer') THEN RAISE EXCEPTION 'unscored round not marked'; END IF;
+        IF (SELECT count(*) FROM round_participants WHERE round_id=rid)<>2 THEN RAISE EXCEPTION 'round roster missing'; END IF;
+        IF EXISTS(SELECT 1 FROM tournament_slot_checks WHERE verification_id=verification) THEN RAISE EXCEPTION 'verification receipt not consumed'; END IF;
+        BEGIN
+          PERFORM save_unscored_verified_organizer_round('${uuid(100)}',1,version,slot,roster,pairs,false,verification,'unscored',0);
+          RAISE EXCEPTION 'replayed receipt accepted';
+        EXCEPTION WHEN serialization_failure OR raise_exception THEN IF SQLERRM NOT LIKE 'The roster or fixtures changed%' AND SQLERRM NOT LIKE 'Final verification%' THEN RAISE; END IF; END;
+
+        IF (SELECT count(*) FROM matches WHERE round_id=rid)<>1 THEN RAISE EXCEPTION 'unscored fixtures missing'; END IF;
+        -- A manual link may point both fixture rows at the same Hattrick match;
+        -- only the original counted round contributes a result.
+        UPDATE matches SET ht_match_id=999,completed=true,status='finished' WHERE round_id=rid;
+        UPDATE matches SET completed=true,status='finished' WHERE round_id<>rid AND ht_match_id=999;
+        IF (SELECT count(*) FROM matches WHERE ht_match_id=999)<>2 OR
+           (SELECT count(*) FROM matches m JOIN rounds r ON r.id=m.round_id WHERE m.ht_match_id=999 AND m.completed AND NOT r.is_unscored)<>1 THEN
+          RAISE EXCEPTION 'duplicate link counted incorrectly'; END IF;
+
+        IF has_function_privilege('authenticated','save_unscored_verified_organizer_round(uuid,integer,text,jsonb,jsonb,jsonb,boolean,uuid,text,bigint)','EXECUTE') THEN RAISE EXCEPTION 'unscored save exposed'; END IF;
+        INSERT INTO tournament_seasons(tournament_id,season_number,status) VALUES ('${uuid(100)}',1,'ongoing') ON CONFLICT(tournament_id,season_number) DO NOTHING;
+        UPDATE rounds SET phase_status='completed' WHERE tournament_id='${uuid(100)}' AND id<>rid;
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status) VALUES ('${uuid(300)}','${uuid(100)}',1,99,'regular','materialized');
+        IF NOT (apply_length_round_transition('${uuid(100)}',1,'${uuid(300)}',NULL,'[]',NULL)->>'advanced')::boolean THEN
+          RAISE EXCEPTION 'unscored round blocked counted progression'; END IF;
+        IF (SELECT phase_status FROM rounds WHERE id=rid)<>'materialized' THEN RAISE EXCEPTION 'unscored round was progressed'; END IF;
+
+        BEGIN
+          PERFORM apply_length_round_transition('${uuid(100)}',1,rid,NULL,'[]',NULL);
+          RAISE EXCEPTION 'unscored progression accepted';
+        EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Unscored rounds cannot%' THEN RAISE; END IF; END;
+      END $$; SELECT 'unscored creation assertions completed';`);
+    assert.match(unscored, /unscored creation assertions completed/);
   } finally { sql(`DROP DATABASE ${database};`, 'postgres'); }
 });

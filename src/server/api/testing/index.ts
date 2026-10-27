@@ -22,6 +22,7 @@ import { beautifyXml } from './_lib/xml-format.js';
 import handleForgeLeagues from './leagues.js';
 import handleFlagHunters from './flag-hunters.js';
 import handleScheduling from './scheduling.js';
+import { handleOrganizerRound } from '../_lib/organizer-round.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import {
   getFootballScore,
@@ -818,6 +819,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'leagues': return await handleForgeLeagues(req, res);
       case 'flag-hunters': return await handleFlagHunters(req, res);
       case 'scheduling': return await handleScheduling(req, res);
+      case 'scheduling-round': {
+        if (rejectIfForgeTestingUnauthorized(req, res)) return;
+        const tournamentId = String(req.query.tournamentId || '');
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tournamentId)) return res.status(400).json({ error: 'Choose a valid tournament.' });
+        return await handleOrganizerRound(req, res, tournamentId, false, 0, true);
+      }
       case 'credentials-check': return await handleCredentials(req, res);
       case 'challenges-view': return await handleView(req, res);
       case 'challengeable': return await handleChallengeable(req, res);

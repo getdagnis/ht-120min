@@ -184,7 +184,8 @@ async function invoke(request: NextRequest) {
       !['suggest_ht_matches', 'team_planning_statuses'].includes(String(input.action))) || finishedLiveResult ||
     (path === '/api/matchmaker/teams' && Boolean(query.managerId)) ||
     (path === '/api/auth/complete' && (Boolean(result.tournamentId) || Array.isArray(result.tournamentIds))) ||
-    (path.startsWith('/api/testing') && query.apply === '1' && query.tool === 'round-press-matchdetails-backfill');
+    (path.startsWith('/api/testing') && query.apply === '1' && query.tool === 'round-press-matchdetails-backfill') ||
+    (path.startsWith('/api/testing') && query.tool === 'scheduling-round' && input.action === 'save');
   const affectedId = input.tournamentId || input.tournament_id || query.tournamentId || query.tournament_id || result.tournamentId;
   const affectedIds = Array.from(new Set([
     ...(Array.isArray(result.tournamentIds) ? result.tournamentIds.filter((id): id is string => typeof id === 'string') : []),

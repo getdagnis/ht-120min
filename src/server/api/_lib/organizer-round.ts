@@ -15,7 +15,7 @@ interface RoundContext {
   rounds: Array<{ id: string; phase: string; phase_status: string; reserved_slot_id: string | null; reserved_slot_date: string | null }>;
   history: OrganizerRoundHistory[];
 }
-export async function handleOrganizerRound(req: VercelRequest, res: VercelResponse, tournamentId: string, canOverride: boolean, actorId: number) {
+export async function handleOrganizerRound(req: VercelRequest, res: VercelResponse, tournamentId: string, canOverride: boolean, actorId: number, unscored = false) {
   const db = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await db.from('tournaments').select('season,schedule_mode,schedule_generated_at').eq('id', tournamentId).maybeSingle();
   if (tournamentError) throw tournamentError;
@@ -153,12 +153,16 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
     return match;
   });
   if (matches.some(match => !protectedIds.has(match.home_team_id) && !protectedIds.has(match.away_team_id) && Date.parse(match.scheduled_for || '') <= now.getTime())) return res.status(409).json({ error: 'A selected team’s planned kickoff has already passed.' });
-  const saved = await db.rpc('save_verified_organizer_round', {
+  const rpcParams = {
     p_tournament_id: tournamentId, p_season_number: seasonNumber, p_roster_version: rosterVersion,
     p_slot: { id: slot.id, kind: slot.kind, date: slot.nominalDate.toISOString() }, p_roster: selections,
     p_matches: matches, p_override: canOverride,
-    p_round_id: target?.id || null, p_verification_id: run.id, p_proposal_hash: hash, p_actor_id: actorId,
-  });
+    p_verification_id: run.id, p_proposal_hash: hash, p_actor_id: actorId,
+  };
+  if (unscored && target) return res.status(400).json({ error: 'This action creates a new round.' });
+  const saved = unscored
+    ? await db.rpc('save_unscored_verified_organizer_round', rpcParams)
+    : await db.rpc('save_verified_organizer_round', { ...rpcParams, p_round_id: target?.id || null });
   if (saved.error) return res.status(409).json({ error: saved.error.message });
   return res.status(200).json(saved.data);
 }
