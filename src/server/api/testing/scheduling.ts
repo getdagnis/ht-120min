@@ -23,7 +23,7 @@ export default async function handleScheduling(req: VercelRequest, res: VercelRe
   const tournamentIds = visibleTournaments.map(tournament => tournament.id);
   const teams: Array<OrganizerRoundTeam & { tournament_id: string; oauth_token?: string | null; oauth_token_secret?: string | null }> = [];
   for (let offset = 0; tournamentIds.length; offset += 500) {
-    const page = await db.from('teams').select('id,tournament_id,name,ht_team_id,hattrick_user_id,active,reserve_active,is_placeholder,manager_name,oauth_token,oauth_token_secret').in('tournament_id', tournamentIds).order('id').range(offset, offset + 499);
+    const page = await db.from('teams').select('id,tournament_id,name,ht_team_id,hattrick_user_id,active,reserve_active,is_placeholder,manager_name,gender_id,oauth_token,oauth_token_secret').in('tournament_id', tournamentIds).order('id').range(offset, offset + 499);
     if (page.error) throw page.error;
     teams.push(...(page.data || []).filter(row => !row.is_placeholder));
     if ((page.data || []).length < 500) break;

@@ -370,7 +370,12 @@ export function ForgeMatchesSection() {
   useEffect(() => {
     let restoreTimeoutId: number | undefined;
     try {
-      const savedSelection = sessionStorage.getItem(SELECTION_STORAGE_KEY);
+      const query = new URLSearchParams(window.location.search);
+      const requestedTournament = query.get('tournamentId');
+      const requestedRound = Number(query.get('roundNumber'));
+      const savedSelection = requestedTournament && Number.isSafeInteger(requestedRound) && requestedRound > 0
+        ? JSON.stringify({ tournamentId: requestedTournament, roundNumber: requestedRound })
+        : sessionStorage.getItem(SELECTION_STORAGE_KEY);
       if (savedSelection) {
         const parsed = JSON.parse(savedSelection) as { tournamentId?: unknown; roundNumber?: unknown };
         restoreTimeoutId = window.setTimeout(() => {

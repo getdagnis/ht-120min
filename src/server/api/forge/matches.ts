@@ -90,6 +90,7 @@ type ForgeRoundRow = {
   season_number: number;
   round_number: number;
   round_source?: string | null;
+  is_unscored?: boolean;
   reserved_slot_kind?: string | null;
   reserved_slot_date?: string | null;
   phase: 'regular' | 'postseason';
@@ -284,7 +285,7 @@ async function loadMaterializedRounds(
 ) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('id, tournament_id, created_at, season_number, round_number, round_source, reserved_slot_kind, reserved_slot_date, phase, phase_status, matches(id, completed, status)')
+    .select('id, tournament_id, created_at, season_number, round_number, round_source, is_unscored, reserved_slot_kind, reserved_slot_date, phase, phase_status, matches(id, completed, status)')
     .eq('tournament_id', tournament.id)
     .eq('season_number', tournament.season || 1)
     .eq('phase', 'regular')
@@ -323,7 +324,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
   const seasonByTournament = new Map(tournaments.map((tournament) => [tournament.id, tournament.season || 1]));
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
-    .select('id, tournament_id, created_at, season_number, round_number, round_source, reserved_slot_kind, reserved_slot_date, phase, phase_status')
+    .select('id, tournament_id, created_at, season_number, round_number, round_source, is_unscored, reserved_slot_kind, reserved_slot_date, phase, phase_status')
     .in('tournament_id', tournamentIds)
     .order('round_number', { ascending: true });
   if (roundsError) throw roundsError;
@@ -452,12 +453,13 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
       .filter((value): value is string => Boolean(value))
       .sort((left, right) => left.localeCompare(right))[0] || null;
 
-    const tournamentMatches = tournamentRounds.flatMap((candidate) => matchesByRound.get(candidate.id) || []);
-    const completedRounds = tournamentRounds.filter((candidate) => {
+    const countedRounds = tournamentRounds.filter(candidate => !candidate.is_unscored);
+    const tournamentMatches = countedRounds.flatMap((candidate) => matchesByRound.get(candidate.id) || []);
+    const completedRounds = countedRounds.filter((candidate) => {
       const matches = matchesByRound.get(candidate.id) || [];
       return matches.length > 0 && matches.every((match) => match.completed || match.status === 'misarranged');
     }).length;
-    const sortedStartDate = tournamentRounds
+    const sortedStartDate = countedRounds
       .flatMap((candidate) => (matchesByRound.get(candidate.id) || []).map((match) => getMatchDateForRound(
         candidate,
         {
@@ -477,11 +479,11 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
       season,
       status: tournament.status,
       registration_closed_at: tournament.registration_closed_at,
-      rounds: tournamentRounds.map((candidate) => ({
+      rounds: countedRounds.map((candidate) => ({
         round_number: candidate.round_number,
         matches: matchesByRound.get(candidate.id) || [],
       })),
-      totalRounds: tournamentRounds.length,
+      totalRounds: countedRounds.length,
       completedRounds,
       totalMatches: tournamentMatches.length,
       completedMatches: tournamentMatches.filter((match) => match.completed || match.status === 'misarranged').length,
