@@ -238,6 +238,17 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
           away_yellow_cards: 0, away_red_cards: 0, away_injuries: 0 }
       : match,
   );
+  if (process.env.NODE_ENV === 'development') {
+    for (const match of rawMatches) {
+      if (match.next_match_arrange_story == null) continue;
+      console.info('[public-tournament] next_match_arrange_story\n' + JSON.stringify({
+        tournamentId,
+        fixtureId: match.id,
+        roundNumber: rounds.find((round) => round.id === match.round_id)?.round_number,
+        next_match_arrange_story: match.next_match_arrange_story,
+      }, null, 2));
+    }
+  }
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
   const slotIds = (slotsResult.data || []).map((slot) => String((slot as Record<string, unknown>).id));
   const assignmentFilters = [
