@@ -1235,6 +1235,9 @@ const messages = {
       multiTeamManagers: 'Menedžeri ar vairākām komandām',
     },
     ManagerSpotlight: {
+      loading: "Ielādē citus vadītājus…",
+      loadError: "Neizdevās ielādēt citus vadītājus. Joprojām varat apskatīt jau ielādētos profilus.",
+      retry: "Mēģināt vēlreiz",
       meetTheManager: "",
       next: "Tālāk",
       hTLanguage: "",

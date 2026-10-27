@@ -1252,6 +1252,9 @@ const messages = {
       multiTeamManagers: 'Managers entering multiple teams',
     },
     ManagerSpotlight: {
+      loading: "Loading more managers…",
+      loadError: "Could not load more managers. You can still browse the loaded profiles.",
+      retry: "Retry",
       meetTheManager: "Meet the manager",
       next: "Next",
       hTLanguage: "HT language:",

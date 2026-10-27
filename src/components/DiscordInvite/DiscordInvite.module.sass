@@ -1,0 +1,66 @@
+.discordInvite
+  position: relative
+  display: flex
+  align-items: center
+  justify-content: center
+  width: 100%
+  min-height: 2.5rem
+  margin-top: 1.25rem
+  margin-bottom: 0.5rem
+  padding: 0.5rem 0.75rem 0.5rem 3rem
+  border-radius: var(--radius-md)
+  background: var(--lighter-more)
+  color: var(--text)
+  font-size: 1.1rem
+  font-weight: 700
+  line-height: 1.2
+  text-align: left
+  text-decoration: none
+  transition: filter 0.15s ease
+
+  &:hover
+    filter: brightness(1.08)
+
+  &:focus-visible
+    outline: 2px solid currentColor
+    outline-offset: 2px
+
+:global([data-theme='light']) .discordInvite
+  background: var(--lighter-more)
+
+:global([data-theme='dark']) .discordInvite
+  background: var(--lighter-more)
+
+.discordIcon
+  position: absolute
+  top: 50%
+  left: 0.5rem
+  width: 3.75rem
+  height: 3.75rem
+  transform: translate(0.5rem, -50%) scale(0.95) rotate(5deg)
+  transition: transform 0.2s ease-out
+  animation: discordAttention 30s ease-out 30s infinite
+
+.discordInvite:hover .discordIcon,
+.discordInvite:focus-visible .discordIcon
+  animation: none
+  transform: translate(0.5rem, -50%) scale(1.05) rotate(-5deg)
+
+@keyframes discordAttention
+  0%, 16.667%, 100%
+    transform: translate(0.5rem, -50%) scale(0.95) rotate(5deg)
+  2%, 14.667%
+    transform: translate(0.5rem, -50%) scale(1.05) rotate(-5deg)
+
+@media (prefers-reduced-motion: reduce)
+  .discordIcon,
+  .discordInvite:hover .discordIcon,
+  .discordInvite:focus-visible .discordIcon
+    animation: none
+    transition: none
+    transform: translateY(-50%)
+
+@media (max-width: 480px)
+  .discordInvite
+    font-size: 1rem
+
