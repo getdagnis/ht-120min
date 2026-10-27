@@ -9,10 +9,12 @@ export interface SlotObservation {
   state: 'free' | 'booked' | 'blocked' | 'unknown';
   checkedAt: string;
   reason: string;
+  matchType?: number;
   booking?: { matchId: number; homeId: number; awayId: number; kickoff: string };
   /** Only pending challenges sent by this manager can block a new pairing. */
   pendingOpponentIds: number[];
   incomingOfferOpponentIds?: number[];
+  incomingOffersKnown?: boolean;
   offersDirectionKnown?: boolean;
   challengesKnown: boolean;
   flagsOngoing?: boolean;

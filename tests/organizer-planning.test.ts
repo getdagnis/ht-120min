@@ -145,8 +145,16 @@ test('CHPP checks inspect every match in the selected slot and fail closed on in
     const booked = await checkSlot(db, teams[0], weekend);
     assert.equal(booked.state, 'booked'); assert.equal(booked.booking?.matchId, 101);
     fixtures = match(102, '2026-10-31 14:00:00', 2);
-    assert.equal((await checkSlot(db, teams[0], weekend)).state, 'blocked');
+    const qualifier = await checkSlot(db, teams[0], weekend, new Set(), { includeOccupiedChallenges: true });
+    assert.equal(qualifier.state, 'blocked'); assert.equal(qualifier.matchType, 2);
+    assert.equal(qualifier.booking?.matchId, 102); assert.equal(qualifier.challengesKnown, true);
+    offers = '<OffersByOthers/>';
+    const failedOffers = await checkSlot(db, teams[0], weekend, new Set(), { includeOccupiedChallenges: true });
+    assert.equal(failedOffers.state, 'blocked'); assert.equal(failedOffers.challengesKnown, false);
+    const fallback = await checkSlot(db, { ...teams[0], hattrick_user_id: null }, weekend, new Set(), { fallback: { oauth_token: 'fallback', oauth_token_secret: 'fallback-secret' } });
+    assert.equal(fallback.state, 'blocked');
     fixtures = '';
+    offers = '<ChallengesByMe/><OffersByOthers/>';
     offers = '<ChallengesByMe><Challenge><TrainingMatchID>5</TrainingMatchID><MatchTime>2026-10-28 14:00:00</MatchTime><IsAgreed>False</IsAgreed><Opponent><TeamID>2</TeamID></Opponent></Challenge></ChallengesByMe><OffersByOthers/>';
     assert.deepEqual((await checkSlot(db, teams[0], weekend)).pendingOpponentIds, []);
     offers = offers.replace('2026-10-28', '2026-10-31');

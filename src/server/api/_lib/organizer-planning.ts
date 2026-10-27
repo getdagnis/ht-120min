@@ -40,9 +40,10 @@ export function readVerification(token: unknown, hash: string, actor: number, to
   return run;
 }
 
-async function chpp(db: Db, team: OrganizerRoundTeam, params: Record<string, string>) {
-  if (!team.hattrick_user_id || !team.ht_team_id) throw new Error('Team identity or saved Hattrick access is missing.');
-  const credentials = await getManagerChppCredentials(db, team.hattrick_user_id);
+type ChppCredentials = { oauth_token: string; oauth_token_secret: string };
+async function chpp(db: Db, team: OrganizerRoundTeam, params: Record<string, string>, fallback?: ChppCredentials | null) {
+  if ((!team.hattrick_user_id && !fallback) || !team.ht_team_id) throw new Error('Team identity or saved Hattrick access is missing.');
+  const credentials = (team.hattrick_user_id ? await getManagerChppCredentials(db, team.hattrick_user_id) : null) || fallback;
   const key = process.env.CHPP_CONSUMER_KEY, secret = process.env.CHPP_CONSUMER_SECRET;
   if (!credentials || !key || !secret) throw new Error('Saved Hattrick access is unavailable.');
   const query = { ...params, [params.file === 'challenges' ? 'teamId' : 'teamID']: String(team.ht_team_id) };
@@ -55,11 +56,11 @@ async function chpp(db: Db, team: OrganizerRoundTeam, params: Record<string, str
 }
 
 export async function checkSlot(db: Db, team: OrganizerRoundTeam, slot: CalendarSlot,
-  tournamentTeamIds: ReadonlySet<number> = new Set()): Promise<SlotObservation> {
+  tournamentTeamIds: ReadonlySet<number> = new Set(), options?: { fallback?: ChppCredentials | null; includeOccupiedChallenges?: boolean }): Promise<SlotObservation> {
   const result: SlotObservation = { teamId: team.id, state: 'unknown', checkedAt: new Date().toISOString(),
     reason: 'Availability is unknown.', pendingOpponentIds: [], challengesKnown: false };
   try {
-    const xml = await chpp(db, team, { file: 'matches', version: '2.9' });
+    const xml = await chpp(db, team, { file: 'matches', version: '2.9' }, options?.fallback);
     if (Number(xml.match(/<Team>[\s\S]*?<TeamID>\s*(\d+)\s*<\/TeamID>/i)?.[1]) !== team.ht_team_id ||
         !/<MatchList(?:\s*\/\s*>|>[\s\S]*?<\/MatchList>)/i.test(xml)) throw new Error('Hattrick did not return an identified complete match list.');
     const matches = parseMatchesXml(xml);
@@ -79,13 +80,16 @@ export async function checkSlot(db: Db, team: OrganizerRoundTeam, slot: Calendar
       result.booking = { matchId: friendly.matchId, homeId: friendly.homeTeamId, awayId: friendly.awayTeamId,
         kickoff: parseChppStockholmDate(friendly.matchDate)!.toISOString() };
     } else if (inSlot.length) {
+      const occupied = inSlot[0];
+      result.matchType = occupied.matchType;
+      result.booking = { matchId: occupied.matchId, homeId: occupied.homeTeamId, awayId: occupied.awayTeamId, kickoff: parseChppStockholmDate(occupied.matchDate)!.toISOString() };
       const opponentId = inSlot[0].homeTeamId === Number(team.ht_team_id) ? inSlot[0].awayTeamId : inSlot[0].homeTeamId;
       result.state = 'blocked';
       result.reason = tournamentTeamIds.has(opponentId)
         ? 'Has a booked match with another tournament team.'
         : 'Has a booked match with a team outside the tournament.';
     } else { result.state = 'free'; result.reason = 'No booked match found in the selected slot.'; }
-    if (result.state !== 'free') { result.checkedAt = new Date().toISOString(); return result; }
+    if (result.state !== 'free' && !options?.includeOccupiedChallenges) { result.checkedAt = new Date().toISOString(); return result; }
     // Outgoing challenges are separate from booked matches. If their direction or
     // date cannot be established, a changed pairing cannot be verified.
     try {
@@ -100,7 +104,9 @@ export async function checkSlot(db: Db, team: OrganizerRoundTeam, slot: Calendar
       const outgoingOffers = parseChppOutgoingChallenges(offers);
       if (outgoingOffers.length !== outgoingBlocks.length || outgoingOffers.some(offer => !offer.trainingMatchId))
         throw new Error('Outgoing challenge list is incomplete.');
-      const incomingSection = offers.match(/<OffersByOthers>([\s\S]*?)<\/OffersByOthers>/i)?.[1] || '';
+      const incomingMatch = offers.match(/<OffersByOthers>([\s\S]*?)<\/OffersByOthers>/i);
+      result.incomingOffersKnown = Boolean(incomingMatch || /<OffersByOthers\s*\/>/i.test(offers));
+      const incomingSection = incomingMatch?.[1] || '';
       const incomingBlocks = [...incomingSection.matchAll(/<Offer>([\s\S]*?)<\/Offer>/gi)].map(match => match[1]);
       const inSelectedSlot = (offer: { trainingMatchId?: number }, blocks: string[]) => {
         const block = blocks.find(block => Number(block.match(/<TrainingMatchID>(\d+)<\/TrainingMatchID>/i)?.[1]) === offer.trainingMatchId);
@@ -109,9 +115,11 @@ export async function checkSlot(db: Db, team: OrganizerRoundTeam, slot: Calendar
         return insideSlot(date, slot);
       };
       const outgoing = outgoingOffers.filter(offer => inSelectedSlot(offer, outgoingBlocks));
-      const incoming = parseChppChallengeOffers(offers).filter(offer => {
+      const parsedIncoming = parseChppChallengeOffers(offers);
+      if (parsedIncoming.length !== incomingBlocks.length) result.incomingOffersKnown = false;
+      const incoming = parsedIncoming.filter(offer => {
         try { return inSelectedSlot(offer, incomingBlocks); }
-        catch { return false; } // Incomplete incoming offers are informational only.
+        catch { result.incomingOffersKnown = false; return false; }
       });
       const selectedOffers = [...incoming, ...outgoing];
       if (result.state === 'free' && selectedOffers.some(offer => offer.isAgreed)) {

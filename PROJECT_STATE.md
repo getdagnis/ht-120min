@@ -254,3 +254,7 @@ The local production build previously returned `200` for Home and a populated pu
 npm run build
 npm test
 ```
+
+Forge Scheduling availability: local implementation adds shared, private collection-wide
+slot observations in migration 152, separate from organizer verification receipts.
+Migration 152 has not been applied or verified against live Supabase or CHPP.

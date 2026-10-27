@@ -28,6 +28,7 @@ import faqStyles from '../../components/Faq/FaqRenderer.module.sass';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './Forge.module.sass';
 import { ForgeMatchesSection } from './ForgeMatches';
+import { ForgeScheduling } from './ForgeScheduling';
 import { ForgeLeagues } from './ForgeLeagues';
 import { FlagHunters } from './FlagHunters';
 import { ForgeLocales } from './ForgeLocales';
@@ -300,6 +301,7 @@ function getTrendSince(clock: number | null, interval: ForgeTrendInterval) {
 
 const sidebarItems = [
   { to: '/', label: 'Dashboard', icon: <House size={18} weight="bold" /> },
+  { to: '/scheduling', label: 'Scheduling', icon: <SoccerBall size={18} weight="bold" /> },
   { to: '/matches', label: 'Match booking', icon: <SoccerBall size={18} weight="bold" /> },
   { to: '/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
   { to: '/surveys', label: 'Surveys', icon: <ClipboardText size={18} weight="bold" /> },
@@ -3138,6 +3140,7 @@ export const ForgePage: React.FC = () => {
         )}
         {auth.role === 'admin' && <Route path="stats" element={<ForgeStatsSection />} />}
         {auth.role === 'admin' && <Route path="surveys" element={<ForgeSurveys />} />}
+        {auth.role === 'admin' && <Route path="scheduling" element={<ForgeScheduling />} />}
         {auth.role === 'admin' && <Route path="matches" element={<ForgeMatchesSection />} />}
         {auth.role === 'admin' && <Route path="faq" element={<ForgeFaqEditor />} />}
         <Route path="locales" element={<ForgeLocales isAdmin={auth.role === 'admin'} />} />

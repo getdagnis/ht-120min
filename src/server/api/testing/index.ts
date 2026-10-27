@@ -21,6 +21,7 @@ import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
 import { beautifyXml } from './_lib/xml-format.js';
 import handleForgeLeagues from './leagues.js';
 import handleFlagHunters from './flag-hunters.js';
+import handleScheduling from './scheduling.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import {
   getFootballScore,
@@ -816,6 +817,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (tool) {
       case 'leagues': return await handleForgeLeagues(req, res);
       case 'flag-hunters': return await handleFlagHunters(req, res);
+      case 'scheduling': return await handleScheduling(req, res);
       case 'credentials-check': return await handleCredentials(req, res);
       case 'challenges-view': return await handleView(req, res);
       case 'challengeable': return await handleChallengeable(req, res);

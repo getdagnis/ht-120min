@@ -167,3 +167,16 @@ Use an authorized disposable tournament for counted save and saved-round repair;
 localhost itself uses production Supabase. Reconcile newly accepted matches through
 the existing refresh path. Verify standings and protected fixture identities after
 repair. Live bookability and production behavior remain unverified.
+
+## Forge collection availability
+
+Forge Scheduling scans a selected collection and friendly slot in bounded batches.
+It stores shared per-Hattrick-team snapshots in `forge_slot_observations` (migration
+152), separate from `tournament_slot_checks` and its final-verification receipts.
+Snapshots are observations at their displayed time, not guarantees of availability.
+The scanner includes Active, Lobby and Past registrations; unknown match or
+challenge data is not presented as ready to arrange. Match-list access may use
+another authenticated team's credentials; personal challenges require the team's
+own authorization. The scanner does not change fixtures, membership or bookings.
+Migration 152 is prepared locally and requires owner application before using the
+new view; no live database or CHPP verification is implied.
