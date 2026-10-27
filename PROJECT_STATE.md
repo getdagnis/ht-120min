@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-26
+Last updated: 2026-10-28
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.
 
 ## Current Product State
+
+Tournament cache partitioning and public fixture projections are implemented locally: per-round current fixtures, lazy per-season history, and two initial Manager Spotlights with on-demand browsing. Migration `155_daily_manager_spotlights.sql` introduces service-only atomic UTC-day selection metadata and is **not applied**. Apply it before deploying the associated loader. Stored event/report facts and live processing are preserved. Real largest-tournament cache sizing, database concurrency/RLS execution, browser behavior and deployed cache reuse remain unverified. See [public data boundaries](docs/public-data-implementation.md#tournament-cache-and-spotlight-boundaries-local-implementation).
 
 The tournament sidebar flag quiz is implemented locally, replacing the season winning-team poll. Questions are shared globally in 12-hour UTC windows; signed-in managers receive one immutable guess per window, aggregated results, and a monthly top 20 by correct answers. Migration `142_flag_quiz.sql` defines first-class question/answer tables and service-only RPCs; its owner-added applied marker is not independent live verification. Follow-up `143_flag_quiz_leader_profiles.sql` prepares the service RPC fields needed for avatar, country, and profile links. Apply 143 before deploying the profile-enhanced widget. Neither live schema state nor deployment is independently verified. See [flag quiz contracts and verification](docs/flag-quiz.md).
 

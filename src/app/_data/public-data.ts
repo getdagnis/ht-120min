@@ -1,6 +1,8 @@
 import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round.js';
 import 'server-only';
 
+import { projectPublicFixture, projectPublicSeason } from '../../utils/public-fixture-projection.js';
+import { loadInitialTournamentSpotlights } from './spotlight.js';
 import { createClient } from '@supabase/supabase-js';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
@@ -12,9 +14,6 @@ import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../u
 import { isCurrentParticipantTeam } from '../../utils/team-state.js';
 import { attachFixtureRatingStatus, readFixtureRatingStatuses, type FixtureRatingShareStatus } from '../../types/fixture-ratings.js';
 import {
-  buildManagerSpotlight,
-  buildManagerSpotlights,
-  getUtcDateKey,
   type ManagerSpotlight,
   type ManagerSpotlightProfile,
 } from '../../utils/manager-spotlight';
@@ -37,6 +36,7 @@ export interface TournamentInitialData {
   organizerProfileName: string | null;
   managerSpotlight: ManagerSpotlight | null;
   managerSpotlights: ManagerSpotlight[];
+  managerSpotlightsHasMore?: boolean;
   seasonSlots: { id: string; current_team_id: string | null }[];
   seasonSlotAssignments: SeasonSlotAssignment[];
 }
@@ -86,45 +86,43 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   // errors/timeouts still throw and reach the recoverable unavailable state.
   const tournament = await confirmPublicTournamentMiss(cachedTournament, () => readTournament(slug));
   if (!tournament) return null;
-  // All archived seasons are included and selected locally. Current season and
-  // UTC spotlight day are explicit inputs; a season rollover cannot reuse S1.
-  // V4 discards older round payloads that did not carry is_unscored.
-  return unstable_cache(() => buildTournamentInitialData(tournament),
-    ['tournament-public-v4', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
-    { revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentCacheTag(String(tournament.id)), tournamentSlugCacheTag(slug)] },
-  )();
+  return buildTournamentInitialData(tournament, false);
 });
 
 // Explicit user refresh: same public projection, without shared cache reads or writes.
 export async function loadFreshTournamentPublicData(slug: string): Promise<TournamentInitialData | null> {
   const tournament = await readTournament(slug);
-  return tournament ? buildTournamentInitialData(tournament) : null;
+  return tournament ? buildTournamentInitialData(tournament, true) : null;
 }
 
-export async function buildTournamentInitialData(tournament: Record<string, unknown>): Promise<TournamentInitialData> {
+export async function buildTournamentInitialData(tournament: Record<string, unknown>, fresh = true): Promise<TournamentInitialData> {
   const supabase = getPublicSupabase();
   if (!supabase) throw new Error('Public Supabase configuration missing.');
   const tournamentId = String(tournament.id);
   const seasonNumber = Number(tournament.season || 1);
   const organizerId = Number(tournament.organizer_id || 0);
-  // One line per real rebuild helps compare fresh-session visits in Vercel
-  // logs without logging private data or adding a verification endpoint.
-  console.info('[public-tournament] rebuild', { tournamentId, seasonNumber });
-
+  const partition = <T>(key: string[], read: () => Promise<T>): Promise<T> => fresh ? read() : unstable_cache(read,
+    ['tournament-partition-v1', tournamentId, String(seasonNumber), ...key],
+    { revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentCacheTag(tournamentId), tournamentSlugCacheTag(String(tournament.slug))] })();
+  const query = <T extends { error?: unknown }>(key: string, read: () => PromiseLike<T>) => partition([key], async () => {
+    const result = await read();
+    if (result.error) throw result.error;
+    return result;
+  });
   const [teamsResult, roundsResult, seasonsResult, warningsResult, announcementsResult, organizerResult] =
     await Promise.all([
-      supabase.from('teams').select(PUBLIC_TEAM_FIELDS).eq('tournament_id', tournamentId).order('created_at', { ascending: true }),
-      supabase
+      query('teams', () => supabase.from('teams').select(PUBLIC_TEAM_FIELDS).eq('tournament_id', tournamentId).order('created_at', { ascending: true })),
+      query('rounds', () => supabase
         .from('rounds')
         .select(PUBLIC_ROUND_FIELDS)
         .eq('tournament_id', tournamentId)
         .eq('season_number', seasonNumber)
-        .order('round_number', { ascending: true }),
-      supabase.from('tournament_seasons').select('id,tournament_id,season_number,status,planned_start_slot,started_at,finished_at,snapshot_json,fixtures_snapshot_json,champion_team_id,champion_decided_at,created_at,updated_at').eq('tournament_id', tournamentId).order('season_number', { ascending: true }),
-      supabase.from('fixture_warnings').select('id,tournament_id,round_id,team_id,type,reason,active,created_at').eq('tournament_id', tournamentId),
-      supabase.from('tournament_announcements').select('id,tournament_id,content,template_key,visibility,source,is_active,created_at,hidden_at').eq('visibility', 'public').eq('is_active', true).eq('tournament_id', tournamentId).order('created_at', { ascending: false }),
+        .order('round_number', { ascending: true })),
+      query('tournament_seasons', () => supabase.from('tournament_seasons').select('id,tournament_id,season_number,status,planned_start_slot,started_at,finished_at,champion_team_id,champion_decided_at,created_at,updated_at').eq('tournament_id', tournamentId).order('season_number', { ascending: true })),
+      query('fixture_warnings', () => supabase.from('fixture_warnings').select('id,tournament_id,round_id,team_id,type,reason,active,created_at').eq('tournament_id', tournamentId)),
+      query('tournament_announcements', () => supabase.from('tournament_announcements').select('id,tournament_id,content,template_key,visibility,source,is_active,created_at,hidden_at').eq('visibility', 'public').eq('is_active', true).eq('tournament_id', tournamentId).order('created_at', { ascending: false })),
       organizerId
-        ? supabase.from('profiles').select('manager_name').eq('hattrick_user_id', organizerId).maybeSingle()
+        ? query('organizer', () => supabase.from('profiles').select('manager_name').eq('hattrick_user_id', organizerId).maybeSingle())
         : Promise.resolve({ data: null, error: null }),
     ]);
 
@@ -145,27 +143,35 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   const userIds = [...new Set(teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean))];
   // These reads are independent: do not put fixtures/profiles behind the slot chain.
   const [matchesResult, profilesResult, slotsResult] = await Promise.all([
-    roundIds.length
-      ? supabase
+    Promise.all(roundIds.map((roundId) => partition(['fixtures', roundId, 'public-v1'], async () => {
+      const rows: Record<string, unknown>[] = [];
+      for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
           .from('matches')
           .select(
             `
-              ${PUBLIC_MATCH_FIELDS},
+              ${PUBLIC_MATCH_FIELDS.split(',').filter((field) => field !== 'next_match_arrange_story').join(',')},
               home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
               away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
               reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
             `,
           )
-          .in('round_id', roundIds)
-      : Promise.resolve({ data: [] }),
+          .eq('round_id', roundId).order('id').range(offset, offset + 999);
+      if (result.error) throw result.error;
+      const page = result.data || [];
+      rows.push(...page.map((match) => projectPublicFixture(match as unknown as Record<string, unknown>)));
+      if (page.length < 1000) break;
+      }
+      return rows;
+    }))).then((pages) => ({ data: pages.flat() })),
     userIds.length
-      ? supabase
+      ? query('manager-names', () => supabase
           .from('profiles')
-          .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, national_team_roles_json, teams_json')
-          .in('hattrick_user_id', userIds)
+          .select('hattrick_user_id, manager_name')
+          .in('hattrick_user_id', userIds))
       : Promise.resolve({ data: [] }),
     currentSeasonId
-      ? supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
+      ? query('slots-' + currentSeasonId, () => supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId))
       : Promise.resolve({ data: [] as unknown[] }),
   ]);
 
@@ -173,57 +179,16 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   if ('error' in slotsResult && slotsResult.error) throw slotsResult.error;
   const matchIds = ((matchesResult.data || []) as { id: string }[]).map((match) => match.id);
   const ratingStatusResult = matchIds.length
-    ? await readFixtureRatingStatuses((fields) => supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', matchIds))
+    ? await query('rating-status-' + JSON.stringify(matchIds), () => readFixtureRatingStatuses((fields) => supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', matchIds)))
     : { data: [], error: null };
   if (ratingStatusResult.error) throw ratingStatusResult.error;
-  let profileRows = profilesResult.data;
-  if ('error' in profilesResult && profilesResult.error && userIds.length) {
-    if (!/language_(id|name)/i.test(profilesResult.error.message)) throw profilesResult.error;
-    let fallbackProfiles = await supabase
-      .from('profiles')
-      .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, teams_json')
-      .in('hattrick_user_id', userIds);
-    if (fallbackProfiles.error && /language_(id|name)/i.test(fallbackProfiles.error.message)) {
-      fallbackProfiles = await supabase
-        .from('profiles')
-        .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, teams_json')
-        .in('hattrick_user_id', userIds);
-    }
-    if (fallbackProfiles.error) throw fallbackProfiles.error;
-    profileRows = fallbackProfiles.data;
-  }
+  if ('error' in profilesResult && profilesResult.error) throw profilesResult.error;
+  const profileRows = profilesResult.data;
   const profiles = (profileRows || []) as ManagerSpotlightProfile[];
   const profileMap = Object.fromEntries(profiles.map((profile) => [profile.hattrick_user_id, profile.manager_name]));
-  const managerSpotlight = buildManagerSpotlight({
-    tournamentId,
-    participants: teams.filter(isCurrentParticipantTeam) as Array<{
-      id: string;
-      ht_team_id?: number | null;
-      name?: string | null;
-      logo_url?: string | null;
-      country_id?: number | null;
-      country_name?: string | null;
-      manager_name?: string | null;
-      hattrick_user_id?: number | null;
-    }>,
-    profiles,
-    dateKey: getUtcDateKey(),
-  });
-  const managerSpotlights = buildManagerSpotlights({
-    tournamentId,
-    participants: teams.filter(isCurrentParticipantTeam) as Array<{
-      id: string;
-      ht_team_id?: number | null;
-      name?: string | null;
-      logo_url?: string | null;
-      country_id?: number | null;
-      country_name?: string | null;
-      manager_name?: string | null;
-      hattrick_user_id?: number | null;
-    }>,
-    profiles,
-    dateKey: getUtcDateKey(),
-  });
+  const { managerSpotlight, managerSpotlights, managerSpotlightsHasMore } = await loadInitialTournamentSpotlights(
+    tournamentId, teams.filter(isCurrentParticipantTeam) as never[], fresh,
+  );
   // Never retain a changing live score in the 60-second cache. The live hook
   // supplies current observations separately; completed results remain stable.
   const rawMatches = attachFixtureRatingStatus(
@@ -236,19 +201,8 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
           penalty_shootout_home_goals: null, penalty_shootout_away_goals: null,
           home_yellow_cards: 0, home_red_cards: 0, home_injuries: 0,
           away_yellow_cards: 0, away_red_cards: 0, away_injuries: 0 }
-      : match,
+      : projectPublicFixture(match),
   );
-  if (process.env.NODE_ENV === 'development') {
-    for (const match of rawMatches) {
-      if (match.next_match_arrange_story == null) continue;
-      console.info('[public-tournament] next_match_arrange_story\n' + JSON.stringify({
-        tournamentId,
-        fixtureId: match.id,
-        roundNumber: rounds.find((round) => round.id === match.round_id)?.round_number,
-        next_match_arrange_story: match.next_match_arrange_story,
-      }, null, 2));
-    }
-  }
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
   const slotIds = (slotsResult.data || []).map((slot) => String((slot as Record<string, unknown>).id));
   const assignmentFilters = [
@@ -256,9 +210,9 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     ...(assignmentIds.length ? [`id.in.(${assignmentIds.join(',')})`] : []),
   ];
   const assignmentResult = assignmentFilters.length
-    ? await supabase.from('tournament_season_slot_assignments')
+    ? await query('assignments-' + assignmentFilters.join(','), () => supabase.from('tournament_season_slot_assignments')
         .select('id,tournament_season_slot_id,team_id,assigned_at,released_at,team_name,ht_team_id,manager_name,hattrick_user_id,logo_url')
-        .or(assignmentFilters.join(','))
+        .or(assignmentFilters.join(',')))
     : { data: [], error: null };
   if (assignmentResult.error) throw assignmentResult.error;
   const assignmentRows = assignmentResult.data;
@@ -366,7 +320,26 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     organizerProfileName: (organizerResult.data as { manager_name?: string } | null)?.manager_name || null,
     managerSpotlight,
     managerSpotlights,
+    managerSpotlightsHasMore,
     seasonSlots: slots,
     seasonSlotAssignments: slotAssignments,
   };
+}
+
+export async function loadTournamentSeasonPublicData(slug: string, seasonNumber: number) {
+  const tournament = await readTournament(slug);
+  if (!tournament) return null;
+  return unstable_cache(async () => {
+    const supabase = getPublicSupabase();
+    if (!supabase) throw new Error('Public Supabase configuration missing.');
+    const { data, error } = await supabase.from('tournament_seasons').select('id,season_number,snapshot_json,fixtures_snapshot_json')
+      .eq('tournament_id', String(tournament.id)).eq('season_number', seasonNumber).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const { snapshot_json, fixtures_snapshot_json } = projectPublicSeason(data);
+    return { id: data.id, season_number: data.season_number, snapshot_json, fixtures_snapshot_json };
+  }, ['tournament-history-public-v1', String(tournament.id), String(seasonNumber)], {
+    revalidate: TOURNAMENT_CACHE_SECONDS,
+    tags: [tournamentCacheTag(String(tournament.id)), tournamentSlugCacheTag(slug)],
+  })();
 }

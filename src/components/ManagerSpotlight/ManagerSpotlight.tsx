@@ -1,5 +1,5 @@
 import { useTranslations } from 'next-intl';
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
@@ -18,6 +18,7 @@ import {
 } from '../../utils/manager-spotlight';
 import type { CountryRestrictionFormat } from '../../../shared/worlddetails';
 import styles from './ManagerSpotlight.module.sass';
+import { SpotlightBrowser } from './spotlight-browser';
 
 const managerHref = (managerId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${managerId}`;
 const teamHref = (teamId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${teamId}`;
@@ -67,6 +68,8 @@ const groupStoryParagraphs = (sentences: StorySentence[]): StorySentence[][] => 
 interface ManagerSpotlightProps {
   spotlight: ManagerSpotlightViewModel | null;
   spotlights?: ManagerSpotlightViewModel[];
+  hasMore?: boolean;
+  loadRemaining?: () => Promise<ManagerSpotlightViewModel[]>;
   tournament: {
     name: string;
     countryLimit?: string | null;
@@ -74,30 +77,23 @@ interface ManagerSpotlightProps {
   };
 }
 
-export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight: initialSpotlight, spotlights = [] }) => {
+export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight: initialSpotlight, spotlights = [], loadRemaining, hasMore }) => {
   const uiText = useTranslations('PublicUI.ManagerSpotlight');
-  const [spotlight, setSpotlight] = useState(initialSpotlight);
-  const [visited, setVisited] = useState(() => new Set(initialSpotlight ? [initialSpotlight.managerId] : []));
+  const [browser] = useState(() => new SpotlightBrowser(initialSpotlight, spotlights, loadRemaining, hasMore));
+  const { spotlight, available, loading, failed, hasMore: canLoadMore } = useSyncExternalStore(browser.subscribe, browser.getSnapshot, browser.getSnapshot);
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
   const paragraphs = groupStoryParagraphs(story);
   const visibleTeams = getVisibleClubTeams(spotlight);
-  const nextManager = () => {
-    const candidates = spotlights.filter((candidate) => !visited.has(candidate.managerId));
-    const nextPool = candidates.length
-      ? candidates
-      : spotlights.filter((candidate) => candidate.managerId !== spotlight.managerId);
-    if (!nextPool.length) return;
-    const next = nextPool[Math.floor(Math.random() * nextPool.length)]!;
-    setSpotlight(next);
-    setVisited(candidates.length ? new Set([...visited, next.managerId]) : new Set([next.managerId]));
-  };
 
   return (
     <ReusableWidget title={uiText('meetTheManager')}
-      headerAction={spotlights.length > 1 && <button type="button" className={styles.nextButton} onClick={nextManager}>{uiText('next')}</button>}
+      headerAction={(available.length > 1 || canLoadMore) && <><button type="button" className={styles.nextButton} onClick={browser.next}>{uiText('next')}</button>{failed && <button type="button" className={styles.nextButton} onClick={() => void browser.retry()}>{uiText('retry')}</button>}</>}
       icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
+      <span role="status" aria-live="polite" className={styles.status}>
+        {loading ? uiText('loading') : failed ? uiText('loadError') : ''}
+      </span>
       <div className={styles.identity}>
         <Avatar avatar={spotlight.avatar} variant="full" size={52} className={styles.avatar} />
         <div className={styles.identityDetails}>

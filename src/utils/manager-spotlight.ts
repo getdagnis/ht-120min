@@ -621,9 +621,9 @@ export function composeManagerStory(input: {
 }
 
 export function buildManagerSpotlight(input: {
-  tournamentId: string; participants: ManagerSpotlightParticipant[]; profiles: ManagerSpotlightProfile[]; dateKey: string;
+  tournamentId: string; participants: ManagerSpotlightParticipant[]; profiles: ManagerSpotlightProfile[]; dateKey: string; selectedParticipant?: ManagerSpotlightParticipant;
 }): ManagerSpotlight | null {
-  const selected = selectDailySpotlightParticipant(input.tournamentId, input.participants, input.dateKey);
+  const selected = input.selectedParticipant ?? selectDailySpotlightParticipant(input.tournamentId, input.participants, input.dateKey);
   if (!selected?.hattrick_user_id || !selected.ht_team_id) return null;
   const managerId = Number(selected.hattrick_user_id);
   const profile = input.profiles.find((candidate) => Number(candidate.hattrick_user_id) === managerId);

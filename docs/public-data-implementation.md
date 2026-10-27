@@ -110,7 +110,43 @@ For concurrency, prepare an approved dirty synthetic target in that same disposa
 
 **Real integration:** before enabling Home, verify real Supabase/PostgREST projections/grants, committed mutation coupling, worker scheduling/overlap/latency, and regional purge with an authorized disposable tournament. Warm query reduction is proven only against local fake PostgREST. Withdrawal UI/regional probes and CHPP scheduling/deployment remain unverified. The fenced shared producer is required for the later match cutover, not for this Home-only path that preserves its producer.
 
-### Explicit participant refresh
+### Tournament cache and Spotlight boundaries (local implementation)
+
+Tournament responses are assembled outside shared caching. Current fixtures are
+cached per tournament, season, round and public-projection version; UTC dates do
+not belong in fixture keys. Larger historical snapshots load only when their
+season is opened and are projected before entering a separate season cache.
+Tournament-scoped invalidation and the 60-second lifetime apply to each partition.
+Explicit fresh refresh bypasses shared cache reads and writes.
+
+Public fixture event data retains displayed home/away goals, cards, injuries and
+performance facts. Report-only result metadata and notable events remain in the
+stored match/archive contracts. Arrangement stories remain stored for future My
+Matches use but are excluded from general public fixtures. This is a delivery
+projection, not historical data cleanup; live processing and completed writes
+retain their existing contracts.
+
+Only today's manager and one distinct Next profile belong in initial hydration.
+The first Next interaction shows the prefetched profile immediately and loads
+remaining candidates on demand. Failed loading must preserve both known profiles
+and offer retry. Rich manager profiles have independent cache entries.
+
+Daily selection is first-class derived metadata, keyed by tournament and UTC day,
+resolved atomically with service-only access. This intentionally permits a small
+selection-metadata write during public resolution, without CHPP or tournament
+domain mutations. Membership changes and cache eviction do not replace that day's
+manager. If their display data becomes unavailable, hide the widget rather than
+substitute a different daily manager. An empty eligible pool does not freeze an
+empty choice. The additive selection migration must be applied before deploying
+the corresponding code; migration execution and production behavior are not
+verified by local tests.
+
+Acceptance requires mocked cache reuse/invalidation and completeness tests, plus
+a real largest-tournament size measurement after integration. Cache splitting
+does not imply round lazy loading or prove deployed cache behavior. No full-story
+or raw-profile logging should remain enabled.
+
+### Explicit participant refresh behavior
 
 In planning/recruiting tournaments, the Standings header has a manual
 **Refresh participants and standings** action; other states hide it.
@@ -118,8 +154,15 @@ It invokes `readTournamentPublicData(slug, true)`, which reads the current publi
 tournament header and reuses `buildTournamentInitialData` without shared cache
 reads or invalidation. The page updates its existing tournament, teams, standings
 and other public state through `fetchData`; failed reads preserve the displayed
-state and show the existing refresh error. No polling, new API route, CHPP call
-or database write is added. Normal SSR and other reads keep their existing cache.
+state and show the existing refresh error. No polling, new API route or CHPP call is added. Daily Spotlight resolution
+may persist the derived selection metadata described above; it does not change
+tournament domain state. Normal SSR and other reads keep their existing cache.
 This avoids relying on navigation or server-cache expiry to see new registrations.
 Source/syntax review is complete; live registration and browser behavior are
 unverified.
+
+Local validation (2026-10-28): full suite passed 661 tests with 7 skips;
+production build/server-import checks and scoped ESLint passed. Synthetic cache
+tests cover a combined response over 2 MiB and warm source-query reuse, not actual
+Vercel cache behavior. Migration 155 remains unapplied. Browser, real database
+concurrency/RLS, and actual largest-tournament partition sizes remain unverified.

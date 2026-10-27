@@ -7,7 +7,7 @@ import { getServiceSupabase } from '../../server/api/_lib/supabase.js';
 import { invalidatePublicTournament } from '../../server/api/_lib/tournament-cache.js';
 import { hasSuperAdminBypassCookie } from '../../server/api/_lib/superadmin-bypass.js';
 import { getForgeSuperadminId } from '../../server/api/_lib/forge-session.js';
-import { loadFreshTournamentPublicData, loadTournamentInitialData } from './public-data.js';
+import { loadTournamentSeasonPublicData, loadFreshTournamentPublicData, loadTournamentInitialData } from './public-data.js';
 
 // Explicit refreshes and cold client fallbacks share the same anonymous payload
 // as SSR. This callback never receives cookies, credentials or viewer state.
@@ -116,4 +116,9 @@ export async function saveTournamentCollectionMembership(
         collection_id: collectionId, tournament_id: tournamentId, display_order: input.displayOrder,
       });
   if (result.error) throw new Error('Could not save collection membership.');
+}
+
+export async function readTournamentSeasonPublicData(slug: string, seasonNumber: number) {
+  if (typeof slug !== 'string' || !slug || slug.length > 200 || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) throw new Error('Invalid season.');
+  return loadTournamentSeasonPublicData(slug, seasonNumber);
 }
