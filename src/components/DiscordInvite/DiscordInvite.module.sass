@@ -19,17 +19,16 @@
   transition: filter 0.15s ease
 
   &:hover
-    filter: brightness(1.08)
-
+    color: var(--rating-a)
   &:focus-visible
     outline: 2px solid currentColor
     outline-offset: 2px
 
-:global([data-theme='light']) .discordInvite
-  background: var(--lighter-more)
+// :global([data-theme='light']) .discordInvite
+//   background: var(--lighter-more)
 
-:global([data-theme='dark']) .discordInvite
-  background: var(--lighter-more)
+// :global([data-theme='dark']) .discordInvite
+//   background: var(--lighter-more)
 
 .discordIcon
   position: absolute
@@ -63,4 +62,3 @@
 @media (max-width: 480px)
   .discordInvite
     font-size: 1rem
-
