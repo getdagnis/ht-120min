@@ -19,6 +19,7 @@ import styles from './OrganizerRoundPanel.module.sass';
 type Slot = Omit<CalendarSlot, 'nominalDate'> & { nominalDate: string };
 interface Context {
   teams: OrganizerRoundTeam[]; slots: Slot[]; history: OrganizerRoundHistory[]; rosterVersion: string;
+  departingTeamIds: string[];
   flags: Record<string, FlagCollection>; preferences: Record<string, PairingPreference>; existingRounds: PlanningRound[]; storageKey: string; batchSize: number; canRepairSavedRounds: boolean;
   observations: Array<{ slot_id: string; team_id: string; observation: SlotObservation }>;
   rounds: DisplayRound[];
@@ -69,10 +70,11 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   const stop = useRef(false), controller = useRef<AbortController | null>(null);
   useEffect(() => () => { stop.current = true; controller.current?.abort(); }, []);
 
-  const available = context?.teams.filter(team => !team.is_placeholder) || [];
+  const target = context?.existingRounds.find(round => round.id === roundId);
+  const available = context?.teams.filter(team => !team.is_placeholder &&
+    (!context.departingTeamIds?.includes(team.id) || target?.round_participants.some(row => row.team_id === team.id))) || [];
   const selected = available.filter(team => selection.some(row => row.teamId === team.id));
   const shown = available.filter(team => (group === 'all' || teamGroup(team) === group) && team.name.toLowerCase().includes(query.toLowerCase()));
-  const target = context?.existingRounds.find(round => round.id === roundId);
   const slot: Slot | undefined = target ? {
     id: target.reserved_slot_id, kind: target.reserved_slot_kind as CalendarSlot['kind'], nominalDate: target.reserved_slot_date,
     htSeason: 0, htWeek: 0, ht120minSeason: 0, selectable: true, blockedReason: null, warning: null,

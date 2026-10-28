@@ -719,17 +719,43 @@ async function handleTournamentTeamDeparture(req: VercelRequest, res: VercelResp
     if (!requests?.length) return res.status(200).json({ departures: [] });
     const [{ data: teams, error: teamsError }, { data: rounds, error: roundsError }] = await Promise.all([
       supabase.from('teams').select('id, name, active, reserve_active').in('id', requests.map((request) => request.team_id)),
-      supabase.from('rounds').select('id, phase_status').in('id', requests.map((request) => request.after_round_id)),
+      supabase.from('rounds').select('id, round_number, phase_status').in('id', requests.map((request) => request.after_round_id)),
     ]);
     if (teamsError) throw teamsError;
     if (roundsError) throw roundsError;
     const teamById = new Map((teams || []).map((team) => [team.id, team]));
     const roundById = new Map((rounds || []).map((round) => [round.id, round]));
+    const departed = requests.filter((request) => teamById.get(request.team_id)?.active === false &&
+      roundById.get(request.after_round_id)?.phase_status === 'completed');
+    const { data: laterRounds, error: laterRoundsError } = departed.length
+      ? await supabase.from('rounds').select('id,round_number').eq('tournament_id', tournamentId)
+          .eq('season_number', tournament.season || 1).eq('phase', 'regular').neq('round_source', 'organizer')
+          .gt('round_number', Math.min(...departed.map(
+            (request) => roundById.get(request.after_round_id)!.round_number,
+          )))
+      : { data: [], error: null };
+    if (laterRoundsError) throw laterRoundsError;
+    const departedIds = departed.map((request) => request.team_id);
+    const { data: laterMatches, error: laterMatchesError } = laterRounds?.length && departedIds.length
+      ? await supabase.from('matches').select('round_id,home_team_id,away_team_id,reserve_team_id,ht_match_id,status,completed,finished_at,home_goals,away_goals,match_event_details,scheduled_for')
+          .in('round_id', laterRounds.map((round) => round.id))
+          .or(`home_team_id.in.(${departedIds.join(',')}),away_team_id.in.(${departedIds.join(',')}),reserve_team_id.in.(${departedIds.join(',')})`)
+      : { data: [], error: null };
+    if (laterMatchesError) throw laterMatchesError;
+    const laterRoundNumber = new Map((laterRounds || []).map((round) => [round.id, round.round_number]));
     return res.status(200).json({ departures: requests.flatMap((request) => {
       const team = teamById.get(request.team_id);
-      if (!team?.active || team.reserve_active) return [];
+      if (!team || team.reserve_active) return [];
+      const bookedFutureRegular = !team.active && (laterMatches || []).some((match) =>
+        (laterRoundNumber.get(match.round_id) || 0) > (roundById.get(request.after_round_id)?.round_number || 0) &&
+        [match.home_team_id, match.away_team_id, match.reserve_team_id].includes(request.team_id) &&
+        !match.completed && (match.ht_match_id != null || ['arranged', 'ongoing', 'finished'].includes(match.status || '') ||
+          match.finished_at != null || match.home_goals != null || match.away_goals != null ||
+          match.match_event_details != null || match.scheduled_for == null || Date.parse(match.scheduled_for) <= Date.now()));
+      if (!team.active && !bookedFutureRegular) return [];
       return [{ teamId: team.id, teamName: team.name,
-        needsReview: roundById.get(request.after_round_id)?.phase_status === 'completed' }];
+        needsReview: team.active && roundById.get(request.after_round_id)?.phase_status === 'completed',
+        bookedFutureRegular }];
     }) });
   }
 

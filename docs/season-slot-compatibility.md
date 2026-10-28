@@ -132,17 +132,18 @@ request names the current materialized round; it does not alter that round's
 fixture or Hattrick booking. Operational admins see active requests above
 Tournament Settings.
 
-When the staged round transition marks that round completed, a deferred database
-trigger runs after the next round's fixtures are materialized. It reuses the
-guarded `vacate_team_slot_in_current_season` operation, so completed history stays
-and future incomplete sides become vacant. A later booked/started fixture or
-another removal guard leaves the request in place for organizer review rather
-than blocking round completion. Direct admin Remove remains immediate. The
+Prepared migration 158 makes the selected staged round's completion a firm
+cutoff. The membership transition releases the team before the next regular
+pairings; the completion trigger handles direct round completion. Unbooked
+future fixture sides become vacant, while booked or started commitments retain
+their team IDs and can receive results. The private request remains as the
+opt-out marker until an explicit return or reactivation; organizer-added rounds
+cannot create new pairings for that team. Direct admin Remove remains immediate. The
 manager request currently relies on staged rounds reaching `phase_status =
 'completed'`; legacy schedules without that transition need organizer handling.
 
-Migration 125 is prepared locally and must be applied before deploying the API
-and UI. No live database, CHPP or browser behavior is claimed from the local code.
+Migration 158 is prepared locally and has passed disposable PostgreSQL tests.
+No live database, CHPP or browser behavior is claimed from the local code.
 
 ## Forbidden shortcuts
 

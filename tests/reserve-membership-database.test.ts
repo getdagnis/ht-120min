@@ -48,6 +48,7 @@ function setup(oldPending = false) {
     ALTER TABLE tournament_season_slot_assignments ADD assigned_at timestamptz DEFAULT now(),
       ADD FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE SET NULL;
     ALTER TABLE matches ADD reserve_team_id uuid REFERENCES teams(id), ADD reserve_replaces_team_id uuid,
+      ADD chpp_match_date timestamptz,
       ADD finished_at timestamptz, ADD went_120 boolean DEFAULT false, ADD home_goals integer, ADD away_goals integer, ADD match_event_details jsonb,
       ADD FOREIGN KEY(home_team_id) REFERENCES teams(id), ADD FOREIGN KEY(away_team_id) REFERENCES teams(id);
     CREATE TABLE fixture_warnings(team_id uuid,tournament_id uuid,round_id uuid,active boolean);
@@ -100,6 +101,9 @@ function setup(oldPending = false) {
   migration('137_reserve_waiting_and_past_actions.sql');
   migration('148_tournament_lobby.sql');
   migration('149_organizer_regular_rounds.sql');
+  migration('150_organizer_pairing_assistant.sql');
+  migration('151_organizer_saved_round_repair.sql');
+  migration('158_honor_deferred_departures_with_booked_fixtures.sql');
 }
 
 test('phase 1 membership over applied 134, 135 and 136', { skip: !enabled }, async (t) => {
@@ -164,6 +168,59 @@ test('phase 1 membership over applied 134, 135 and 136', { skip: !enabled }, asy
     assert.equal(sql(`SELECT to_jsonb(m) FROM matches m WHERE id='${id(40)}';`), before);
     assert.equal(sql(`SELECT count(*) FROM matches WHERE round_id='${id(21)}' AND '${id(1)}' IN(home_team_id,away_team_id);`), '0');
     assert.equal(sql(`SELECT count(*) FROM matches WHERE round_id='${id(21)}' AND '${id(3)}' IN(home_team_id,away_team_id);`), '1');
+  });
+  await t.test('a booked extra fixture survives departure and the next regular pairing excludes the team', () => {
+    setup();
+    write(`INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status,round_source,reserved_slot_date,reserved_slot_kind)
+      VALUES('${id(22)}','${id(10)}',1,3,'regular','materialized','organizer','2030-03-16T18:25:00Z','weekend_friendly');`);
+    sql(`INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,ht_match_id,scheduled_for)
+      VALUES('${id(42)}','${id(22)}','${id(1)}','${id(2)}','arranged',false,99,'2030-03-16T18:25:00Z');`);
+    sql(`INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status,reserved_slot_date,reserved_slot_kind)
+      VALUES('${id(23)}','${id(10)}',1,4,'regular','pending','2030-03-26T18:25:00Z','midweek_friendly');
+      INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,ht_match_id,scheduled_for)
+      VALUES('${id(43)}','${id(23)}','${id(1)}','${id(2)}','arranged',false,100,'2030-03-26T18:25:00Z');`);
+    sql(`SELECT set_tournament_team_departure('${id(10)}','${id(1)}',100,true);`);
+    const p = plan();
+    assert.deepEqual(p.departingTeamIds, [id(1)]);
+    sql(transition(p));
+    assert.equal(state(1), 'f|f|f|t');
+    assert.equal(sql(`SELECT home_team_id,ht_match_id FROM matches WHERE id='${id(42)}';`), `${id(1)}|99`);
+    assert.equal(sql(`SELECT home_team_id,ht_match_id FROM matches WHERE id='${id(43)}';`), `${id(1)}|100`);
+    assert.equal(sql(`SELECT count(*) FROM tournament_team_departures WHERE team_id='${id(1)}';`), '1');
+    assert.equal(sql(`SELECT count(*) FROM matches WHERE round_id='${id(21)}' AND '${id(1)}' IN(home_team_id,away_team_id);`), '0');
+    sql(`UPDATE matches SET completed=true,status='finished',home_goals=2,away_goals=1 WHERE id='${id(42)}';`);
+    assert.equal(sql(`SELECT home_team_id,home_goals FROM matches WHERE id='${id(42)}';`), `${id(1)}|2`);
+  });
+  await t.test('cancelling before the cutoff restores future pairing eligibility', () => {
+    setup();
+    sql(`SELECT set_tournament_team_departure('${id(10)}','${id(1)}',100,true);`);
+    assert.deepEqual(plan().departingTeamIds, [id(1)]);
+    sql(`SELECT set_tournament_team_departure('${id(10)}','${id(1)}',100,false);`);
+    assert.deepEqual(plan().departingTeamIds, []);
+  });
+  await t.test('an untouched future organizer fixture is cleared and an explicit return clears the opt-out', () => {
+    setup();
+    write(`INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status,round_source,reserved_slot_date,reserved_slot_kind)
+      VALUES('${id(22)}','${id(10)}',1,3,'regular','materialized','organizer','2030-03-16T18:25:00Z','weekend_friendly');`);
+    sql(`INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,scheduled_for)
+      VALUES('${id(42)}','${id(22)}','${id(1)}','${id(2)}','not_arranged',false,'2030-03-16T18:25:00Z');
+      INSERT INTO round_participants(round_id,team_id,participation) VALUES('${id(22)}','${id(1)}','round_only');`);
+    sql(`SELECT set_tournament_team_departure('${id(10)}','${id(1)}',100,true);`);
+    sql(transition());
+    assert.equal(sql(`SELECT home_team_id IS NULL FROM matches WHERE id='${id(42)}';`), 't');
+    assert.equal(sql(`SELECT count(*) FROM round_participants WHERE round_id='${id(22)}' AND team_id='${id(1)}';`), '0');
+    sql(change(1, 'return'));
+    assert.equal(sql(`SELECT count(*) FROM tournament_team_departures WHERE team_id='${id(1)}';`), '0');
+  });
+  await t.test('a new organizer pairing cannot include a team that opted out', () => {
+    setup();
+    sql(`SELECT set_tournament_team_departure('${id(10)}','${id(1)}',100,true);`);
+    const rosterVersion = JSON.parse(sql(`SELECT get_organizer_round_context('${id(10)}',1);`)).rosterVersion;
+    const roster = [{ teamId: id(1), participation: 'round_only' }, { teamId: id(2), participation: 'round_only' }];
+    const matches = [{ home_team_id: id(1), away_team_id: id(2), scheduled_for: '2030-03-16T18:25:00Z' }];
+    assert.throws(() => sql(`SELECT save_verified_organizer_round('${id(10)}',1,'${rosterVersion}',
+      ${json({ id: 'S2030-W15-weekend', kind: 'weekend_friendly', date: '2030-03-16T18:25:00Z' })},
+      ${json(roster)},${json(matches)},false,NULL,NULL,NULL,100);`), /opted to leave/);
   });
   await t.test('one invalid entrant cannot block the round or cause stale pairings', () => {
     setup(); sql(change(3, 'ready', true)); sql(`UPDATE teams SET league_id=3000 WHERE id='${id(3)}';`);

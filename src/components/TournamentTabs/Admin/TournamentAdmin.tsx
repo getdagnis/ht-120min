@@ -489,7 +489,7 @@ const readStoredSessionBoolean = (key: string, fallback: boolean) => {
   }
 };
 
-type DepartureNotice = { teamId: string; teamName: string; needsReview: boolean };
+type DepartureNotice = { teamId: string; teamName: string; needsReview: boolean; bookedFutureRegular?: boolean };
 
 function DepartureNotices({ tournamentId, tournamentSlug }: { tournamentId: string; tournamentSlug: string }) {
   const [notices, setNotices] = useState<DepartureNotice[]>([]);
@@ -531,7 +531,9 @@ function DepartureNotices({ tournamentId, tournamentSlug }: { tournamentId: stri
 
   return notices.map((departure) => (
     <div key={departure.teamId} className={adminStyles.departureNotice}>
-      {departure.needsReview
+      {departure.bookedFutureRegular
+        ? `${departure.teamName} has left, but a booked future regular fixture needs organizer review.`
+        : departure.needsReview
         ? `${departure.teamName} requested to leave after the completed round. Departure needs organizer review.`
         : `${departure.teamName} has opted to leave the tournament after this round.`}
     </div>

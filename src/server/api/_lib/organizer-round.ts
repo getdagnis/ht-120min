@@ -42,6 +42,9 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
   );
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'GET') {
+    const departures = await db.from('tournament_team_departures').select('team_id')
+      .eq('tournament_id', tournamentId).eq('season_number', seasonNumber);
+    if (departures.error) throw departures.error;
     const repairCapability = await db.rpc('organizer_saved_repair_enabled');
     if (repairCapability.error) throw repairCapability.error;
     const managers = [...new Set(context.teams.map(team => team.hattrick_user_id).filter((id): id is number => Boolean(id)))];
@@ -63,7 +66,8 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
       observations.push(...(page.data || []) as typeof observations);
       if ((page.data?.length || 0) < 500) break;
     }
-    return res.status(200).json({ ...context, slots, flags, preferences, observations, existingRounds, canRepairSavedRounds: repairCapability.data === true,
+    return res.status(200).json({ ...context, slots, flags, preferences, observations, existingRounds,
+      departingTeamIds: (departures.data || []).map(row => row.team_id), canRepairSavedRounds: repairCapability.data === true,
       storageKey: `organizer-draft:${actorId}:${tournamentId}:${seasonNumber}`, batchSize: PLANNING_BATCH_SIZE });
   }
   const { slotId, roster, pairings, rosterVersion, action, roundId, teamIds, verification } = req.body || {};

@@ -285,7 +285,11 @@ The scheduler reads `get_waiting_admission_plan` before creating pairings.
 That function determines a valid ordered subset using eligibility, actual Active
 capacity and current commitments. Invalid entrants stay Waiting with a reason;
 existing participants can advance. Accepted Leave-after-round requests are
-accounted for before the next regular field, subject to protected later fixtures.
+accounted for before the next regular field. Prepared migration 158 makes the
+selected round's completion a firm departure cutoff: an existing booked later
+fixture keeps its team and result path, while the departed team is excluded from
+new regular and organizer-added pairings. The departure row remains as the
+opt-out record until the team explicitly returns or is reactivated.
 The service then calls `apply_length_round_transition_with_membership` with exact
 accepted IDs, Active IDs, roster version and pairings. Its transaction recomputes
 the plan, releases those leaving, adds accepted entrants with slots/assignments,
