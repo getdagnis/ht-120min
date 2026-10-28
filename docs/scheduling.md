@@ -367,3 +367,37 @@ stored round number remains distinct. It never renumbers or overwrites the froze
 All counted additional rounds must resolve before playoff qualification or final
 reserved-round completion. Details, migration prerequisites, guest standings,
 booking behavior, and acceptance: [Tournament Lobby and organizer-added rounds](tournament-lobby-and-rounds.md).
+
+
+## Round progression incident containment (2026-10-28)
+
+Live-score requests fetch and persist match observations only. They do not close
+rounds, admit/depart teams, or generate pairings. Round progression remains in
+the existing fixture-refresh and organizer result-save/manual-link paths.
+Automatic fixture refresh still runs when an eligible Fixtures tab opens and
+at ten-minute intervals; this remains an automatic scheduling trigger to review
+separately. This containment does not implement the requested overnight boundary.
+
+A round cannot progress while any fixture remains unresolved and cannot safely
+be finalized as an expired unlinked fixture. A membership RPC rejection saying
+`Round is not ready; membership remains unchanged` returns a deferred outcome
+without immediate retries. The SQL rollback safeguard and shared advisory lock
+remain intact. Actual membership races retain their existing bounded retries.
+
+The incident export showed 705 not-ready errors and waits on the shared lock.
+This establishes repeated failed work; it does not identify the precise production
+caller or prove all resource pressure had this cause. Local mocked regressions
+cover mixed expired/ongoing fixtures with waiting entrants, no-retry deferral,
+and successful live-score persistence without any scheduling RPC. Production
+error-rate, lock-queue, CPU and disk-IO recovery require post-deployment observation.
+
+
+Follow-up export (14:22–14:26 Riga) still showed 225 not-ready errors, about
+one per second, after the application deployment. Supabase documents internal
+PostgREST retries for custom `40001` exceptions:
+https://supabase.com/kb/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions
+Migration 156 changes only this deterministic rejection to `P0001`, preserving
+the exception rollback and lock. Prepared locally, not applied by the agent.
+Existing looping backends must also be cleared after correction; replacing the
+function alone does not stop transactions already in flight. Other custom
+`40001` business rejections remain an explicitly separate audit item.

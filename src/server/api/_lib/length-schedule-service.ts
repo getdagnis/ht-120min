@@ -381,15 +381,15 @@ export async function progressLengthSchedule(
   }
   const current = state.rounds.find((round) => round.round_source !== 'organizer' && round.phase_status === 'materialized');
   if (!current) return { advanced: completedAdditionalRound, reason: 'no_materialized_round' };
-  const hasExpiredUnlinkedFixture = current.matches.some((match) =>
+  const canFinalizeExpiredFixture = (match: StoredMatch) =>
     !match.completed &&
     match.ht_match_id === null &&
     (match.status === null || match.status === 'not_arranged' || match.status === 'misarranged') &&
     match.scheduled_for !== null &&
     new Date(match.scheduled_for).getTime() <= Date.now() &&
-    (match.schedule_resolution === 'finalized_unplayed' || !isResolvedMatch(match))
-  );
-  if (current.matches.some((match) => !isResolvedMatch(match)) && !hasExpiredUnlinkedFixture) {
+    (match.schedule_resolution === 'finalized_unplayed' || !isResolvedMatch(match));
+  const hasExpiredUnlinkedFixture = current.matches.some(canFinalizeExpiredFixture);
+  if (current.matches.some((match) => !isResolvedMatch(match) && !canFinalizeExpiredFixture(match))) {
     return { advanced: false, reason: 'round_unresolved' };
   }
   const next = state.rounds.find((round) => round.round_source !== 'organizer' && round.round_number === current.round_number + 1) || null;
@@ -508,6 +508,9 @@ export async function progressLengthSchedule(
       : [],
   });
   if (error) {
+    if (['40001', 'P0001'].includes(error.code || '') && error.message === 'Round is not ready; membership remains unchanged') {
+      return { advanced: false, reason: 'round_not_ready' };
+    }
     if (error.code === '40001' && retry < 2) return progressLengthSchedule(supabase, tournamentId, seasonNumber, retry + 1);
     throw error;
   }

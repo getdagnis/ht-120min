@@ -295,3 +295,48 @@ test('qualification waits for every counted additional round', async () => {
   assert.equal(harness.currentRound.phase_status, 'materialized');
   assert.equal(harness.nextRound.phase_status, 'pending');
 });
+
+
+test('expired misarranged fixture does not permit progression while another match is ongoing with waiting entrants', async () => {
+  const harness = createHarness(fixture('misarranged'), true);
+  harness.currentRound.matches.push(fixture('ongoing', { id: 'live-fixture', ht_match_id: 12345 }));
+  const before = structuredClone(harness.tables);
+  assert.deepEqual(await progress(harness), { advanced: false, reason: 'round_unresolved' });
+  assert.equal(harness.rpcCalls.length, 0);
+  assert.deepEqual(harness.tables, before);
+});
+
+test('not-ready rollback is deferred without retrying the membership transaction', async () => {
+  const harness = createHarness(fixture('finished', { completed: true, schedule_resolution: 'played' }), true);
+  const originalRpc = harness.supabase.rpc;
+  let attempts = 0;
+  harness.supabase.rpc = async (name, args) => {
+    if (name === 'apply_length_round_transition_with_membership') {
+      attempts += 1;
+      return { data: null, error: { code: '40001', message: 'Round is not ready; membership remains unchanged' } };
+    }
+    return originalRpc(name, args);
+  };
+  const before = structuredClone(harness.tables);
+  assert.deepEqual(await progress(harness), { advanced: false, reason: 'round_not_ready' });
+  assert.equal(attempts, 1);
+  assert.deepEqual(harness.tables, before);
+});
+
+
+test('non-retryable SQL not-ready error is also returned as a deferred outcome', async () => {
+  const harness = createHarness(fixture('finished', { completed: true, schedule_resolution: 'played' }), true);
+  const originalRpc = harness.supabase.rpc;
+  let attempts = 0;
+  harness.supabase.rpc = async (name, args) => {
+    if (name === 'apply_length_round_transition_with_membership') {
+      attempts += 1;
+      return { data: null, error: { code: 'P0001', message: 'Round is not ready; membership remains unchanged' } };
+    }
+    return originalRpc(name, args);
+  };
+  const before = structuredClone(harness.tables);
+  assert.deepEqual(await progress(harness), { advanced: false, reason: 'round_not_ready' });
+  assert.equal(attempts, 1);
+  assert.deepEqual(harness.tables, before);
+});

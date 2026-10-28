@@ -271,3 +271,26 @@ generated single/double/recurring schedules without converting the tournament
 or changing its season plan. Local disposable PostgreSQL covers creation,
 paired-only rosters and unchanged membership/season state. Migration 154 is
 prepared and has not been applied to Supabase by the agent.
+
+
+### Round progression incident containment — 2026-10-28
+
+Deployed to production on 2026-10-28 (Vercel `dpl_Bs4Av8Ju1P44orvAwB76XZQtRN7n`): live-score polling no longer triggers round creation or membership
+changes; not-ready responses are deferred without immediate retries; mixed
+expired/ongoing rounds stay unresolved. SQL safeguards and locks are unchanged.
+See [incident scope and remaining automatic triggers](docs/scheduling.md#round-progression-incident-containment-2026-10-28).
+The isolated production build passed; 664 tests passed and 7 skipped. Initial post-deployment Vercel logs still show failed Home publication reads. No live-match requests were observed in that short window. Production error-rate, lock-queue, CPU and IO recovery remain unverified.
+
+
+Post-deployment CSV still shows once-per-second not-ready errors. Supabase's
+PostgREST internal `40001` retry behavior provides a stronger explanation than
+application retries alone. Migration `156_stop_not_ready_transition_retry_loop.sql`
+is prepared, not applied: only changes the not-ready exception to `P0001`.
+Production correction and clearing existing looping sessions remain outstanding.
+
+Application compatibility with migration 156's `P0001` rejection is deployed
+(`dpl_33N8cFZ875fGCtmVr974rqrekNMN`, READY). Sixteen targeted regression tests
+passed and Vercel's production build passed. Migration 156 remains unapplied by
+the agent; existing retrying PostgREST backends still need clearing afterward.
+The owner-provided cron list contains only the expected Home wake and recovery
+jobs; neither repository definition calls round progression.
