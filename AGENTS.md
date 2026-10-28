@@ -69,6 +69,8 @@ Current positioning: "The easiest way to organize recurring Hattrick friendlies.
 
 Target users are small Hattrick communities, private leagues, regional groups, and friendly tournament organizers. Optimize for organizer efficiency, not participant customization.
 
+**Auto-arrange language:** Managers opt in and then need take no booking action; the organizer presses `Book all` for the round. From the manager's perspective, invitations are arranged automatically. Do not repeatedly correct that product language by pointing out that the organizer starts the run. Mention the organizer trigger only when its timing or a failed retry is directly relevant.
+
 Official/public soundbox tournaments are organizer training environments, not primarily private experimentation tools. They should reproduce the real tournament admin experience as closely as possible, with only deliberate training affordances such as broader available options and controlled time travel. See `docs/soundbox-tournaments.md` for the product distinction and acceptance intent.
 
 ## Current Priority
