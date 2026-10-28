@@ -84,6 +84,24 @@ export interface FixtureMatch {
   } | null;
 }
 
+function fixtureDisplayStatus(
+  match: FixtureMatch,
+  hasWarnings: boolean,
+  liveStatus: 'arranged' | 'ongoing' | 'finished' | undefined,
+  nowMs: number,
+  isHistorical: boolean,
+): FixtureMatch['status'] {
+  if (isFixtureMisarranged(match.status, match.completed, hasWarnings)) return 'misarranged';
+  if (match.completed) return 'finished';
+  if (liveStatus && !isHistorical) return liveStatus;
+  const kickoffMs = match.match_date ? new Date(match.match_date).getTime() : null;
+  if (!isHistorical && match.status === 'arranged' &&
+    (match.kickoff_confirmed || match.chpp_match_date) &&
+    kickoffMs !== null && Number.isFinite(kickoffMs) && nowMs >= kickoffMs && nowMs < kickoffMs + 4 * 60 * 60 * 1000
+  ) return 'ongoing';
+  return match.status || 'not_arranged';
+}
+
 function getFixtureDisplayTimeZone(match: Pick<FixtureMatch, 'ht_match_id' | 'schedule_slot_type' | 'fixture_source'>) {
   const isGeneratedFixture = match.fixture_source === 'generated' || Boolean(match.schedule_slot_type);
   return match.ht_match_id && !isGeneratedFixture ? 'Europe/Stockholm' : undefined;
@@ -790,7 +808,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           (warning.team_id === match.home_team_id && !(match.reserve_replaces_team_id === match.home_team_id && match.home_team?.reserve_active === true)) ||
           (warning.team_id === match.away_team_id && !(match.reserve_replaces_team_id === match.away_team_id && match.away_team?.reserve_active === true))
         ));
-        return { ...match, status: isFixtureMisarranged(match.status, match.completed, hasWarnings) ? 'misarranged' as const : match.status };
+        const liveStatus = match.ht_match_id ? liveData[match.ht_match_id.toString()]?.status : undefined;
+        return { ...match, status: fixtureDisplayStatus(match, hasWarnings, liveStatus, nowMs, isHistorical) };
       }).sort(compareFixtures).filter((match) =>
         (showMisarrangedMatches || match.status !== 'misarranged') &&
         (fixtureView === 'mine'
@@ -805,7 +824,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       result.sort((a, b) => Number(finished(a)) - Number(finished(b)) || (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!));
     }
     return result;
-  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch, visibleWarnings]);
+  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch, visibleWarnings, liveData, nowMs, isHistorical]);
   const showRatingsAuthPrompt =
     !isHistorical &&
     Boolean(currentHtUserId) &&
@@ -1288,15 +1307,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       ? undefined
                       : visibleWarnings.find((w) => w.team_id === match.away_team_id && w.round_id === round.id);
 
-                    // Use status from DB, fallback to simple detection
                     const liveMatch =
                       !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
-                    let status = match.status || 'not_arranged';
-                    const isMisarranged = isFixtureMisarranged(
-                      status,
-                      match.completed,
-                      Boolean(homeWarning || awayWarning),
-                    );
+                    const status = match.status;
+                    const isMisarranged = status === 'misarranged';
                     const now = new Date(nowMs);
                     const hasConfirmedKickoff = Boolean(match.kickoff_confirmed || match.chpp_match_date);
                     const isPastStartTime = hasConfirmedKickoff && match.match_date && now >= match.match_date;
@@ -1304,16 +1318,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       hasConfirmedKickoff &&
                       match.match_date &&
                       now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
-
-                    if (isMisarranged) {
-                      status = 'misarranged';
-                    } else if (match.completed) {
-                      status = 'finished';
-                    } else if (liveMatch) {
-                      status = liveMatch.status;
-                    } else if (!isHistorical && isPastStartTime && isWithinLiveWindow && status === 'arranged') {
-                      status = 'ongoing';
-                    }
 
                     const currentScore = liveMatch
                       ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }

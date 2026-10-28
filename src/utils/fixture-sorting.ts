@@ -14,12 +14,20 @@ function fixtureTimestamp(value: FixtureSortInput['match_date']) {
   return 0;
 }
 
+function fixtureStatusPriority(status: string | null | undefined) {
+  switch (status) {
+    case 'ongoing': return 0;
+    case 'finished': return 1;
+    case 'arranged': return 2;
+    case 'misarranged': return 4;
+    default: return 3; // Unarranged fixtures follow confirmed bookings.
+  }
+}
+
 /** Keeps SSR, full refreshes, and fixture-only refreshes in the same display order. */
 export function compareFixtures<T extends FixtureSortInput>(a: T, b: T) {
-  // Misarranged pairings have no real kickoff time. Keep them after playable
-  // fixtures instead of letting a missing/placeholder date pull them to top.
-  const misarrangedDifference = Number(a.status === 'misarranged') - Number(b.status === 'misarranged');
-  if (misarrangedDifference !== 0) return misarrangedDifference;
+  const statusDifference = fixtureStatusPriority(a.status) - fixtureStatusPriority(b.status);
+  if (statusDifference !== 0) return statusDifference;
 
   const dateDifference = fixtureTimestamp(a.match_date) - fixtureTimestamp(b.match_date);
   if (dateDifference !== 0) return dateDifference;
