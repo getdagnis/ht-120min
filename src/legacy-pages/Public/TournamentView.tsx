@@ -2173,7 +2173,7 @@ export const TournamentView: React.FC<{
     () => {
       void fetchFixturesOnly();
     },
-    tournament?.status !== 'finished' && (activeTab === 'fixtures' || isAppg120ScoringMode(tournament?.scoring_mode)),
+    tournament?.status !== 'finished' && (activeTab === 'fixtures' || activeTab === 'standings' || isAppg120ScoringMode(tournament?.scoring_mode)),
     isAppg120ScoringMode(tournament?.scoring_mode),
   );
 
@@ -3090,10 +3090,12 @@ export const TournamentView: React.FC<{
     }
   };
 
-  const getTabHref = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
+  const getTabHref = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin', fixtureView?: 'all') => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('tab', tab);
     nextParams.delete('season');
+    nextParams.delete('fixturesView');
+    if (tab === 'fixtures' && fixtureView === 'all') nextParams.set('fixturesView', 'all');
     const query = nextParams.toString();
     return `${pathname}${query ? `?${query}` : ''}`;
   };
@@ -5840,6 +5842,13 @@ export const TournamentView: React.FC<{
       : []
     : rounds;
   const fixtureSeasonNumber = selectedSeasonNumber;
+  const ongoingMatchCount = !isViewingHistoricalSeason && tournament.status !== 'finished' && renderTimestamp > 0
+    ? new Set(allMatches.filter((match) => {
+        if (!match.ht_match_id || match.completed || liveData[String(match.ht_match_id)]?.status !== 'ongoing') return false;
+        const kickoff = match.match_date ? new Date(match.match_date).getTime() : NaN;
+        return Number.isFinite(kickoff) && renderTimestamp <= kickoff + 4 * 60 * 60 * 1000;
+      }).map((match) => match.id)).size
+    : 0;
   const standingsWarningTeamIds = (() => {
     if (isViewingHistoricalSeason || isSandbox || tournament.is_test || warnings.length === 0) {
       return new Set<string>();
@@ -6819,6 +6828,7 @@ export const TournamentView: React.FC<{
             setCopied={setCopied}
             warnings={warnings}
             liveData={liveData}
+            initialView={searchParams.get('fixturesView') === 'all' ? 'all' : undefined}
             canJoinTournament={!isViewingHistoricalSeason && canJoinTournament}
             canJoinAnotherTeam={isViewingHistoricalSeason ? false : canJoinAnotherTeamBeforeFixtures}
             isConnecting={isConnecting}
@@ -6928,6 +6938,11 @@ export const TournamentView: React.FC<{
               canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
               mobileChat={isMobile ? tournamentChat : null}
               onVisitFixtures={() => handleTabChange('fixtures')}
+              ongoingMatchCount={ongoingMatchCount}
+              onFollowLive={() => {
+                handleTabChange('fixtures');
+                window.history.pushState(null, '', getTabHref('fixtures', 'all'));
+              }}
               onCommentsLoaded={handleHistoryCommentsLoaded}
               onCommentSubmitted={handleHistoryCommentSubmitted}
               loadComments={loadHistoryComments}

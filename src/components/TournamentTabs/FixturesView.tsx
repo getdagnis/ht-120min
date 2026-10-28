@@ -149,6 +149,7 @@ interface FixturesViewProps {
       away_match_kit_url?: string | null;
     } & Partial<LiveMatchClock>
   >;
+  initialView?: 'all';
   canJoinTournament: boolean;
   canJoinAnotherTeam?: boolean;
   isConnecting: boolean;
@@ -220,6 +221,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   setCopied,
   warnings,
   liveData,
+  initialView,
   canJoinTournament,
   canJoinAnotherTeam = canJoinTournament,
   isConnecting,
@@ -442,11 +444,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     (match) => isOwnedMatch(match) && !match.completed && match.status !== 'misarranged',
   )) : null;
   const viewContext = `${tournamentId}:${season}:${currentHtUserId ?? 'visitor'}`;
-  const fixtureView = viewChoice?.context === viewContext ? viewChoice.view : hasMyTeam ? 'mine' : 'all';
+  const fixtureView = viewChoice?.context === viewContext ? viewChoice.view : initialView ?? (hasMyTeam ? 'mine' : 'all');
   const selectView = (view: 'mine' | 'all') => {
     setViewChoice({ context: viewContext, view });
     setManualVisibleRoundsCount(null);
+    setSelectedTeamId(null);
     setIsTeamFilterOpen(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('fixturesView')) {
+        url.searchParams.delete('fixturesView');
+        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    }
   };
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
   const fixtureTeams = React.useMemo(() => {

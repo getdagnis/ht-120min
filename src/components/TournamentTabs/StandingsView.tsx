@@ -63,6 +63,8 @@ interface StandingsViewProps {
   onVisitHistory?: () => void;
   onVisitNews?: () => void;
   onVisitFixtures?: () => void;
+  ongoingMatchCount?: number;
+  onFollowLive?: () => void;
   rounds?: StandingsPreviewRound[];
   warningTeamIds?: ReadonlySet<string>;
   activityTeams?: TournamentActivityTeam[];
@@ -152,6 +154,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onVisitHistory,
   onVisitNews,
   onVisitFixtures,
+  ongoingMatchCount = 0,
+  onFollowLive,
   rounds = [],
   warningTeamIds = new Set<string>(),
   activityTeams = [],
@@ -671,6 +675,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   return (
     <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
+      {ongoingMatchCount > 0 && onFollowLive && (
+        <div className={styles.liveMatchesBanner} role="status">
+          <strong className={styles.liveMatchesMessage}>{uiText('ongoingMatches', { count: ongoingMatchCount })}</strong>
+          <Button type="button" size="sm" variant="zero" className={styles.liveMatchesButton} onClick={onFollowLive}>
+            {uiText('followLive')} <ArrowRight size={16} weight="bold" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
       <SectionCard
         title={`🏆 ${uiText('standingsSeason', { season: seasonNumber || 1 })}`}
         thumbnailSeed={tournament?.id}

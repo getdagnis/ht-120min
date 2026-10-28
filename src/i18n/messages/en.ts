@@ -866,6 +866,8 @@ const messages = {
       send: "Send",
     },
     StandingsView: {
+      ongoingMatches: "{count, plural, one {# match is ongoing} other {# matches are ongoing}}",
+      followLive: "Follow live",
       refreshRoster: "Refresh participants and standings",
       refreshingRoster: "Refreshing participants and standings…",
       standingsSeason: "Standings • Season {season}",

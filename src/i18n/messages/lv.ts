@@ -849,6 +849,8 @@ const messages = {
       send: "",
     },
     StandingsView: {
+      ongoingMatches: "{count, plural, one {Notiek # spēle} other {Notiek # spēles}}",
+      followLive: "Skatīties tiešraidē",
       refreshRoster: "Atjaunot dalībniekus un kopvērtējumu",
       refreshingRoster: "Atjauno dalībniekus un kopvērtējumu…",
       standingsSeason: "Turnīra tabula • Sezona {season}",
