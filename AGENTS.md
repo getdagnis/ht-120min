@@ -2,6 +2,63 @@
 
 This is the front door for agents working on HT-120min. Keep it short, route to the right detail, and update `PROJECT_STATE.md` only for architectural, schema, security, product-direction, integration, or substantial refactor changes.
 
+## Mandatory principle: justify complexity through product necessity
+
+> **Implement the simplest reliable behaviour that satisfies the actual user need. Do not invent stricter requirements and then build infrastructure to satisfy them.**
+
+Simplicity means fewer moving parts, execution paths and repeated operations, with
+behaviour a person can explain and predict. Fewer lines, omitted safeguards or
+complexity hidden in a helper or dependency do not establish simplicity.
+
+Before choosing a mechanism, apply these requirements proportionally to the task;
+ordinary edits do not need a separate planning document or approval ceremony.
+
+1. **Establish the outcome and timing.** Identify the useful outcome, when it is
+   needed, acceptable delay, how often the information meaningfully changes,
+   consequences of waiting/duplicate execution/failure, and the simplest existing
+   place to perform the work. Infer reasonable answers from product context; ask
+   only when material uncertainty changes the implementation. Immediacy,
+   continuous automation, global synchronization and hypothetical future scale
+   are additional requirements to justify, never defaults.
+2. **Choose triggers from the real workflow.** Prefer an explicit action, a
+   suitable time boundary, or a check where its result is needed. State what runs,
+   when and how often. Data arrival or a convenient technical event does not
+   justify dependent business work. Display updates and page viewing must not
+   casually trigger scheduling, membership changes or historical processing.
+   For example, next-round pairings needed after the weekly playing window do
+   not require round progression from every live-score poll.
+3. **Evaluate proposed mechanisms, including the user's and your own.** The
+   desired outcome is authoritative; implementation suggestions need evaluation.
+   If a mechanism adds unnecessary complexity, explain its specific cost and
+   recommend the simpler approach that meets the timing and constraints. Do not
+   silently override explicit requirements; follow a knowingly confirmed tradeoff.
+   Prior agent advice is not evidence of necessity.
+4. **Account for complete execution cost.** Before adding automatic or repeated
+   work, establish its frequency and reads/writes per visitor, tab, request,
+   record or tournament; overlap across users; repeated unchanged/historical
+   work; retries and accumulated requests during failure; and indirect triggers.
+   A lock does not justify repeated execution. A cache does not justify
+   unnecessary querying or invalidation.
+5. **Make complexity earn its place.** New queues, schedulers, tables, locks,
+   retries, caches, state machines, abstraction layers or background processes
+   require a concrete product requirement or observed failure. Explain the
+   problem, why the simpler existing path cannot solve it, and operational cost
+   and failure behaviour. “More robust”, “scalable”, “future-proof” and “best
+   practice” are insufficient. Preserve security, data integrity and concurrency
+   safeguards; first remove unnecessary execution. “Not ready”, “nothing changed”
+   and “no work required” should normally return successfully without writes,
+   exceptions or immediate retries. Retry only a genuinely transient failure
+   with a bounded policy appropriate to it, including retries inside dependencies.
+6. **Keep changes proportional and verify the real journey.** Deliver the
+   smallest coherent change. Broader redesign during features or incidents
+   requires evidence that a local change is insufficient. Remove obsolete
+   triggers and reads when replacing behaviour. For repeated work, verify when
+   it runs, bounded database/API calls and writes, and absence of unrelated
+   operations; returned-value tests alone do not prove efficiency.
+
+**The agent must justify complexity before introducing it. The user must not have
+to discover its cost in production.**
+
 ## Product
 
 HT-120min is a niche community tool for recurring Hattrick friendly tournaments.
@@ -50,7 +107,7 @@ lifecycle, and query contract before treating it as the product's canonical conc
 
 ## Collaboration Rule
 
-When a task is not completely obvious and trivial, first inspect the issue and explain the likely cause, then ask whether the user prefers a manual fix, a small targeted change, or a broader implementation. Do not start an elaborate workaround before confirming that direction; the user may prefer to clean up data or make the decision themselves.
+Inspect the issue before choosing a solution. Explain the likely cause and recommend the smallest coherent change supported by the product need. Proceed with ordinary reversible work already authorized. Ask only when missing information or competing choices materially change product behaviour, timing, architecture, scope or UX, or when authority is missing. Challenge unnecessary complexity before implementing it; do not turn routine uncertainty into repeated approval requests.
 
 ## Hard Constraints
 

@@ -4,6 +4,23 @@ HT-120min helps Hattrick communities organize recurring 120-minute friendlies wi
 
 The product is intentionally narrow: friendly tournaments for small communities, private leagues, and regional groups. It is not a general tournament platform.
 
+## Mandatory development principle: product necessity before complexity
+
+> **Implement the simplest reliable behaviour that satisfies the actual user need. Do not invent stricter requirements and then build infrastructure to satisfy them.**
+
+Simplicity means fewer moving parts, execution paths and repeated operations,
+with behaviour organizers can explain and predict. Preserve necessary security
+and data integrity safeguards.
+
+- Establish the outcome, actual timing and acceptable delay before choosing a mechanism. Immediate, continuous or automatic execution must earn its cost.
+- Choose triggers from the real workflow. Live-score updates must not drive participant changes or next-round pairings when that work can wait until the weekly playing window ends.
+- Evaluate the full cost across visitors, tabs and requests, including indirect operations, failures and retries. “Not ready” normally means stop without writes or immediate retries.
+- Reuse existing paths. Justify new infrastructure and abstractions with a concrete need and explain why a simpler approach cannot meet it. Evaluate implementation suggestions from both users and agents.
+- Keep feature and incident fixes proportional, remove obsolete triggers, and verify the actual database/API work in the user journey.
+
+**Agents must justify complexity before introducing it.** The mandatory working
+rules are in [AGENTS.md](AGENTS.md#mandatory-principle-justify-complexity-through-product-necessity).
+
 ## Stack
 
 - Next.js App Router
