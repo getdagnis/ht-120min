@@ -16,6 +16,7 @@ import {
   MATCH_120M_MAX_SE_THREAT_PENALTY,
   normalizeMatch120mGrade,
   isCounterAttacks,
+  hasAdditionalTacticPenalty,
   type Match120mCoachingAnalysis,
   type Match120mRatedSector,
   type Match120mSpecialtyThreatBreakdown,
@@ -909,7 +910,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           skill={preview.tacticSkill}
                           score={predictedAnalysis?.tacticScore ?? null}
                           tip={ratingText(
-                            isCounterAttacks(preview.tactic) ? 'counterAttacksPenalty' : predictedAnalysis?.tacticScore === 1
+                            isCounterAttacks(preview.tactic) ? 'counterAttacksPenalty' : hasAdditionalTacticPenalty(preview.tactic) ? 'attackingTacticPenalty' : predictedAnalysis?.tacticScore === 1
                               ? (preview.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
                               : 'aimPressing',
                           )}
@@ -1103,7 +1104,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         skill={performance?.tacticSkill}
                         score={analysis.tacticScore}
                         tip={ratingText(
-                          isCounterAttacks(performance?.tacticName) ? 'counterAttacksPenalty' : analysis.tacticScore === 1
+                          isCounterAttacks(performance?.tacticName) ? 'counterAttacksPenalty' : hasAdditionalTacticPenalty(performance?.tacticName) ? 'attackingTacticPenalty' : analysis.tacticScore === 1
                             ? (performance?.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
                             : 'aimPressing',
                         )}

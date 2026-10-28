@@ -1,6 +1,6 @@
 # Finished-match 120mRt
 
-The current-season fixture badge rates each team's preparation for a 120-minute friendly. It does not use goals, match duration, or opponent strength. `shared/match-120m-rating.ts` owns formula version 14 and the score-to-grade bands. Raw CHPP sector ratings use the same `(raw + 3) / 4` display conversion as the fixture card.
+The current-season fixture badge rates each team's preparation for a 120-minute friendly. It does not use goals, match duration, or opponent strength. `shared/match-120m-rating.ts` owns formula version 16 and the score-to-grade bands. Raw CHPP sector ratings use the same `(raw + 3) / 4` display conversion as the fixture card.
 
 Formation advice treats 4-5-1 as the best practical balance for midfield training and regular matches. Suggestions to use 5-5-0 or 5-4-1 are conditional. 4-5-1 and 5-4-1 both have 95 formation points in the current formula, so switching between them alone does not guarantee a higher score.
 
@@ -23,3 +23,5 @@ node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scri
 ```
 
 Formula version 15 adds a dedicated 10-point counter-attacks deduction, beyond its existing zero tactic credit and indicator penalty. Predicted and completed-match calculations share this rule and a specific tactic tooltip. Stored grades are not automatically recalculated; any backfill remains separately authorized.
+
+Formula version 16 applies the same additional 10-point deduction to Play Creatively and Long Shots. Their zero tactic credit and indicator penalty still apply. The coaching recommendation impact and predicted/completed tactic tooltips include the deduction. Existing stored grades remain at their saved formula version until explicitly recalculated.

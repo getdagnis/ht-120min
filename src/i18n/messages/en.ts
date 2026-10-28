@@ -1057,6 +1057,7 @@ const messages = {
       pressingBest: "Pressing earns the highest tactic rating for 120m matches.",
       pressingBelow15: "Field players with higher average defending and stamina skills to raise your Pressing tactic level. ",
       counterAttacksPenalty: "Counter-attacks work against the goal of reaching extra time: they create extra scoring chances when your opponent deliberately weakens their attack. This tactic incurs an additional 10-point penalty. Use Pressing instead.",
+      attackingTacticPenalty: "Play Creatively and Long Shots increase the risk of scoring before extra time. This tactic incurs an additional 10-point penalty. Use Pressing instead.",
       aimPressing: "Switch to Pressing to aim for a higher 120m score.",
       defensiveStyle: "100% Defensive mindset is a good choice for a 120m setup.",
       setPiecesBrilliant: "Great for 120m: this low-skill SP taker earns the most set-pieces rating points.",

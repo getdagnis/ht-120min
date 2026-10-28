@@ -1040,6 +1040,7 @@ const messages = {
       pressingBest: "",
       pressingBelow15: "Izmanto spēlētājus ar labākām aizsardzības prasmēm, lai paaugstinātu presinga līmeni.",
       counterAttacksPenalty: "Pretuzbrukumi traucē sasniegt papildlaiku: tie rada papildu vārtu gūšanas iespējas, kad pretinieks apzināti vājina uzbrukumu. Šī taktika saņem papildu 10 punktu sodu. Tā vietā izmantojiet presingu.",
+      attackingTacticPenalty: "Radoša spēle un tālsitieni palielina iespēju gūt vārtus pirms papildlaika. Šī taktika saņem papildu 10 punktu sodu. Tā vietā izmantojiet presingu.",
       aimPressing: "Pārej uz presingu, lai tiektos pēc augstāka 120 minūšu reitinga.",
       defensiveStyle: "",
       setPiecesBrilliant: "",

@@ -3,7 +3,7 @@ import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndica
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
 
-export const MATCH_120M_FORMULA_VERSION = 15;
+export const MATCH_120M_FORMULA_VERSION = 16;
 export const MATCH_120M_MAX_SE_THREAT_PENALTY = 25;
 const MATCH_120M_SET_PIECES_MAX_POINTS = 25;
 const MATCH_120M_SET_PIECES_POINTS_PER_SKILL = 2;
@@ -103,10 +103,18 @@ function seThreatRatingSurcharge(seThreatPoints: number): number {
   return seThreatPoints >= 15 ? 3 : seThreatPoints >= 10 ? 2 : seThreatPoints >= 7 ? 1 : 0;
 }
 
-export const MATCH_120M_COUNTER_ATTACK_PENALTY = 10;
+export const MATCH_120M_ATTACKING_TACTIC_PENALTY = 10;
+
+function normalizedTactic(tactic: string | null | undefined): string {
+  return tactic?.trim().toLowerCase().replace(/[ -]+/g, '_') ?? '';
+}
 
 export function isCounterAttacks(tactic: string | null | undefined): boolean {
-  return tactic?.trim().toLowerCase().replace(/[ -]+/g, '_') === 'counter_attacks';
+  return normalizedTactic(tactic) === 'counter_attacks';
+}
+
+export function hasAdditionalTacticPenalty(tactic: string | null | undefined): boolean {
+  return ['counter_attacks', 'play_creatively', 'long_shots'].includes(normalizedTactic(tactic));
 }
 
 function tacticRatingPoints(tactic: string, tacticSkill: number | null | undefined): number {
@@ -281,7 +289,7 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
     + midfieldPoints * 0.20 + setPiecesPoints;
   const score = Math.round(Math.max(0, Math.min(100,
     Math.min(100, positiveScore) - seThreatPenalty - attackPenalty - additionalRatingPenalty
-      - (isCounterAttacks(tactic) ? MATCH_120M_COUNTER_ATTACK_PENALTY : 0),
+      - (hasAdditionalTacticPenalty(tactic) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0),
   )));
   return { score, grade: gradeFor(score), formula_version: MATCH_120M_FORMULA_VERSION,
     has_set_pieces_skill: hasSetPiecesSkill, has_specialties: Array.isArray(specialties) };
@@ -456,7 +464,7 @@ export function analyzeMatch120mCoaching(
     recommendationImpacts.reduceSEThreat = seThreatPenalty + seThreatRatingSurcharge(seThreatPenalty);
   }
   if (recommendations.includes('choosePressing')) recommendationImpacts.choosePressing = (100 - tacticPoints) * 0.25
-    + (isCounterAttacks(tacticName) ? MATCH_120M_COUNTER_ATTACK_PENALTY : 0);
+    + (hasAdditionalTacticPenalty(tacticName) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0);
   if (recommendations.includes('improvePressingSkill')) {
     recommendationImpacts.improvePressingSkill = Math.max(
       0,
