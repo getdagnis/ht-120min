@@ -21,3 +21,5 @@ END;
 $patch$;
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+-- applied!

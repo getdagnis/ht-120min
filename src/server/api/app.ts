@@ -1951,7 +1951,7 @@ async function handleFixtureRatings(req: VercelRequest, res: VercelResponse) {
       if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
       const localAdmin = isLocalRatingsAdmin(
         String(req.headers.host || ''), process.env.NODE_ENV,
-        process.env.FORGE_SUPERADMIN_HT_ID, session.userId,
+        getForgeSuperadminId(), session.userId, undefined, isForgeAdminRequest(req.headers.cookie),
       );
       const fixtures = await loadVisibleFixtureRatings(getServiceSupabase(), tournamentId, session.userId, localAdmin);
       return res.status(200).json({ fixtures });

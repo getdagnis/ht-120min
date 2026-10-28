@@ -8,9 +8,8 @@ import type { getServiceSupabase } from './supabase.js';
 import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../../types/fixture-ratings.js';
 import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../shared/player-specialties.js';
 
-// Local development only: set false to test normal participant visibility.
-// Save this file, then reload the tournament page; no dev-server restart needed.
-const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW;
+// Local development only: explicitly opt in to viewing both teams' shared ratings.
+const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS === 'true';
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
@@ -33,8 +32,19 @@ export class FixtureRatingsError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export function isLocalRatingsAdmin(host: string, environment: string | undefined, configuredId: string | undefined, sessionId: number, enabled = LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS) {
-  return enabled && environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
+export function isLocalRatingsAdmin(
+  host: string,
+  environment: string | undefined,
+  configuredId: string | number | null | undefined,
+  sessionId: number,
+  enabled = LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS,
+  verifiedForgeAdmin = false,
+) {
+  const adminId = typeof configuredId === 'number'
+    ? configuredId
+    : configuredId && /^\d+$/.test(configuredId) ? Number(configuredId) : null;
+  return enabled && environment === 'development' && adminId !== null &&
+    (sessionId === adminId || verifiedForgeAdmin) &&
     /^(localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)(:\d+)?$/i.test(host);
 }
 

@@ -23,7 +23,6 @@ import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import type { MatchEventDetails, MatchSetPiecesTaker } from '../../../../shared/match-events.js';
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
-import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
 import { tryRecalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 interface LiveMatchResult extends LiveMatchClock {
@@ -508,9 +507,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const failure = await tryRecalculateMatch120mRatings(supabase, fixture.id);
         if (failure) ratingFailures.push(failure);
       }
-    }
-    if (tournament.schedule_mode === 'length') {
-      await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
     }
     return res.status(200).json({ results, ratingFailures });
   } catch (error) {
