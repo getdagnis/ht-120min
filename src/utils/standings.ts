@@ -76,7 +76,7 @@ function hasDecisivePenaltyShootout(match: Match) {
   );
 }
 
-function get120MinMatchPoints(match: Match): { home: number; away: number } {
+export function get120MinMatchPoints(match: Match): { home: number; away: number } {
   // Normal Rules friendlies do not offer an extra-time path, so their result
   // never earns 120-minute-mode points.
   if (match.match_type === 4 || match.match_type === 8) return { home: 0, away: 0 };

@@ -19,6 +19,7 @@ import {
   average120Stat,
   compareAverage120Standings,
   getAppgStandingsQuota,
+  get120MinMatchPoints,
   meetsAppgStandingsQuota,
   type TeamStanding,
 } from '../../utils/standings';
@@ -476,6 +477,62 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
   const appgClassificationTooltip = (standing: TeamStanding) =>
     `Pts ${standing.appgPoints} · ET3 ${standing.appgClassifications.ET3} · ET2 ${standing.appgClassifications.ET2} · PS1 ${standing.appgClassifications.PS1} · RT0 ${standing.appgClassifications.RT0} · OPW ${standing.appgClassifications.OPW}`;
+  const average120PointsTooltip = (standing: TeamStanding) => {
+    const counts = { won120: 0, lost120: 0, regularLossScored: 0, regularLossNoGoals: 0, zeroPoint: 0 };
+    let pointsTotal = 0;
+    let matchesTotal = 0;
+    for (const round of rounds) {
+      for (const match of round.matches) {
+        if (
+          !match.completed ||
+          match.home_goals == null ||
+          match.away_goals == null ||
+          !match.home_team_id ||
+          !match.away_team_id
+        ) continue;
+        const isHome = match.home_team_id === standing.teamId;
+        const isAway = match.away_team_id === standing.teamId;
+        if (!isHome && !isAway) continue;
+        matchesTotal++;
+        const teamGoals = isHome ? match.home_goals : match.away_goals;
+        const opponentGoals = isHome ? match.away_goals : match.home_goals;
+        const points = get120MinMatchPoints({
+          home_team_id: isHome ? standing.teamId : 'opponent',
+          away_team_id: isAway ? standing.teamId : 'opponent',
+          home_goals: match.home_goals,
+          away_goals: match.away_goals,
+          match_type: match.match_type,
+          went_120: Boolean(match.went_120),
+          completed: true,
+          penalty_shootout_home_goals: match.penalty_shootout_home_goals,
+          penalty_shootout_away_goals: match.penalty_shootout_away_goals,
+        });
+        const teamPoints = isHome ? points.home : points.away;
+        pointsTotal += teamPoints;
+        if (match.went_120 && teamPoints > 0) {
+          if (teamGoals > opponentGoals || (teamGoals === opponentGoals && teamPoints === 3)) counts.won120++;
+          else counts.lost120++;
+        } else if ((match.match_type === 5 || match.match_type === 9) && teamGoals < opponentGoals) {
+          if (teamGoals === 0) counts.regularLossNoGoals++;
+          else counts.regularLossScored++;
+        } else {
+          counts.zeroPoint++;
+        }
+      }
+    }
+    const breakdownIsComplete = matchesTotal === standing.played && pointsTotal === standing.pts;
+    const parts = [
+      counts.won120 && uiText('avgPointsWon120', { count: counts.won120 }),
+      counts.lost120 && uiText('avgPointsLost120', { count: counts.lost120 }),
+      counts.regularLossScored && uiText('avgPointsRegularLossScored', { count: counts.regularLossScored }),
+      counts.regularLossNoGoals && uiText('avgPointsRegularLossNoGoals', { count: counts.regularLossNoGoals }),
+      counts.zeroPoint && uiText('avgPointsZeroPoint', { count: counts.zeroPoint }),
+    ].filter((part): part is string => Boolean(part));
+    return uiText('avgPointsBreakdown', {
+      average: formatAverage(average120Stat(standing, 'pts')),
+      breakdown: breakdownIsComplete && parts.length ? parts.join(', ') : uiText('avgPointsBreakdownUnavailable'),
+    });
+  };
   const forumRow = (values: Array<string | number>) =>
     `[tr]${values.map((value) => `[td]${value}[/td]`).join('')}[/tr]`;
   const forumHeader = (values: string[]) => `[tr]${values.map((value) => `[th]${value}[/th]`).join('')}[/tr]`;
@@ -1019,7 +1076,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                             {percentage120min(s).toFixed(0)}%
                           </td>
                           <td className={styles.center}>{s.achievements120min}/{s.played}</td>
-                          <td className={styles.center}>{formatAverage(average120Stat(s, 'pts'))}</td>
+                          <td
+                            className={styles.center}
+                            data-tooltip-id="avg120-points-breakdown"
+                            data-tooltip-content={average120PointsTooltip(s)}
+                          >
+                            {formatAverage(average120Stat(s, 'pts'))}
+                          </td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'totalMinutes'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gd'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gf'))}</td>
@@ -1102,6 +1165,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             </tbody>
           </table>
           <Tooltip id="appg-breakdown-tooltip" className="tooltip" />
+          <Tooltip id="avg120-points-breakdown" className="tooltip" />
         </div>
         <ScoringHelp scoringMode={tournament?.scoring_mode} className={styles.standingsScoringHelp} isSmall />
         {canJoinTournament && onJoinWithHattrick && (

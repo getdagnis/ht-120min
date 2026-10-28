@@ -38,7 +38,7 @@
   height: 3.75rem
   transform: translate(0.5rem, -50%) scale(0.95) rotate(5deg)
   transition: transform 0.2s ease-out
-  animation: discordAttention 30s ease-out 30s infinite
+  animation: discordAttention 10s ease-out 10s infinite
 
 .discordInvite:hover .discordIcon,
 .discordInvite:focus-visible .discordIcon
@@ -46,10 +46,10 @@
   transform: translate(0.5rem, -50%) scale(1.05) rotate(-5deg)
 
 @keyframes discordAttention
-  0%, 16.667%, 100%
-    transform: translate(0.5rem, -50%) scale(0.95) rotate(5deg)
-  2%, 14.667%
-    transform: translate(0.5rem, -50%) scale(1.05) rotate(-5deg)
+  0%, 12%, 100%
+    transform: translate(0.5rem, -50%) scale(0.95) rotate(15deg)
+  2%, 10%
+    transform: translate(0.5rem, -50%) scale(1.1) rotate(-5deg)
 
 @media (prefers-reduced-motion: reduce)
   .discordIcon,

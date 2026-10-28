@@ -1,8 +1,10 @@
 // before adding translations remember – similar character count and natural sounding go way before literal translation..
-// it needs to go well with the apps ui not be a direct word-by-word translation.
+// it needs to go well with the apps ui not be a direct word-by-word translation. shorter, when not extremely, is often better.
 // implemented english texts have followed that same rule from start, so should other languages.
 // so think from scratch. what needs to be said. don't translate directly.
-// bad example for english translation: 
+// think like a good copywriter in advertising agency would when translating product labels.
+// english says "Predicted rating"? in latvian "prognozētais vērtējums" will be way too long and clumsy.
+// just call it "Prognoze" instead, sounds a lot more natural, it's clear and it's shorter too
 
 
 import en from './en.js';
@@ -865,6 +867,13 @@ const messages = {
       avgGoalsColumn: "AvGls",
       gamesTooltip: "Ieskaitītās pabeigtās spēles",
       avgPointsTooltip: "Standarta 120 minūšu papildpunkti uz ieskaitītu pabeigtu spēli",
+      avgPointsBreakdown: "Vidēji {average}p spēlē: {breakdown}",
+      avgPointsBreakdownUnavailable: "spēļu sadalījums nav pieejams",
+      avgPointsWon120: "{count}x uzvara 120m spēlē (3 p.)",
+      avgPointsLost120: "{count}x zaudējums 120m spēlē (2 p.)",
+      avgPointsRegularLossScored: "{count}x gūti vārti parastā zaudētā spēlē (1 p.)",
+      avgPointsRegularLossNoGoals: "{count}x bez vārtiem parastā zaudētā spēlē (2 p.)",
+      avgPointsZeroPoint: "{count}x cita spēle (0 p.)",
       percentage120Tooltip: "Ieskaitīto spēļu daļa, kas sasniedza 120 minūtes",
       avgMinutesTooltip: "Nospēlētās minūtes uz ieskaitītu pabeigtu spēli",
       avgDifferenceTooltip: "120 minūšu vārtu starpība uz ieskaitītu pabeigtu spēli",

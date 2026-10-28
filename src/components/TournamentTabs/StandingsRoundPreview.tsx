@@ -5,6 +5,11 @@ import styles from './StandingsRoundPreview.module.sass';
 
 export interface StandingsPreviewMatch {
   id: string;
+  home_team_id?: string | null;
+  away_team_id?: string | null;
+  match_type?: number | null;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
   home_goals: number | null;
   away_goals: number | null;
   completed: boolean;
