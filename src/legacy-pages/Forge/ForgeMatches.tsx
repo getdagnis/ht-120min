@@ -943,10 +943,28 @@ export function ForgeMatchesSection() {
                                       className={styles.teamFlag}
                                     />
                                   )}
-                                  <span>{team.name}</span>
+                                  {team.htTeamId ? (
+                                    <a
+                                      href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htTeamId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {team.name}
+                                    </a>
+                                  ) : <span>{team.name}</span>}
                                 </div>
                                 {!isByeTeam(team) ? (
-                                  <div className={styles.managerName}>{team.managerName || 'Manager unavailable'}</div>
+                                  <div className={styles.managerName}>
+                                    {team.managerHtId && team.managerName ? (
+                                      <a
+                                        href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.managerHtId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        {team.managerName}
+                                      </a>
+                                    ) : team.managerName || 'Manager unavailable'}
+                                  </div>
                                 ) : null}
                               </div>
                               <div className={styles.stateRow}>
