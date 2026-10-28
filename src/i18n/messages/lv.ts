@@ -1106,6 +1106,9 @@ const messages = {
 
       '120PS': "",
       hideDetails: "",
+      showRatings: "Rādīt vērtējumus",
+      hideRatings: "Paslēpt vērtējumus",
+      compactRating: "Vērtējums {grade}",
       showDetails: "",
       sharedTheirRatings: "",
       sharedWithOpponentBy: "",

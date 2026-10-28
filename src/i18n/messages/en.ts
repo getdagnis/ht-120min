@@ -1123,6 +1123,9 @@ const messages = {
 
       '120PS': "120+PS!",
       hideDetails: "Hide details",
+      showRatings: "Show ratings",
+      hideRatings: "Hide ratings",
+      compactRating: "Rating {grade}",
       showDetails: "Show details",
       sharedTheirRatings: "shared their ratings",
       sharedWithOpponentBy: "Shared with opponent by",

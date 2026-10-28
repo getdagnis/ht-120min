@@ -684,6 +684,17 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           ) ? uiText('sharedPredictedRatings') : undefined}
         />
       )}
+      {status === 'finished' && !actualDetailsExpanded && team.ratingGrade && (
+        <button
+          type="button"
+          className={`${styles.ratingBadge} ${styles.compactRatingBadge} ${styles[`ratingGrade${normalizeMatch120mGrade(team.ratingGrade)[0]}`]}`}
+          aria-label={`${team.name}: ${uiText('compactRating', { grade: normalizeMatch120mGrade(team.ratingGrade) })}. ${uiText('showRatings')}`}
+          aria-expanded={actualDetailsExpanded}
+          onClick={() => setDetailsExpanded(true)}
+        >
+          {uiText('compactRating', { grade: normalizeMatch120mGrade(team.ratingGrade) })}
+        </button>
+      )}
       {team.warning && (
         <div className={styles.warningRow}>
           <img src="/warn-red.png" alt={uiText('warning')} className={styles.warnIcon} />
@@ -788,7 +799,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             aria-expanded={actualDetailsExpanded}
             onClick={() => setDetailsExpanded((expanded) => !expanded)}
           >
-            {actualDetailsExpanded ? uiText('hideDetails') : uiText('showDetails')}
+            {actualDetailsExpanded ? uiText('hideRatings') : uiText('showRatings')}
           </button>
         )}
       </div>
