@@ -8,7 +8,7 @@ Share and Update fetch `matchorders` v3.1 with `actionType=view` for submitted p
 
 ## Automatic sharing
 
-For local visibility testing, toggle `LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS` near the top of `src/server/api/_lib/fixture-ratings.ts`. It defaults to `true`; `false` uses normal participant visibility while retaining admin access elsewhere. Save the source file and reload the tournament page to fetch fresh private ratings; Next dev reloads the server module without a restart. The development, localhost and signed-in identity checks remain mandatory when enabled. This has no effect in production.
+For local visibility testing, set the server environment variable `LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS=true` and restart the server. It is disabled unless its value is exactly `true`. Set it to `false` or remove it to use normal participant visibility. The development, localhost, and signed-in site-admin checks remain mandatory when enabled. Admin identity is verified against the configured site admin from `FORGE_SUPERADMIN_HT_ID` or its `ADMIN_HT_ID` fallback, using the Forge admin session or matching app session. Reload the tournament page to fetch fresh private ratings. This has no effect in production. Only upcoming arranged fixtures with confirmed future Hattrick kickoff times are included.
 
 The Fixtures switch defaults to on for each team and manager in a tournament. `tournament_team_rating_preferences` stores only explicit preferences, without a season key, so opt-outs persist across seasons. GET/POST `/api/app?route=rating-sharing-preferences` uses signed-in sessions and live CHPP ownership verification. Tables and mutation RPCs are service-role-only; preferences do not affect who may read predictions.
 

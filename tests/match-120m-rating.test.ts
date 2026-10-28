@@ -24,7 +24,7 @@ function setup(overrides: Partial<MatchSidePerformance> = {}): MatchSidePerforma
 
 test('ideal defensive setup reaches A+ without opponent or match result', () => {
   assert.deepEqual(calculateMatch120mRating(setup({ tacticSkill: 15 })), {
-    score: 100, grade: 'A+', formula_version: 14, has_set_pieces_skill: true, has_specialties: true,
+    score: 100, grade: 'A+', formula_version: 15, has_set_pieces_skill: true, has_specialties: true,
   });
 });
 
@@ -299,4 +299,15 @@ test('rating conflicts return to application for at most one fresh-snapshot retr
     assert.equal(attempts, 2);
     assert.equal(snapshotReads, 2);
   }
+});
+
+test('counter-attacks deduct ten additional points versus other zero-credit tactics', () => {
+  const other = setup({ tacticType: 4, tacticName: 'Attack on wings' });
+  const counter = setup({ tacticType: 2, tacticName: 'Counter-attacks' });
+  assert.equal(calculateMatch120mRating(other)!.score - calculateMatch120mRating(counter)!.score, 10);
+  assert.equal(calculateMatch120mRating(counter)!.formula_version, 15);
+  assert.equal(analyzeMatch120mCoaching(counter).recommendationImpacts.choosePressing
+    - analyzeMatch120mCoaching(other).recommendationImpacts.choosePressing, 10);
+  assert.equal(calculateMatch120mRating(setup({ tacticType: 2, tacticName: 'counter_attacks' }))!.score,
+    calculateMatch120mRating(counter)!.score);
 });

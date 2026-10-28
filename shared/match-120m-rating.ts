@@ -3,7 +3,7 @@ import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndica
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
 
-export const MATCH_120M_FORMULA_VERSION = 14;
+export const MATCH_120M_FORMULA_VERSION = 15;
 export const MATCH_120M_MAX_SE_THREAT_PENALTY = 25;
 const MATCH_120M_SET_PIECES_MAX_POINTS = 25;
 const MATCH_120M_SET_PIECES_POINTS_PER_SKILL = 2;
@@ -90,16 +90,6 @@ function warningGradeForScore(score: number | null): Match120mWarningGrade | nul
   return 'D';
 }
 
-function moreSevereWarningGrade(
-  first: Match120mWarningGrade | null,
-  second: Match120mWarningGrade | null,
-): Match120mWarningGrade | null {
-  const severity: Record<Match120mWarningGrade, number> = { D: 1, E: 2, F: 3 };
-  if (first === null) return second;
-  if (second === null) return first;
-  return severity[first] >= severity[second] ? first : second;
-}
-
 function hiddenRatingPenalty(
   indicatorScores: Array<RatingIndicatorScore | null>,
   seThreatPoints: number,
@@ -111,6 +101,12 @@ function hiddenRatingPenalty(
 
 function seThreatRatingSurcharge(seThreatPoints: number): number {
   return seThreatPoints >= 15 ? 3 : seThreatPoints >= 10 ? 2 : seThreatPoints >= 7 ? 1 : 0;
+}
+
+export const MATCH_120M_COUNTER_ATTACK_PENALTY = 10;
+
+export function isCounterAttacks(tactic: string | null | undefined): boolean {
+  return tactic?.trim().toLowerCase().replace(/[ -]+/g, '_') === 'counter_attacks';
 }
 
 function tacticRatingPoints(tactic: string, tacticSkill: number | null | undefined): number {
@@ -284,7 +280,8 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
     + (MATCH_120M_FORMATION_WEIGHT - unprotectedFormationPenalty)
     + midfieldPoints * 0.20 + setPiecesPoints;
   const score = Math.round(Math.max(0, Math.min(100,
-    Math.min(100, positiveScore) - seThreatPenalty - attackPenalty - additionalRatingPenalty,
+    Math.min(100, positiveScore) - seThreatPenalty - attackPenalty - additionalRatingPenalty
+      - (isCounterAttacks(tactic) ? MATCH_120M_COUNTER_ATTACK_PENALTY : 0),
   )));
   return { score, grade: gradeFor(score), formula_version: MATCH_120M_FORMULA_VERSION,
     has_set_pieces_skill: hasSetPiecesSkill, has_specialties: Array.isArray(specialties) };
@@ -343,7 +340,10 @@ export function analyzeMatch120mCoaching(
       averageDefence / (midfield + averageAttack),
       [[0.5, 0], [1, 100]],
     );
-    const balanceWarningGrade = warningGradeForScore(midfieldRatingPoints);
+    const midfieldIsStrongerThanAttack = midfield > averageAttack;
+    const balanceWarningGrade = midfieldIsStrongerThanAttack
+      ? warningGradeForScore(midfieldRatingPoints)
+      : null;
     attackPenaltyPoints = Math.max(...attacks.map((value) => value ?? 0)) >= 8 ? 8
       : Math.max(...attacks.map((value) => value ?? 0)) >= 7 ? 3
         : Math.max(...attacks.map((value) => value ?? 0)) >= 6 ? 2
@@ -351,22 +351,19 @@ export function analyzeMatch120mCoaching(
     for (const sector of ratedSectors) {
       if (sector === 'midfield') {
         if (balanceWarningGrade) sectorWarningGrades[sector] = balanceWarningGrade;
-        if (midfieldRatingPoints !== null && midfieldRatingPoints < MATCH_120M_MIDFIELD_RED_THRESHOLD) {
+        if (midfieldIsStrongerThanAttack && midfieldRatingPoints !== null
+          && midfieldRatingPoints < MATCH_120M_MIDFIELD_RED_THRESHOLD) {
           sectorScores[sector] = 4;
-        } else if (midfieldRatingPoints !== null && midfieldRatingPoints < MATCH_120M_MIDFIELD_WARNING_THRESHOLD) {
+        } else if (midfieldIsStrongerThanAttack && midfieldRatingPoints !== null
+          && midfieldRatingPoints < MATCH_120M_MIDFIELD_WARNING_THRESHOLD) {
           sectorScores[sector] = 3;
         }
       } else if (sector.endsWith('Attack')) {
         const attackWarningGrade: Match120mWarningGrade | null = ownValues[sector] >= 11.25 ? 'F'
           : ownValues[sector] >= 8 ? 'E'
             : ownValues[sector] > averageDefence ? 'D' : null;
-        const warningGrade = moreSevereWarningGrade(balanceWarningGrade, attackWarningGrade);
-        if (warningGrade) sectorWarningGrades[sector] = warningGrade;
-        if ((midfieldRatingPoints !== null && midfieldRatingPoints < MATCH_120M_MIDFIELD_RED_THRESHOLD)
-          || ownValues[sector] >= 8 || ownValues[sector] > averageDefence) sectorScores[sector] = 4;
-        else if (midfieldRatingPoints !== null && midfieldRatingPoints < MATCH_120M_MIDFIELD_WARNING_THRESHOLD) {
-          sectorScores[sector] = 3;
-        }
+        if (attackWarningGrade) sectorWarningGrades[sector] = attackWarningGrade;
+        if (ownValues[sector] >= 8 || ownValues[sector] > averageDefence) sectorScores[sector] = 4;
       } else if (ownValues[sector] < 5) {
         sectorWarningGrades[sector] = 'F';
         sectorScores[sector] = 4;
@@ -376,7 +373,9 @@ export function analyzeMatch120mCoaching(
         sectorScores[sector] = 2;
       }
     }
-    if (midfield + averageAttack > averageDefence) recommendations.push('balanceMidfield');
+    if (midfield > averageAttack && midfield + averageAttack > averageDefence) {
+      recommendations.push('balanceMidfield');
+    }
     if (defences.some((value) => value !== null && value < 5)) recommendations.push('adviceWeakDefence');
     if (highestAttack >= 11.25) recommendations.push('adviceVeryHighAttack');
     else if (highestAttack >= 8) recommendations.push('adviceDangerousAttack');
@@ -454,7 +453,8 @@ export function analyzeMatch120mCoaching(
   if (recommendations.includes('reduceSEThreat')) {
     recommendationImpacts.reduceSEThreat = seThreatPenalty + seThreatRatingSurcharge(seThreatPenalty);
   }
-  if (recommendations.includes('choosePressing')) recommendationImpacts.choosePressing = (100 - tacticPoints) * 0.25;
+  if (recommendations.includes('choosePressing')) recommendationImpacts.choosePressing = (100 - tacticPoints) * 0.25
+    + (isCounterAttacks(tacticName) ? MATCH_120M_COUNTER_ATTACK_PENALTY : 0);
   if (recommendations.includes('improvePressingSkill')) {
     recommendationImpacts.improvePressingSkill = Math.max(
       0,

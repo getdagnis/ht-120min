@@ -14,10 +14,8 @@ import {
   calculateMatch120mSpecialtyThreatBreakdown,
   countMatch120mSpecialtyPlayers,
   MATCH_120M_MAX_SE_THREAT_PENALTY,
-  MATCH_120M_WARNING_STAGE_D_THRESHOLD,
-  MATCH_120M_WARNING_STAGE_E_THRESHOLD,
-  MATCH_120M_WARNING_STAGE_F_THRESHOLD,
   normalizeMatch120mGrade,
+  isCounterAttacks,
   type Match120mCoachingAnalysis,
   type Match120mRatedSector,
   type Match120mSpecialtyThreatBreakdown,
@@ -404,15 +402,11 @@ function RatingsPitch({
             const warningGrade = sector ? analysis.sectorWarningGrades[sector] : undefined;
             const sectorValue = Number(value);
             let sectorTip = '';
-            const isMidfieldOrAttack = sector === 'midfield' || sector?.endsWith('Attack');
-            if (isMidfieldOrAttack && analysis.midfieldBalancePoints !== null
-              && analysis.midfieldBalancePoints < MATCH_120M_WARNING_STAGE_F_THRESHOLD) {
+            if (sector === 'midfield' && warningGrade === 'F') {
               sectorTip = uiText('midfieldBalanceCritical');
-            } else if (isMidfieldOrAttack && analysis.midfieldBalancePoints !== null
-              && analysis.midfieldBalancePoints < MATCH_120M_WARNING_STAGE_E_THRESHOLD) {
+            } else if (sector === 'midfield' && warningGrade === 'E') {
               sectorTip = uiText('midfieldBalanceWarning');
-            } else if (isMidfieldOrAttack && analysis.midfieldBalancePoints !== null
-              && analysis.midfieldBalancePoints < MATCH_120M_WARNING_STAGE_D_THRESHOLD) {
+            } else if (sector === 'midfield' && warningGrade === 'D') {
               sectorTip = uiText('midfieldBalanceDWarning');
             } else if (sector?.endsWith('Defence') && score === 1) {
               sectorTip = uiText('veryStrongDefence');
@@ -657,6 +651,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   }
 
   const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
+  const showRatingsSection = Boolean(
+    (isOwned || ratingsPreview?.home || ratingsPreview?.away) &&
+    (ratingsPreview || ratingsSharedStatus),
+  );
 
   const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (
     <>
@@ -698,7 +696,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   return (
     <div
       data-fixture-id={matchId}
-      className={`${styles.fixtureCard} ${isOwned ? styles.ownedFixture : ''} ${isOwned && (ratingsPreview || ratingsSharedStatus) ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
+      className={`${styles.fixtureCard} ${isOwned ? styles.ownedFixture : ''} ${showRatingsSection ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
     >
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
@@ -811,7 +809,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           )}
         </div>
       </div>
-      {isOwned && (ratingsPreview || ratingsSharedStatus) && (
+      {showRatingsSection && (
         <section className={styles.ratingsPreview} aria-label={uiText('sharedMatchRatings')}>
           {(ratingsPreview?.home || ratingsPreview?.away) && (
             <div className={styles.ratingsPreviewTitle}>{uiText('sharedMatchRatings')}</div>
@@ -900,7 +898,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           skill={preview.tacticSkill}
                           score={predictedAnalysis?.tacticScore ?? null}
                           tip={ratingText(
-                            predictedAnalysis?.tacticScore === 1
+                            isCounterAttacks(preview.tactic) ? 'counterAttacksPenalty' : predictedAnalysis?.tacticScore === 1
                               ? (preview.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
                               : 'aimPressing',
                           )}
@@ -1092,7 +1090,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         skill={performance?.tacticSkill}
                         score={analysis.tacticScore}
                         tip={ratingText(
-                          analysis.tacticScore === 1
+                          isCounterAttacks(performance?.tacticName) ? 'counterAttacksPenalty' : analysis.tacticScore === 1
                             ? (performance?.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
                             : 'aimPressing',
                         )}
