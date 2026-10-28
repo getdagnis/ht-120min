@@ -2559,8 +2559,9 @@ function readChallengeableDirectoryState(): ChallengeableDirectoryState {
 }
 
 function ForgeTestingSection() {
+  const digitsOnly = (value: string) => value.replace(/\D/g, '');
   const [managerId, setManagerId] = useState(() =>
-    typeof window !== 'undefined' ? window.localStorage.getItem('forge_ht_user_id') || '' : '',
+    typeof window !== 'undefined' ? digitsOnly(window.localStorage.getItem('forge_ht_user_id') || '') : '',
   );
   const [teamId, setTeamId] = useState('');
   const [opponentTeamId, setOpponentTeamId] = useState('');
@@ -2836,10 +2837,12 @@ function ForgeTestingSection() {
           <label className={styles.testingField}>
             <span>Manager ID</span>
             <input
+              type="text"
+              inputMode="numeric"
               value={managerId}
               disabled={directoryLoading || directoryRefreshing}
               onChange={(event) => {
-                const nextValue = event.target.value;
+                const nextValue = digitsOnly(event.target.value);
                 setManagerId(nextValue);
                 setOutput('');
                 clearDirectoryChallengeability(nextValue, teamId);
@@ -2849,10 +2852,12 @@ function ForgeTestingSection() {
           <label className={styles.testingField}>
             <span>My team ID</span>
             <input
+              type="text"
+              inputMode="numeric"
               value={teamId}
               disabled={directoryLoading || directoryRefreshing}
               onChange={(event) => {
-                const nextValue = event.target.value;
+                const nextValue = digitsOnly(event.target.value);
                 setTeamId(nextValue);
                 setOutput('');
                 clearDirectoryChallengeability(managerId, nextValue);
@@ -2862,9 +2867,11 @@ function ForgeTestingSection() {
           <label className={styles.testingField}>
             <span>Opponent team ID</span>
             <input
+              type="text"
+              inputMode="numeric"
               value={opponentTeamId}
               onChange={(event) => {
-                setOpponentTeamId(event.target.value);
+                setOpponentTeamId(digitsOnly(event.target.value));
                 setOutput('');
               }}
             />
@@ -2872,7 +2879,12 @@ function ForgeTestingSection() {
           {acceptFromTeamId.trim() && (
             <label className={styles.testingField}>
               <span>Accept from team ID</span>
-              <input value={acceptFromTeamId} onChange={(event) => setAcceptFromTeamId(event.target.value)} />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={acceptFromTeamId}
+                onChange={(event) => setAcceptFromTeamId(digitsOnly(event.target.value))}
+              />
             </label>
           )}
         </div>

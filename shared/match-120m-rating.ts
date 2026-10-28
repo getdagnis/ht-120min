@@ -434,7 +434,9 @@ export function analyzeMatch120mCoaching(
   }
   if (tacticScore !== null && tacticScore !== 1) recommendations.push('choosePressing');
   else if (tacticScore === 1 && (performance?.tacticSkill ?? 0) < 12) recommendations.push('improvePressingSkill');
-  if (setPiecesScore !== 1) recommendations.push('improveSetPieces');
+  if (setPiecesScore !== 1 && !(typeof skill === 'number' && skill >= 4 && skill <= 7)) {
+    recommendations.push('improveSetPieces');
+  }
 
   if (defenceRatingPoints !== null && midfieldRatingPoints !== null) {
     if (recommendations.includes('balanceMidfield')) {

@@ -929,7 +929,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                               ? 'setPiecesNotSet'
                               : preview.setPiecesSkill <= 3
                                 ? 'setPiecesBrilliant'
-                                : 'aimSetPieces',
+                                : preview.setPiecesSkill <= 7
+                                  ? 'setPiecesGood'
+                                  : 'aimSetPieces',
                           )}
                         >
                           {preview.setPieces}
@@ -1122,7 +1124,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           ? 'setPiecesNotSet'
                           : (taker?.skill ?? 99) <= 3
                             ? 'setPiecesBrilliant'
-                            : 'aimSetPieces',
+                            : (taker?.skill ?? 99) <= 7
+                              ? 'setPiecesGood'
+                              : 'aimSetPieces',
                       )}
                     >
                       {skillDisplay(taker?.skill)}

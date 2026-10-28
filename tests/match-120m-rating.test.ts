@@ -47,6 +47,17 @@ test('unknown optional skill is neutral and missing specialties is not a penalty
   assert.equal(unknown.has_specialties, false);
 });
 
+test('set-pieces skills up to seven do not prompt a taker change in rating advice', () => {
+  for (const skill of [4, 5, 6, 7]) {
+    const analysis = analyzeMatch120mCoaching(setup({ setPiecesTaker: { playerName: null, skill, skillCheckedAt: null } }));
+    assert.equal(analysis.recommendations.includes('improveSetPieces'), false, String(skill));
+  }
+  const higherSkill = analyzeMatch120mCoaching(setup({
+    setPiecesTaker: { playerName: null, skill: 8, skillCheckedAt: null },
+  }));
+  assert.equal(higherSkill.recommendations.includes('improveSetPieces'), true);
+});
+
 test('defensive Quick players do not count as offensive SE threat, while a dangerous attack sector still costs points', () => {
   const defensive = setup({
     formation: '5-4-1', tacticType: 0, tacticName: 'Normal', styleOfPlay: -1000,
