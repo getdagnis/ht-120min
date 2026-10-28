@@ -160,7 +160,10 @@ export function meetsAppgStandingsQuota(standing: Pick<TeamStanding, 'played'>, 
   return quota === 0 || standing.played >= quota;
 }
 
-export function compareAverage120Standings(a: TeamStanding, b: TeamStanding): number {
+export function compareAverage120Standings(a: TeamStanding, b: TeamStanding, quota = 0): number {
+  const aQualified = meetsAppgStandingsQuota(a, quota);
+  const bQualified = meetsAppgStandingsQuota(b, quota);
+  if (aQualified !== bQualified) return aQualified ? -1 : 1;
   if (a.played === 0 || b.played === 0) return Number(b.played > 0) - Number(a.played > 0);
   const achievementRate = b.achievements120min / b.played - a.achievements120min / a.played;
   if (achievementRate !== 0) return achievementRate;
@@ -347,8 +350,11 @@ export function calculateStandings(
   );
 
   // Sorting logic based on mode
-  if (isAverage120ScoringMode(scoringMode)) return standings.sort(compareAverage120Standings);
-  if (scoringMode === '120m' || scoringMode === '120min' || isAverage120ScoringMode(scoringMode)) {
+  if (isAverage120ScoringMode(scoringMode)) {
+    const quota = getAppgStandingsQuota(standings);
+    return standings.sort((a, b) => compareAverage120Standings(a, b, quota));
+  }
+  if (scoringMode === '120m' || scoringMode === '120min') {
     return standings.sort((a, b) => {
       // 1. Primary: 120-minute matches achieved (descending)
       if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;

@@ -248,15 +248,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
   const percentage120min = (standing: TeamStanding) =>
     standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
-  const appgMatchQuota = useMemo(() => {
-    return showAppgScoring ? getAppgStandingsQuota(standings) : 0;
-  }, [showAppgScoring, standings]);
-  const reachesAppgQuota = (standing: TeamStanding) => meetsAppgStandingsQuota(standing, appgMatchQuota);
+  const averageMatchQuota = useMemo(() => {
+    return showAppgScoring || showAverage120Scoring ? getAppgStandingsQuota(standings) : 0;
+  }, [showAppgScoring, showAverage120Scoring, standings]);
+  const reachesAverageQuota = (standing: TeamStanding) => meetsAppgStandingsQuota(standing, averageMatchQuota);
 
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
     const compareDefault = (a: TeamStanding, b: TeamStanding) => {
-      if (scoringMode === 'average120') return compareAverage120Standings(a, b);
+      if (scoringMode === 'average120') return compareAverage120Standings(a, b, averageMatchQuota);
       if (scoringMode === '120min') {
         if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
         if (b.pts !== a.pts) return b.pts - a.pts;
@@ -277,9 +277,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     };
 
     rows.sort((a, b) => {
-      if (isAppg120ScoringMode(scoringMode)) {
-        const aReachesQuota = meetsAppgStandingsQuota(a, appgMatchQuota);
-        const bReachesQuota = meetsAppgStandingsQuota(b, appgMatchQuota);
+      if (isAppg120ScoringMode(scoringMode) || showAverage120Scoring) {
+        const aReachesQuota = meetsAppgStandingsQuota(a, averageMatchQuota);
+        const bReachesQuota = meetsAppgStandingsQuota(b, averageMatchQuota);
         if (aReachesQuota !== bReachesQuota) return aReachesQuota ? -1 : 1;
       }
       if (sortKey === 'default') return compareDefault(a, b);
@@ -334,7 +334,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     });
 
     return rows;
-  }, [appgMatchQuota, scoringMode, showAverage120Scoring, sortDirection, sortKey, standings]);
+  }, [averageMatchQuota, scoringMode, showAverage120Scoring, sortDirection, sortKey, standings]);
   const showHfiRank = tournament?.league_category === 'hfi' && !showAverage120Scoring;
 
   useEffect(() => {
@@ -462,8 +462,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   };
 
   const sortIndicator = (key: StandingsSortKey) => (sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '');
-  const qualifiedAppgCount = showAppgScoring
-    ? sortedStandings.filter((standing) => reachesAppgQuota(standing)).length
+  const qualifiedAverageCount = showAppgScoring || showAverage120Scoring
+    ? sortedStandings.filter((standing) => reachesAverageQuota(standing)).length
     : sortedStandings.length;
 
   const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
@@ -556,10 +556,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         .join('\n')}\n[/table]`;
     };
 
-    let forumText = `${heading}\n${buildTable(sortedStandings.slice(0, qualifiedAppgCount), true)}`;
-    if (showAppgScoring && qualifiedAppgCount < sortedStandings.length) {
-      forumText += `\n[b]Did not reach the ${appgMatchQuota}-match quota[/b]\n${buildTable(sortedStandings.slice(qualifiedAppgCount), false)}`;
-      forumText += `\n[i]Order: APPG average descending, total APPG points descending, team name ascending. A team must play at least ${appgMatchQuota} matches to qualify (50% of most played).[/i]`;
+    let forumText = `${heading}\n${buildTable(sortedStandings.slice(0, qualifiedAverageCount), true)}`;
+    if ((showAppgScoring || showAverage120Scoring) && qualifiedAverageCount < sortedStandings.length) {
+      forumText += `\n[b]Did not reach the ${averageMatchQuota}-match quota[/b]\n${buildTable(sortedStandings.slice(qualifiedAverageCount), false)}`;
+    }
+    if (showAppgScoring) {
+      forumText += `\n[i]Order: APPG average descending, total APPG points descending, team name ascending. A team must play at least ${averageMatchQuota} matches to qualify (50% of most played).[/i]`;
+    } else if (showAverage120Scoring) {
+      forumText += `\n[i]Order: 120m% descending, then 120-minute achievements and average tie-break points. A team must play at least ${averageMatchQuota} matches to qualify (50% of most played).[/i]`;
     }
 
     void navigator.clipboard.writeText(forumText);
@@ -896,16 +900,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               {sortedStandings.map((s, idx) => {
                 const isMyTeam = s.hattrickUserId === Number(myHtUserId);
                 const isOpenSpot = s.isOpenSpot;
-                const reachesQuota = reachesAppgQuota(s);
+                const reachesQuota = reachesAverageQuota(s);
                 const placement = reachesQuota
-                  ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1
+                  ? sortedStandings.slice(0, idx).filter(reachesAverageQuota).length + 1
                   : null;
                 return (
                   <React.Fragment key={s.teamId}>
-                    {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
+                    {(showAppgScoring || showAverage120Scoring) && idx === qualifiedAverageCount && qualifiedAverageCount < sortedStandings.length && (
                       <tr>
-                        <th colSpan={8} className={styles.appgQuotaLabel}>
-                          {uiText('doesNotReachQuota')}
+                        <th colSpan={showAverage120Scoring ? 9 : 8} className={styles.appgQuotaLabel}>
+                          {showAverage120Scoring
+                            ? uiText('average120QuotaDivider', { count: averageMatchQuota })
+                            : uiText('doesNotReachQuota')}
                         </th>
                       </tr>
                     )}

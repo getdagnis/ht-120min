@@ -403,8 +403,8 @@ test('Average 120 min finalizes by average and records its scoring mode without 
   const averaged = buildSeasonHistorySnapshot([...teams, teamD], matches, 'average120');
   const standard = buildSeasonHistorySnapshot([...teams, teamD], matches, '120min');
   assert.equal(averaged.scoringMode, 'average120');
-  assert.equal(averaged.winner?.teamId, 'd'); // One achievement from one game beats two from three.
-  assert.deepEqual(averaged.awards.find((award) => award.key === 'champions')?.recipientTeamIds, ['d']);
+  assert.equal(averaged.winner?.teamId, 'b'); // The one-game team has not met the two-match quota.
+  assert.deepEqual(averaged.awards.find((award) => award.key === 'champions')?.recipientTeamIds, ['b']);
   assert.equal(averaged.records.closestFinish?.metric, 'average120');
   assert.equal(standard.scoringMode, undefined);
   assert.equal(standard.winner?.teamId, 'b');

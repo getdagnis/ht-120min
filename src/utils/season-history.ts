@@ -168,7 +168,7 @@ const getInjuryWeeks = (side?: MatchSideEventDetails | null) =>
   (side?.injuries || []).reduce((total, injury) => total + (injury.weeks || 0), 0);
 
 function getHistoryEligibleStandings(standings: TeamStanding[], scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg') {
-  if (!isAppg120ScoringMode(scoringMode)) return standings;
+  if (!isAppg120ScoringMode(scoringMode) && scoringMode !== 'average120') return standings;
   const quota = getAppgStandingsQuota(standings);
   return standings.filter((standing) => meetsAppgStandingsQuota(standing, quota));
 }
@@ -196,7 +196,7 @@ function buildAwards(
   const minimumEligibleMatches =
     maxMatchesPlayed === null || maxMatchesPlayed === 0
       ? 1
-      : isAppg120ScoringMode(scoringMode)
+      : isAppg120ScoringMode(scoringMode) || scoringMode === 'average120'
         ? Math.ceil(maxMatchesPlayed * 0.5)
         : 1;
   const eligibleTeamIds = new Set(
@@ -363,8 +363,9 @@ function buildRecords(
     if (goalDifference !== 0) return goalDifference;
     return b.totalMinutes - a.totalMinutes;
   });
-  const leader = standings[0];
-  const runnerUp = standings[1];
+  const rankedStandings = scoringMode === 'average120' ? getHistoryEligibleStandings(standings, scoringMode) : standings;
+  const leader = rankedStandings[0];
+  const runnerUp = rankedStandings[1];
   const metric = scoringMode === 'average120' ? 'average120' : scoringMode === 'points' || usesAveragePoints(scoringMode) ? 'points' : '120m';
   const leaderValue = metric === 'points' ? leader?.pts : metric === 'average120' ? (leader?.played ? leader.achievements120min / leader.played : undefined) : leader?.achievements120min;
   const runnerUpValue = metric === 'points' ? runnerUp?.pts : metric === 'average120' ? (runnerUp?.played ? runnerUp.achievements120min / runnerUp.played : undefined) : runnerUp?.achievements120min;

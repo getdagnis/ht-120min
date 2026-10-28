@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateSeasonSlotStandings, calculateStandings, compareAverage120Standings } from '../src/utils/standings';
+import { calculateSeasonSlotStandings, calculateStandings, compareAverage120Standings, getAppgStandingsQuota } from '../src/utils/standings';
 
 test('completed BYE result counts for the one tournament team', () => {
   const standings = calculateStandings(
@@ -231,6 +231,33 @@ test('Average 120 min compares unrounded values even when display rounds equally
   assert.equal(Number((a.achievements120min / a.played).toFixed(2)), Number((b.achievements120min / b.played).toFixed(2)));
   assert.ok(compareAverage120Standings(a, b) < 0);
   assert.ok(compareAverage120Standings({ ...a, played: 0 }, b) > 0);
+});
+
+test('Average 120 min quota keeps one-game teams ranked while the leader has played two', () => {
+  const template = calculateStandings(['a', 'b', 'c', 'd'].map((id) => ({
+    id, name: id, ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null,
+  })), [], 'average120');
+  const rows = template.map((standing, index) => ({
+    ...standing,
+    played: [2, 1, 2, 0][index],
+    achievements120min: [2, 1, 1, 0][index],
+  }));
+  const quota = getAppgStandingsQuota(rows);
+  assert.equal(quota, 1);
+  assert.deepEqual([...rows].sort((a, b) => compareAverage120Standings(a, b, quota)).map((row) => row.teamId), ['a', 'b', 'c', 'd']);
+});
+
+test('Average 120 min quota ranks a 9/12 team ahead of a provisional 1/1 team', () => {
+  const template = calculateStandings(['a', 'b'].map((id) => ({
+    id, name: id, ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null,
+  })), [], 'average120');
+  const rows = [
+    { ...template[0], played: 12, achievements120min: 9 },
+    { ...template[1], played: 1, achievements120min: 1 },
+  ];
+  const quota = getAppgStandingsQuota(rows);
+  assert.equal(quota, 6);
+  assert.ok(compareAverage120Standings(rows[0], rows[1], quota) < 0);
 });
 
 test('length membership standings show Active only and do not inherit another slot occupant results', () => {

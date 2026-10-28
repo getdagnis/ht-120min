@@ -505,8 +505,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
 
   const isAppgHistory = isAppg120ScoringMode(historyMode);
   const historyAppgQuota = isAppgHistory ? getAppgStandingsQuota(snapshot.standings) : 0;
+  const historyAverage120Quota = historyScoringMode === 'average120' ? getAppgStandingsQuota(snapshot.standings) : 0;
   const sortedHistoryStandings = [...snapshot.standings].sort((a, b) => {
-    if (historyScoringMode === 'average120') return compareAverage120Standings(a, b);
+    if (historyScoringMode === 'average120') return compareAverage120Standings(a, b, historyAverage120Quota);
     if (historyScoringMode === 'appg') {
       const aQualified = meetsAppgStandingsQuota(a, historyAppgQuota);
       const bQualified = meetsAppgStandingsQuota(b, historyAppgQuota);
@@ -538,6 +539,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     historyScoringMode === 'appg'
       ? sortedHistoryStandings.filter((standing) => !meetsAppgStandingsQuota(standing, historyAppgQuota))
       : [];
+  const displayedHistoryStandings = historyScoringMode === 'average120' ? sortedHistoryStandings : qualifiedHistoryStandings;
+  const qualifiedAverage120Count = historyScoringMode === 'average120'
+    ? sortedHistoryStandings.filter((standing) => meetsAppgStandingsQuota(standing, historyAverage120Quota)).length
+    : 0;
   const enabledHistoryScoringModes: HistoryScoringMode[] = historyMode === 'average120' ? ['average120', '120min', '90min'] : isAppgHistory
     ? ['appg', '120min', '90min']
     : ['120min', '90min'];
@@ -1110,11 +1115,19 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {qualifiedHistoryStandings.map((standing, index) => {
+                  {displayedHistoryStandings.map((standing, index) => {
                     const participant = findParticipant(snapshot, standing.teamId);
                     return (
-                      <tr key={standing.teamId}>
-                        <td>{index + 1}</td>
+                      <React.Fragment key={standing.teamId}>
+                        {historyScoringMode === 'average120' && index === qualifiedAverage120Count && (
+                          <tr>
+                            <th colSpan={9} className={styles.appgQuotaLabel}>
+                              {uiText('didNotReachQuota')}{historyAverage120Quota} {uiText('matches')}
+                            </th>
+                          </tr>
+                        )}
+                        <tr>
+                          <td>{historyScoringMode === 'average120' && index >= qualifiedAverage120Count ? '-' : index + 1}</td>
                         <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
                         {historyScoringMode === 'average120' ? (
                           <>
@@ -1154,7 +1167,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                             <td className={styles.accentStat}>{standing.pts}</td>
                           </>
                         )}
-                      </tr>
+                        </tr>
+                      </React.Fragment>
                     );
                   })}
                   {historyScoringMode === 'appg' && belowQuotaHistoryStandings.length > 0 && (
