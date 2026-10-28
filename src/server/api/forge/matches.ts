@@ -744,7 +744,7 @@ async function buildMatchesResponse(
     .filter((candidate) => candidate.fixtureCount > 0);
   if (!round) {
     return {
-      tournament: { id: tournament.id, name: tournament.name, season: tournament.season || 1 },
+      tournament: { id: tournament.id, name: tournament.name, slug: tournament.slug, season: tournament.season || 1 },
       currentRound: null,
       roundOptions,
       fixtures: [],
@@ -911,7 +911,7 @@ async function buildMatchesResponse(
   }
 
   return {
-    tournament: { id: tournament.id, name: tournament.name, season: tournament.season || 1, scoringMode: tournament.scoring_mode },
+    tournament: { id: tournament.id, name: tournament.name, slug: tournament.slug, season: tournament.season || 1, scoringMode: tournament.scoring_mode },
     currentRound: {
       id: round.id,
       roundNumber: round.round_number,

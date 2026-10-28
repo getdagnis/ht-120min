@@ -57,7 +57,13 @@ interface ForgeTeamView {
   canWithdraw: boolean;
   autoArrangeEnabled: boolean | null;
   savedFlags?: { home: number[]; away: number[]; fetchedAt: string } | null;
-  latest120mRating?: { score: number; grade: string; matchId: string; htMatchId: number | null; matchDate: string | null } | null;
+  latest120mRating?: {
+    score: number;
+    grade: string;
+    matchId: string;
+    htMatchId: number | null;
+    matchDate: string | null;
+  } | null;
   challengeDisabledReason: string;
   acceptDisabledReason?: string;
 }
@@ -78,19 +84,26 @@ function isByeTeam(team: ForgeTeamView) {
 
 interface MatchesResponse {
   tournaments?: TournamentOption[];
-  tournament?: { id: string; name: string; season: number };
+  tournament?: { id: string; name: string; slug: string | null; season: number };
   currentRound?: { id: string; roundNumber: number; roundLabel?: string; phase: string; phaseStatus: string } | null;
   roundOptions?: RoundOption[];
   fixtures?: ForgeFixtureView[];
   fixtureErrors?: Array<{ matchId: string; error: string }>;
-  action?: { type: 'challenge' | 'accept' | 'withdraw' | 'reverse'; matchId: string; actingSide: 'home' | 'away'; message: string } | null;
+  action?: {
+    type: 'challenge' | 'accept' | 'withdraw' | 'reverse';
+    matchId: string;
+    actingSide: 'home' | 'away';
+    message: string;
+  } | null;
   error?: string;
 }
 
 type BulkResult = { status: 'booked' | 'pending' | 'skipped' | 'failed'; reason: string };
 
 function isChallengeRefusal(message: string) {
-  return /(?:does not|doesn't|won't|has chosen not to) accept (?:friendly )?challenges|(?:is )?not accepting (?:friendly )?challenges/i.test(message);
+  return /(?:does not|doesn't|won't|has chosen not to) accept (?:friendly )?challenges|(?:is )?not accepting (?:friendly )?challenges/i.test(
+    message,
+  );
 }
 
 const SELECTION_STORAGE_KEY = 'forge.matches.selection';
@@ -147,11 +160,24 @@ function stateIsDangerous(state: string) {
 }
 
 function mergeFixtureState(fixture: ForgeFixtureView, state: ForgeFixtureView | undefined) {
-  return state ? {
-    ...fixture, ...state,
-    home: { ...fixture.home, ...state.home, savedFlags: fixture.home.savedFlags, latest120mRating: fixture.home.latest120mRating },
-    away: { ...fixture.away, ...state.away, savedFlags: fixture.away.savedFlags, latest120mRating: fixture.away.latest120mRating },
-  } : fixture;
+  return state
+    ? {
+        ...fixture,
+        ...state,
+        home: {
+          ...fixture.home,
+          ...state.home,
+          savedFlags: fixture.home.savedFlags,
+          latest120mRating: fixture.home.latest120mRating,
+        },
+        away: {
+          ...fixture.away,
+          ...state.away,
+          savedFlags: fixture.away.savedFlags,
+          latest120mRating: fixture.away.latest120mRating,
+        },
+      }
+    : fixture;
 }
 
 function csvCell(value: string | number | boolean | null | undefined) {
@@ -164,38 +190,81 @@ function csvCell(value: string | number | boolean | null | undefined) {
 
 function exportRoundCsv(data: MatchesResponse, fixtureErrors: Record<string, string>) {
   const columns = [
-    'tournament_id', 'tournament_name', 'season', 'round_id', 'round_number',
-    'fixture_id', 'fixture_status', 'completed', 'fixture_ht_match_id', 'scheduled_for', 'challenge_load_error',
-    ...(['home', 'away'] as const).flatMap(side => [
-      `${side}_team_id`, `${side}_ht_team_id`, `${side}_team_name`, `${side}_country_id`, `${side}_country_name`,
-      `${side}_manager_ht_id`, `${side}_manager_name`, `${side}_auto_arrange_enabled`,
-      `${side}_challenge_state`, `${side}_challenge_reason`,
-      `${side}_saved_home_flag_league_ids`, `${side}_saved_away_flag_league_ids`, `${side}_flags_fetched_at`,
-      `${side}_latest_120mrt_score`, `${side}_latest_120mrt_grade`, `${side}_120mrt_source_fixture_id`,
-      `${side}_120mrt_source_ht_match_id`, `${side}_120mrt_source_match_date`,
+    'tournament_id',
+    'tournament_name',
+    'season',
+    'round_id',
+    'round_number',
+    'fixture_id',
+    'fixture_status',
+    'completed',
+    'fixture_ht_match_id',
+    'scheduled_for',
+    'challenge_load_error',
+    ...(['home', 'away'] as const).flatMap((side) => [
+      `${side}_team_id`,
+      `${side}_ht_team_id`,
+      `${side}_team_name`,
+      `${side}_country_id`,
+      `${side}_country_name`,
+      `${side}_manager_ht_id`,
+      `${side}_manager_name`,
+      `${side}_auto_arrange_enabled`,
+      `${side}_challenge_state`,
+      `${side}_challenge_reason`,
+      `${side}_saved_home_flag_league_ids`,
+      `${side}_saved_away_flag_league_ids`,
+      `${side}_flags_fetched_at`,
+      `${side}_latest_120mrt_score`,
+      `${side}_latest_120mrt_grade`,
+      `${side}_120mrt_source_fixture_id`,
+      `${side}_120mrt_source_ht_match_id`,
+      `${side}_120mrt_source_match_date`,
     ]),
   ];
-  const rows = (data.fixtures || []).map(fixture => {
+  const rows = (data.fixtures || []).map((fixture) => {
     const sideValues = (team: ForgeTeamView) => {
       const bye = isByeTeam(team);
       const flags = team.savedFlags;
       const rating = team.latest120mRating;
       return [
-        bye ? null : team.id, team.htTeamId, bye ? null : team.name, team.countryId, team.countryName,
-        team.managerHtId, team.managerName, team.autoArrangeEnabled,
+        bye ? null : team.id,
+        team.htTeamId,
+        bye ? null : team.name,
+        team.countryId,
+        team.countryName,
+        team.managerHtId,
+        team.managerName,
+        team.autoArrangeEnabled,
         team.chppState === 'CHECKING' ? null : team.chppState,
         team.chppState === 'CHECKING' ? null : team.chppReason,
-        flags ? flags.home.join(';') : null, flags ? flags.away.join(';') : null, flags?.fetchedAt,
-        rating?.score, rating?.grade, rating?.matchId, rating?.htMatchId, rating?.matchDate,
+        flags ? flags.home.join(';') : null,
+        flags ? flags.away.join(';') : null,
+        flags?.fetchedAt,
+        rating?.score,
+        rating?.grade,
+        rating?.matchId,
+        rating?.htMatchId,
+        rating?.matchDate,
       ];
     };
     return [
-      data.tournament?.id, data.tournament?.name, data.tournament?.season,
-      data.currentRound?.id, data.currentRound?.roundNumber,
-      fixture.id, fixture.status, fixture.completed, fixture.htMatchId, fixture.scheduledFor,
+      data.tournament?.id,
+      data.tournament?.name,
+      data.tournament?.season,
+      data.currentRound?.id,
+      data.currentRound?.roundNumber,
+      fixture.id,
+      fixture.status,
+      fixture.completed,
+      fixture.htMatchId,
+      fixture.scheduledFor,
       fixtureErrors[fixture.id],
-      ...sideValues(fixture.home), ...sideValues(fixture.away),
-    ].map(csvCell).join(',');
+      ...sideValues(fixture.home),
+      ...sideValues(fixture.away),
+    ]
+      .map(csvCell)
+      .join(',');
   });
   const csv = `\uFEFF${[columns.map(csvCell).join(','), ...rows].join('\r\n')}\r\n`;
   const filename = `forge-${data.tournament?.id || 'tournament'}-round-${data.currentRound?.roundNumber || 'unknown'}.csv`;
@@ -228,7 +297,9 @@ export function ForgeMatchesSection() {
   const [bulkResults, setBulkResults] = useState<Record<string, BulkResult>>({});
   const stopBulk = useRef(false);
   const [visibleStatuses, setVisibleStatuses] = useState<Record<FixtureStatusFilter, boolean>>({
-    misarranged: true, not_arranged: true, arranged: true,
+    misarranged: true,
+    not_arranged: true,
+    arranged: true,
   });
   const loadEpoch = useRef(0);
   const loadController = useRef<AbortController | null>(null);
@@ -253,65 +324,86 @@ export function ForgeMatchesSection() {
     }
   }, []);
 
-  const checkFixtures = useCallback(async (
-    tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal?: AbortSignal,
-  ) => {
-    const requested = ids.filter(id => !lockedFixtures.current.has(id));
-    if (!requested.length) return;
-    const versions = new Map(requested.map(id => {
-      const version = (fixtureVersions.current.get(id) || 0) + 1;
-      fixtureVersions.current.set(id, version);
-      return [id, version];
-    }));
-    const isCurrent = (id: string) => loadEpoch.current === epoch
-      && fixtureVersions.current.get(id) === versions.get(id) && !lockedFixtures.current.has(id);
-    try {
-      const params = new URLSearchParams({ tournamentId, roundNumber: String(roundNumber), view: 'states', matchIds: requested.join(',') });
-      const response = await fetch(`/api/forge/matches?${params.toString()}`, {
-        credentials: 'include', cache: 'no-store', signal,
-      });
-      const payload = (await response.json()) as MatchesResponse;
-      if (!response.ok) throw new Error(payload.error || 'Could not check fixture states.');
-      const updates = (payload.fixtures || []).filter(fixture => isCurrent(fixture.id));
-      if (updates.length) {
-        const byId = new Map(updates.map(fixture => [fixture.id, fixture]));
-        setData(current => current && loadEpoch.current === epoch ? {
-          ...current, fixtures: current.fixtures?.map(fixture => mergeFixtureState(fixture, byId.get(fixture.id))),
-        } : current);
-      }
-      const errors = new Map((payload.fixtureErrors || []).map(item => [item.matchId, item.error]));
-      setFixtureErrors(current => {
-        const next = { ...current };
-        for (const id of requested) if (isCurrent(id)) {
-          if (errors.has(id)) next[id] = errors.get(id)!;
-          else delete next[id];
+  const checkFixtures = useCallback(
+    async (tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal?: AbortSignal) => {
+      const requested = ids.filter((id) => !lockedFixtures.current.has(id));
+      if (!requested.length) return;
+      const versions = new Map(
+        requested.map((id) => {
+          const version = (fixtureVersions.current.get(id) || 0) + 1;
+          fixtureVersions.current.set(id, version);
+          return [id, version];
+        }),
+      );
+      const isCurrent = (id: string) =>
+        loadEpoch.current === epoch &&
+        fixtureVersions.current.get(id) === versions.get(id) &&
+        !lockedFixtures.current.has(id);
+      try {
+        const params = new URLSearchParams({
+          tournamentId,
+          roundNumber: String(roundNumber),
+          view: 'states',
+          matchIds: requested.join(','),
+        });
+        const response = await fetch(`/api/forge/matches?${params.toString()}`, {
+          credentials: 'include',
+          cache: 'no-store',
+          signal,
+        });
+        const payload = (await response.json()) as MatchesResponse;
+        if (!response.ok) throw new Error(payload.error || 'Could not check fixture states.');
+        const updates = (payload.fixtures || []).filter((fixture) => isCurrent(fixture.id));
+        if (updates.length) {
+          const byId = new Map(updates.map((fixture) => [fixture.id, fixture]));
+          setData((current) =>
+            current && loadEpoch.current === epoch
+              ? {
+                  ...current,
+                  fixtures: current.fixtures?.map((fixture) => mergeFixtureState(fixture, byId.get(fixture.id))),
+                }
+              : current,
+          );
         }
-        return next;
-      });
-    } catch (checkError) {
-      if (signal?.aborted) return;
-      const reason = checkError instanceof Error ? checkError.message : 'Could not check fixture states.';
-      setFixtureErrors(current => {
-        const next = { ...current };
-        for (const id of requested) if (isCurrent(id)) next[id] = reason;
-        return next;
-      });
-    }
-  }, []);
-
-  const checkAllFixtures = useCallback(async (
-    tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal: AbortSignal,
-  ) => {
-    const batches: string[][] = [];
-    for (let index = 0; index < ids.length; index += 4) batches.push(ids.slice(index, index + 4));
-    let cursor = 0;
-    await Promise.all(Array.from({ length: Math.min(2, batches.length) }, async () => {
-      while (cursor < batches.length && !signal.aborted && loadEpoch.current === epoch) {
-        const batch = batches[cursor++];
-        await checkFixtures(tournamentId, roundNumber, batch, epoch, signal);
+        const errors = new Map((payload.fixtureErrors || []).map((item) => [item.matchId, item.error]));
+        setFixtureErrors((current) => {
+          const next = { ...current };
+          for (const id of requested)
+            if (isCurrent(id)) {
+              if (errors.has(id)) next[id] = errors.get(id)!;
+              else delete next[id];
+            }
+          return next;
+        });
+      } catch (checkError) {
+        if (signal?.aborted) return;
+        const reason = checkError instanceof Error ? checkError.message : 'Could not check fixture states.';
+        setFixtureErrors((current) => {
+          const next = { ...current };
+          for (const id of requested) if (isCurrent(id)) next[id] = reason;
+          return next;
+        });
       }
-    }));
-  }, [checkFixtures]);
+    },
+    [],
+  );
+
+  const checkAllFixtures = useCallback(
+    async (tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal: AbortSignal) => {
+      const batches: string[][] = [];
+      for (let index = 0; index < ids.length; index += 4) batches.push(ids.slice(index, index + 4));
+      let cursor = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(2, batches.length) }, async () => {
+          while (cursor < batches.length && !signal.aborted && loadEpoch.current === epoch) {
+            const batch = batches[cursor++];
+            await checkFixtures(tournamentId, roundNumber, batch, epoch, signal);
+          }
+        }),
+      );
+    },
+    [checkFixtures],
+  );
 
   const loadMatches = useCallback(
     async (tournamentId: string, roundNumber: number | null = null, showLoading = true) => {
@@ -340,8 +432,13 @@ export function ForgeMatchesSection() {
         setFixtureErrors({});
         setFixtureMessages({});
         if (payload.currentRound && payload.fixtures?.length) {
-          void checkAllFixtures(tournamentId, payload.currentRound.roundNumber,
-            payload.fixtures.map(fixture => fixture.id), epoch, controller.signal);
+          void checkAllFixtures(
+            tournamentId,
+            payload.currentRound.roundNumber,
+            payload.fixtures.map((fixture) => fixture.id),
+            epoch,
+            controller.signal,
+          );
         }
       } catch (loadError) {
         if (!controller.signal.aborted && loadEpoch.current === epoch) {
@@ -373,9 +470,10 @@ export function ForgeMatchesSection() {
       const query = new URLSearchParams(window.location.search);
       const requestedTournament = query.get('tournamentId');
       const requestedRound = Number(query.get('roundNumber'));
-      const savedSelection = requestedTournament && Number.isSafeInteger(requestedRound) && requestedRound > 0
-        ? JSON.stringify({ tournamentId: requestedTournament, roundNumber: requestedRound })
-        : sessionStorage.getItem(SELECTION_STORAGE_KEY);
+      const savedSelection =
+        requestedTournament && Number.isSafeInteger(requestedRound) && requestedRound > 0
+          ? JSON.stringify({ tournamentId: requestedTournament, roundNumber: requestedRound })
+          : sessionStorage.getItem(SELECTION_STORAGE_KEY);
       if (savedSelection) {
         const parsed = JSON.parse(savedSelection) as { tournamentId?: unknown; roundNumber?: unknown };
         restoreTimeoutId = window.setTimeout(() => {
@@ -421,20 +519,26 @@ export function ForgeMatchesSection() {
   }, [loadMatches, selectedRoundNumber, selectedTournamentId, selectionRestored, tournamentOptionsLoaded]);
 
   useEffect(() => {
-    if (tournamentOptionsLoaded && selectedTournamentId
-      && !tournaments.some(tournament => tournament.id === selectedTournamentId)) {
+    if (
+      tournamentOptionsLoaded &&
+      selectedTournamentId &&
+      !tournaments.some((tournament) => tournament.id === selectedTournamentId)
+    ) {
       const timeoutId = window.setTimeout(() => chooseTournament(''), 0);
       return () => window.clearTimeout(timeoutId);
     }
-  // Tournament option refreshes must not restart the round's CHPP checks.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Tournament option refreshes must not restart the round's CHPP checks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentOptionsLoaded, tournaments]);
 
-  useEffect(() => () => {
-    stopBulk.current = true;
-    loadEpoch.current++;
-    loadController.current?.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      stopBulk.current = true;
+      loadEpoch.current++;
+      loadController.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectionRestored) return;
@@ -468,7 +572,12 @@ export function ForgeMatchesSection() {
     const tournamentId = selectedTournamentId;
     const roundNumber = data?.currentRound?.roundNumber;
     if (!tournamentId || !roundNumber || bulkRunning || refreshingData || Object.keys(busyActions).length) return;
-    if (!window.confirm(`Book eligible matches in ${data?.tournament?.name}, ${data?.currentRound?.roundLabel || `Round ${roundNumber}`}?\n\nThis will refresh Hattrick data, send Cup Rules challenges, then accept matching challenges. It performs real Hattrick actions.`)) return;
+    if (
+      !window.confirm(
+        `Book eligible matches in ${data?.tournament?.name}, ${data?.currentRound?.roundLabel || `Round ${roundNumber}`}?\n\nThis will refresh Hattrick data, send Cup Rules challenges, then accept matching challenges. It performs real Hattrick actions.`,
+      )
+    )
+      return;
 
     stopBulk.current = false;
     setBulkRunning(true);
@@ -498,12 +607,17 @@ export function ForgeMatchesSection() {
       const base = await request(`/api/forge/matches?${params}`);
       if (base.currentRound?.roundNumber !== roundNumber) throw new Error('The selected round is no longer available.');
       const fixtures = base.fixtures || [];
-      allFixtureIds = fixtures.map(fixture => fixture.id);
+      allFixtureIds = fixtures.map((fixture) => fixture.id);
       const checked = new Map<string, ForgeFixtureView>();
       const checkErrors: Record<string, string> = {};
       for (let index = 0; index < fixtures.length; index += 4) {
         const batch = fixtures.slice(index, index + 4);
-        const stateParams = new URLSearchParams({ tournamentId, roundNumber: String(roundNumber), view: 'states', matchIds: batch.map(fixture => fixture.id).join(',') });
+        const stateParams = new URLSearchParams({
+          tournamentId,
+          roundNumber: String(roundNumber),
+          view: 'states',
+          matchIds: batch.map((fixture) => fixture.id).join(','),
+        });
         try {
           const states = await request(`/api/forge/matches?${stateParams}`);
           for (const fixture of states.fixtures || []) checked.set(fixture.id, fixture);
@@ -515,80 +629,127 @@ export function ForgeMatchesSection() {
         if (allowStop && stopBulk.current) break;
         setBulkProgress(`Checking Hattrick state ${Math.min(index + 4, fixtures.length)}/${fixtures.length}...`);
       }
-      for (const fixture of fixtures) if ((!allowStop || !stopBulk.current) && !checked.has(fixture.id) && !checkErrors[fixture.id]) {
-        checkErrors[fixture.id] = 'Hattrick state was not returned.';
-      }
+      for (const fixture of fixtures)
+        if ((!allowStop || !stopBulk.current) && !checked.has(fixture.id) && !checkErrors[fixture.id]) {
+          checkErrors[fixture.id] = 'Hattrick state was not returned.';
+        }
       if (loadEpoch.current === epoch) {
-        setData({ ...base, fixtures: fixtures.map(fixture => mergeFixtureState(fixture, checked.get(fixture.id))) });
+        setData({ ...base, fixtures: fixtures.map((fixture) => mergeFixtureState(fixture, checked.get(fixture.id))) });
         setFixtureErrors(checkErrors);
       }
-      return { fixtures: fixtures.map(fixture => mergeFixtureState(fixture, checked.get(fixture.id))), checkErrors };
+      return { fixtures: fixtures.map((fixture) => mergeFixtureState(fixture, checked.get(fixture.id))), checkErrors };
     };
     const act = async (fixture: ForgeFixtureView, side: 'home' | 'away', action: 'challenge' | 'accept') => {
       return request('/api/forge/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId, roundNumber, matchId: fixture.id, actingSide: side, action, compactResponse: true, bulkAutoArrange: true }),
+        body: JSON.stringify({
+          tournamentId,
+          roundNumber,
+          matchId: fixture.id,
+          actingSide: side,
+          action,
+          compactResponse: true,
+          bulkAutoArrange: true,
+        }),
       });
     };
     try {
       const first = await readRound();
-      if (!stopBulk.current) for (const [index, fixture] of first.fixtures.entries()) {
-        if (stopBulk.current) break;
-        setBulkProgress(`Challenging ${index + 1}/${first.fixtures.length}: ${fixture.home.name} vs ${fixture.away.name}`);
-        if (first.checkErrors[fixture.id]) { record(fixture.id, 'failed', first.checkErrors[fixture.id]); continue; }
-        if (fixture.completed || fixture.htMatchId || ['arranged', 'ongoing', 'finished'].includes(fixture.status)) {
-          record(fixture.id, 'booked', 'Already booked.'); continue;
+      if (!stopBulk.current)
+        for (const [index, fixture] of first.fixtures.entries()) {
+          if (stopBulk.current) break;
+          setBulkProgress(
+            `Challenging ${index + 1}/${first.fixtures.length}: ${fixture.home.name} vs ${fixture.away.name}`,
+          );
+          if (first.checkErrors[fixture.id]) {
+            record(fixture.id, 'failed', first.checkErrors[fixture.id]);
+            continue;
+          }
+          if (fixture.completed || fixture.htMatchId || ['arranged', 'ongoing', 'finished'].includes(fixture.status)) {
+            record(fixture.id, 'booked', 'Already booked.');
+            continue;
+          }
+          if (fixture.status === 'misarranged') {
+            record(fixture.id, 'skipped', 'Misarranged fixture.');
+            continue;
+          }
+          if (fixture.home.autoArrangeEnabled !== true || fixture.away.autoArrangeEnabled !== true) {
+            record(fixture.id, 'skipped', 'Auto-arrange is off or unavailable.');
+            continue;
+          }
+          if (fixture.home.canAccept || fixture.away.canAccept) {
+            record(fixture.id, 'pending', 'Existing challenge from the fixture opponent; checking acceptance next.');
+            continue;
+          }
+          if (fixture.home.canWithdraw || fixture.away.canWithdraw) {
+            record(
+              fixture.id,
+              'pending',
+              'Existing outgoing challenge to the fixture opponent; checking acceptance next.',
+            );
+            continue;
+          }
+          const challenger = fixture.home.canChallenge ? fixture.home : fixture.away.canChallenge ? fixture.away : null;
+          if (!challenger) {
+            record(
+              fixture.id,
+              'failed',
+              fixture.home.challengeDisabledReason ||
+                fixture.away.challengeDisabledReason ||
+                'Neither team can challenge.',
+            );
+            continue;
+          }
+          try {
+            await act(fixture, challenger.side, 'challenge');
+            record(fixture.id, 'pending', `Challenge sent from ${challenger.name}.`);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : 'Challenge failed.';
+            if (challenger.side === 'home' && isChallengeRefusal(reason) && fixture.away.canChallenge) {
+              try {
+                await act(fixture, 'away', 'challenge');
+                record(
+                  fixture.id,
+                  'pending',
+                  `Challenge sent from ${fixture.away.name} after ${fixture.home.name} was refused.`,
+                );
+              } catch (retryError) {
+                recordActionError(fixture.id, retryError, 'Reverse-side challenge failed.');
+              }
+            } else recordActionError(fixture.id, error, 'Challenge failed.');
+          }
         }
-        if (fixture.status === 'misarranged') { record(fixture.id, 'skipped', 'Misarranged fixture.'); continue; }
-        if (fixture.home.autoArrangeEnabled !== true || fixture.away.autoArrangeEnabled !== true) {
-          record(fixture.id, 'skipped', 'Auto-arrange is off or unavailable.'); continue;
-        }
-        if (fixture.home.canAccept || fixture.away.canAccept) {
-          record(fixture.id, 'pending', 'Existing challenge from the fixture opponent; checking acceptance next.'); continue;
-        }
-        if (fixture.home.canWithdraw || fixture.away.canWithdraw) {
-          record(fixture.id, 'pending', 'Existing outgoing challenge to the fixture opponent; checking acceptance next.'); continue;
-        }
-        const challenger = fixture.home.canChallenge ? fixture.home : fixture.away.canChallenge ? fixture.away : null;
-        if (!challenger) {
-          record(fixture.id, 'failed', fixture.home.challengeDisabledReason || fixture.away.challengeDisabledReason || 'Neither team can challenge.');
-          continue;
-        }
-        try {
-          await act(fixture, challenger.side, 'challenge');
-          record(fixture.id, 'pending', `Challenge sent from ${challenger.name}.`);
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : 'Challenge failed.';
-          if (challenger.side === 'home' && isChallengeRefusal(reason) && fixture.away.canChallenge) {
-            try {
-              await act(fixture, 'away', 'challenge');
-              record(fixture.id, 'pending', `Challenge sent from ${fixture.away.name} after ${fixture.home.name} was refused.`);
-            } catch (retryError) {
-              recordActionError(fixture.id, retryError, 'Reverse-side challenge failed.');
-            }
-          } else recordActionError(fixture.id, error, 'Challenge failed.');
-        }
-      }
 
       if (!stopBulk.current) {
         setBulkProgress('Refreshing challenge states before acceptance...');
         const second = await readRound();
         for (const [index, fixture] of second.fixtures.entries()) {
           if (stopBulk.current) break;
-          setBulkProgress(`Accepting ${index + 1}/${second.fixtures.length}: ${fixture.home.name} vs ${fixture.away.name}`);
+          setBulkProgress(
+            `Accepting ${index + 1}/${second.fixtures.length}: ${fixture.home.name} vs ${fixture.away.name}`,
+          );
           if (results[fixture.id]?.status === 'skipped') continue;
-          if (second.checkErrors[fixture.id]) { record(fixture.id, 'failed', second.checkErrors[fixture.id]); continue; }
-          if (fixture.completed || fixture.htMatchId || ['arranged', 'ongoing', 'finished'].includes(fixture.status)) {
-            record(fixture.id, 'booked', 'Already booked.'); continue;
+          if (second.checkErrors[fixture.id]) {
+            record(fixture.id, 'failed', second.checkErrors[fixture.id]);
+            continue;
           }
-          if (fixture.status === 'misarranged') { record(fixture.id, 'skipped', 'Misarranged fixture.'); continue; }
+          if (fixture.completed || fixture.htMatchId || ['arranged', 'ongoing', 'finished'].includes(fixture.status)) {
+            record(fixture.id, 'booked', 'Already booked.');
+            continue;
+          }
+          if (fixture.status === 'misarranged') {
+            record(fixture.id, 'skipped', 'Misarranged fixture.');
+            continue;
+          }
           if (fixture.home.autoArrangeEnabled !== true || fixture.away.autoArrangeEnabled !== true) {
-            record(fixture.id, 'skipped', 'Auto-arrange is off or unavailable.'); continue;
+            record(fixture.id, 'skipped', 'Auto-arrange is off or unavailable.');
+            continue;
           }
           const receiver = fixture.home.canAccept ? fixture.home : fixture.away.canAccept ? fixture.away : null;
           if (!receiver) {
-            if (results[fixture.id]?.status !== 'failed') record(fixture.id, 'pending', 'No matching incoming challenge is ready to accept.');
+            if (results[fixture.id]?.status !== 'failed')
+              record(fixture.id, 'pending', 'No matching incoming challenge is ready to accept.');
             continue;
           }
           try {
@@ -617,28 +778,42 @@ export function ForgeMatchesSection() {
       }
       setBulkProgress(stopBulk.current ? 'Stopped after the current operation.' : 'Booking run complete.');
     } catch (error) {
-      setBulkProgress(error instanceof Error ? `Booking run stopped: ${error.message}` : 'Booking run stopped by an error.');
+      setBulkProgress(
+        error instanceof Error ? `Booking run stopped: ${error.message}` : 'Booking run stopped by an error.',
+      );
     } finally {
-      if (stopBulk.current) for (const id of allFixtureIds) {
-        if (!results[id]) record(id, 'skipped', 'Stopped before this fixture was processed.');
-      }
+      if (stopBulk.current)
+        for (const id of allFixtureIds) {
+          if (!results[id]) record(id, 'skipped', 'Stopped before this fixture was processed.');
+        }
       setBulkRunning(false);
       void loadTournamentOptions(false);
     }
   };
 
-
-  const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept' | 'withdraw' | 'reverse', matchPlace?: 0 | 1) => {
+  const runAction = async (
+    fixture: ForgeFixtureView,
+    team: ForgeTeamView,
+    action: 'challenge' | 'accept' | 'withdraw' | 'reverse',
+    matchPlace?: 0 | 1,
+  ) => {
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
-    const verb = action === 'challenge' ? 'Send' : action === 'withdraw' ? 'Withdraw' : action === 'reverse' ? 'Reverse' : 'Accept';
+    const verb =
+      action === 'challenge'
+        ? 'Send'
+        : action === 'withdraw'
+          ? 'Withdraw'
+          : action === 'reverse'
+            ? 'Reverse'
+            : 'Accept';
     const prompt =
       action === 'challenge'
         ? `Send a Cup Rules challenge from ${team.name} to ${opponent.name} with ${team.name} ${matchPlace === 0 ? 'HOME' : matchPlace === 1 ? 'AWAY' : team.side.toUpperCase()}?${matchPlace !== undefined && matchPlace !== (team.side === 'home' ? 0 : 1) ? '\n\nThis reverses the planned fixture venue and will be reported as a venue mismatch until the fixture is corrected.' : ''}`
         : action === 'reverse'
           ? `Reverse the saved fixture so ${fixture.away.name} becomes home and ${fixture.home.name} becomes away?\n\nThis changes the fixture for everyone, but does not send or accept a Hattrick challenge.`
-        : action === 'withdraw'
-          ? `Withdraw ${team.name}'s pending challenge to ${opponent.name}?`
-          : `Accept the pending challenge from ${opponent.name} for ${team.name}?`;
+          : action === 'withdraw'
+            ? `Withdraw ${team.name}'s pending challenge to ${opponent.name}?`
+            : `Accept the pending challenge from ${opponent.name} for ${team.name}?`;
     if (!window.confirm(`${prompt}\n\nThis performs a real Hattrick action.`)) return;
 
     const tournamentId = selectedTournamentId;
@@ -647,9 +822,17 @@ export function ForgeMatchesSection() {
     if (!roundNumber || lockedFixtures.current.has(fixture.id)) return;
     lockedFixtures.current.add(fixture.id);
     fixtureVersions.current.set(fixture.id, (fixtureVersions.current.get(fixture.id) || 0) + 1);
-    setBusyActions(current => ({ ...current, [fixture.id]: true }));
-    setFixtureErrors(current => { const next = { ...current }; delete next[fixture.id]; return next; });
-    setFixtureMessages(current => { const next = { ...current }; delete next[fixture.id]; return next; });
+    setBusyActions((current) => ({ ...current, [fixture.id]: true }));
+    setFixtureErrors((current) => {
+      const next = { ...current };
+      delete next[fixture.id];
+      return next;
+    });
+    setFixtureMessages((current) => {
+      const next = { ...current };
+      delete next[fixture.id];
+      return next;
+    });
     let actionFailure: string | null = null;
     try {
       const response = await fetch('/api/forge/matches', {
@@ -676,35 +859,41 @@ export function ForgeMatchesSection() {
             `/api/teams/refresh-fixtures?tournament_id=${encodeURIComponent(tournamentId)}`,
             { credentials: 'include' },
           );
-          if (!refreshResponse.ok) refreshNote = ' Local fixture refresh did not complete; use Refresh Fixtures to reconcile it.';
+          if (!refreshResponse.ok)
+            refreshNote = ' Local fixture refresh did not complete; use Refresh Fixtures to reconcile it.';
         } catch {
           refreshNote = ' Local fixture refresh did not complete; reload or use Refresh Fixtures to reconcile it.';
         }
       }
       if (loadEpoch.current !== epoch) return;
-      setFixtureMessages(current => ({ ...current, [fixture.id]: `${payload.action?.message || `${verb} action completed.`}${refreshNote}` }));
+      setFixtureMessages((current) => ({
+        ...current,
+        [fixture.id]: `${payload.action?.message || `${verb} action completed.`}${refreshNote}`,
+      }));
     } catch (actionError) {
       actionFailure = actionError instanceof Error ? actionError.message : `${verb} action failed.`;
     } finally {
       lockedFixtures.current.delete(fixture.id);
       if (loadEpoch.current === epoch) {
         await checkFixtures(tournamentId, roundNumber, [fixture.id], epoch);
-        if (actionFailure) setFixtureErrors(current => ({ ...current, [fixture.id]: actionFailure! }));
-        setBusyActions(current => { const next = { ...current }; delete next[fixture.id]; return next; });
+        if (actionFailure) setFixtureErrors((current) => ({ ...current, [fixture.id]: actionFailure! }));
+        setBusyActions((current) => {
+          const next = { ...current };
+          delete next[fixture.id];
+          return next;
+        });
       }
     }
   };
 
-  const visibleFixtureCount = data?.fixtures?.filter(fixture => visibleStatuses[fixtureStatusFilter(fixture.status)]).length ?? 0;
+  const visibleFixtureCount =
+    data?.fixtures?.filter((fixture) => visibleStatuses[fixtureStatusFilter(fixture.status)]).length ?? 0;
 
   return (
     <section className={styles.page}>
       <div className={styles.bookingLayout}>
         <div className={styles.bookingMain}>
-          <SectionCard
-            title="Match booking"
-            className={styles.surfaceCard}
-          >
+          <SectionCard title="Match booking" className={styles.surfaceCard}>
             <div className={styles.toolbar}>
               <label className={styles.label} htmlFor="forge-matches-tournament">
                 Tournament
@@ -779,7 +968,9 @@ export function ForgeMatchesSection() {
                         </div>
                         <div className={styles.overviewMeta}>
                           <span>Season {tournament.season}</span>
-                          {tournament.currentRoundNumber && <span>{tournament.currentRoundLabel || `Round ${tournament.currentRoundNumber}`}</span>}
+                          {tournament.currentRoundNumber && (
+                            <span>{tournament.currentRoundLabel || `Round ${tournament.currentRoundNumber}`}</span>
+                          )}
                           <span>{tournament.teams.length} teams</span>
                           {tournament.roundDate && <span>Next round {formatRoundDate(tournament.roundDate)}</span>}
                         </div>
@@ -841,9 +1032,23 @@ export function ForgeMatchesSection() {
             {!loading && !error && selectedTournamentId && data?.currentRound && (
               <div>
                 <div className={styles.roundHeading}>
-                  <h2 className={styles.roundTitle}>{data.tournament?.name}</h2>
+                  <div className={styles.roundTitleGroup}>
+                    <h2 className={styles.roundTitle}>{data.tournament?.name}</h2>
+                    {data.tournament?.slug && (
+                    <a
+                      className={styles.roundTournamentLink}
+                      href={`/en/t/${encodeURIComponent(data.tournament.slug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      /t/{data.tournament.slug}
+                    </a>
+                    )}
+                  </div>
                   <div className={styles.roundActions}>
-                    <span className={styles.roundMeta}>{data.currentRound.roundLabel || `Round ${data.currentRound.roundNumber}`}</span>
+                    <span className={styles.roundMeta}>
+                      {data.currentRound.roundLabel || `Round ${data.currentRound.roundNumber}`}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -855,12 +1060,28 @@ export function ForgeMatchesSection() {
                     <Button
                       variant="primaryAction"
                       size="sm"
-                      disabled={bulkRunning || loading || refreshingData || Object.keys(busyActions).length > 0 || data.currentRound.phaseStatus !== 'materialized'}
+                      disabled={
+                        bulkRunning ||
+                        loading ||
+                        refreshingData ||
+                        Object.keys(busyActions).length > 0 ||
+                        data.currentRound.phaseStatus !== 'materialized'
+                      }
                       onClick={() => void bookAll()}
                     >
                       Book all
                     </Button>
-                    {bulkRunning && <Button variant="outline" size="sm" onClick={() => { stopBulk.current = true; }}>Stop</Button>}
+                    {bulkRunning && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          stopBulk.current = true;
+                        }}
+                      >
+                        Stop
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -876,13 +1097,23 @@ export function ForgeMatchesSection() {
                   <div className={styles.bulkProgress} role="status" aria-live="polite">
                     <strong>{bulkProgress}</strong>
                     <span>
-                      {(['booked', 'pending', 'skipped', 'failed'] as const).map(status =>
-                        `${status}: ${Object.values(bulkResults).filter(result => result.status === status).length}`).join(' · ')}
+                      {(['booked', 'pending', 'skipped', 'failed'] as const)
+                        .map(
+                          (status) =>
+                            `${status}: ${Object.values(bulkResults).filter((result) => result.status === status).length}`,
+                        )
+                        .join(' · ')}
                     </span>
-                    {Object.entries(bulkResults).filter(([, result]) => result.status !== 'booked').map(([id, result]) => {
-                      const index = data.fixtures?.findIndex(fixture => fixture.id === id) ?? -1;
-                      return <span key={id}>Match {index + 1} · {result.status}: {result.reason}</span>;
-                    })}
+                    {Object.entries(bulkResults)
+                      .filter(([, result]) => result.status !== 'booked')
+                      .map(([id, result]) => {
+                        const index = data.fixtures?.findIndex((fixture) => fixture.id === id) ?? -1;
+                        return (
+                          <span key={id}>
+                            Match {index + 1} · {result.status}: {result.reason}
+                          </span>
+                        );
+                      })}
                   </div>
                 )}
                 {message && <p className={styles.success}>{message}</p>}
@@ -893,7 +1124,9 @@ export function ForgeMatchesSection() {
                       <input
                         type="checkbox"
                         checked={visibleStatuses[status]}
-                        onChange={event => setVisibleStatuses(current => ({ ...current, [status]: event.target.checked }))}
+                        onChange={(event) =>
+                          setVisibleStatuses((current) => ({ ...current, [status]: event.target.checked }))
+                        }
                       />
                       {label}
                     </label>
@@ -909,26 +1142,46 @@ export function ForgeMatchesSection() {
                       <article key={fixture.id} className={styles.fixture}>
                         <div className={styles.fixtureHeader}>
                           <span className={styles.fixtureNumber}>Match {index + 1}</span>
-                          {fixture.status === 'not_arranged' && !fixture.completed && !fixture.htMatchId && fixture.home.htTeamId && fixture.away.htTeamId && (
-                            <Button
-                              variant="secondaryDanger"
-                              size="sm"
-                              disabled={fixtureBusy || bulkRunning}
-                              onClick={() => void runAction(fixture, fixture.home, 'reverse')}
-                            >
-                              Reverse home/away
-                            </Button>
-                          )}
+                          {fixture.status === 'not_arranged' &&
+                            !fixture.completed &&
+                            !fixture.htMatchId &&
+                            fixture.home.htTeamId &&
+                            fixture.away.htTeamId && (
+                              <Button
+                                variant="secondaryDanger"
+                                size="sm"
+                                disabled={fixtureBusy || bulkRunning}
+                                onClick={() => void runAction(fixture, fixture.home, 'reverse')}
+                              >
+                                Reverse home/away
+                              </Button>
+                            )}
                           {fixtureErrors[fixture.id] && (
                             <span role="alert" className={styles.error}>
                               {fixtureErrors[fixture.id]}{' '}
-                              {!fixtureBusy && <button type="button" onClick={() => {
-                                if (data.currentRound) void checkFixtures(selectedTournamentId, data.currentRound.roundNumber,
-                                  [fixture.id], loadEpoch.current);
-                              }}>Retry check</button>}
+                              {!fixtureBusy && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (data.currentRound)
+                                      void checkFixtures(
+                                        selectedTournamentId,
+                                        data.currentRound.roundNumber,
+                                        [fixture.id],
+                                        loadEpoch.current,
+                                      );
+                                  }}
+                                >
+                                  Retry check
+                                </button>
+                              )}
                             </span>
                           )}
-                          {fixtureMessages[fixture.id] && <span role="status" className={styles.success}>{fixtureMessages[fixture.id]}</span>}
+                          {fixtureMessages[fixture.id] && (
+                            <span role="status" className={styles.success}>
+                              {fixtureMessages[fixture.id]}
+                            </span>
+                          )}
                         </div>
                         <div className={styles.fixtureTeams}>
                           {[fixture.home, fixture.away].map((team) => (
@@ -951,7 +1204,9 @@ export function ForgeMatchesSection() {
                                     >
                                       {team.name}
                                     </a>
-                                  ) : <span>{team.name}</span>}
+                                  ) : (
+                                    <span>{team.name}</span>
+                                  )}
                                 </div>
                                 {!isByeTeam(team) ? (
                                   <div className={styles.managerName}>
@@ -963,7 +1218,9 @@ export function ForgeMatchesSection() {
                                       >
                                         {team.managerName}
                                       </a>
-                                    ) : team.managerName || 'Manager unavailable'}
+                                    ) : (
+                                      team.managerName || 'Manager unavailable'
+                                    )}
                                   </div>
                                 ) : null}
                               </div>
