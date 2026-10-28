@@ -66,7 +66,7 @@ export async function recalculateMatch120mRatings(supabase: SupabaseClient, matc
   try {
     await persistPreparedMatch120mRatings(supabase, prepared);
   } catch (error) {
-    if (!error || typeof error !== 'object' || !('code' in error) || error.code !== '40001') throw error;
+    if (!error || typeof error !== 'object' || !('code' in error) || !['40001', 'PT409'].includes(String(error.code))) throw error;
     const current = await prepareMatch120mRatings(supabase, matchId);
     if (current) await persistPreparedMatch120mRatings(supabase, current);
   }

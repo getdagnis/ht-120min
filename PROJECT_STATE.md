@@ -294,3 +294,11 @@ passed and Vercel's production build passed. Migration 156 remains unapplied by
 the agent; existing retrying PostgREST backends still need clearing afterward.
 The owner-provided cron list contains only the expected Home wake and recovery
 jobs; neither repository definition calls round progression.
+
+
+Post-outage follow-up: export (15:18–15:26 Riga) contains 423 `40001` errors
+from `replace_match_120m_ratings` (Fixture performance changed), despite the
+previous round-progression containment. Migration 157 is prepared, not applied
+by the agent; stale rating snapshots return `PT409` for one bounded application
+retry. Manual live-result requests are batched at 30 IDs; warning-derived
+misarranged fixtures are classified before filtering/sorting. Application follow-up deployed and READY (`dpl_HQeEFY9bBGbRY8bmsyzvdaH4ypmU`); 33 focused tests and production build passed. Migration 157 application, stopping existing database loops, and real CHPP recovery of overdue fixtures remain unverified.

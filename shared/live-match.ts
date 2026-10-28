@@ -1,3 +1,11 @@
+// The live endpoint accepts at most 30 match IDs per request.
+export function getLiveMatchBatches(ids: readonly number[]): number[][] {
+  const uniqueIds = [...new Set(ids)];
+  const batches: number[][] = [];
+  for (let offset = 0; offset < uniqueIds.length; offset += 30) batches.push(uniqueIds.slice(offset, offset + 30));
+  return batches;
+}
+
 export type LiveMatchPhase = 'first_half' | 'half_time' | 'second_half' | 'extra_time' | 'penalties';
 
 export interface LiveMatchClock {

@@ -187,3 +187,20 @@ Reserve admission reuses public teamdetails/matches booking checks; selected
 reserve rankings are refreshed as part of that explicit check. The final admit
 request repeats availability checks, then invokes the private atomic slot RPC.
 No challenge automation or ratings-sharing consent is enabled by validation.
+
+
+### Post-outage fixture refresh follow-up (2026-10-28)
+
+Manual result refresh and automatic live polling use the same 30-ID batching
+rule. Batches run sequentially; a failed manual batch reports the error and exits
+through the existing loading-state cleanup. Automatic fixture refresh skips
+completed matches; explicit manual refresh retains finished-match resync.
+Overdue ongoing fixtures remain eligible for explicit refresh without extending
+the four-hour automatic live polling window or inferring completion from time.
+
+A later export (15:18–15:26 Riga) showed 423 `Fixture performance changed`
+serialization errors. Migration 157 changes the rating RPC's two stale-input
+business exceptions to `PT409`, preserving validation and rollback. The caller
+rereads persisted facts and retries once; another conflict is reported separately
+from saved match results. Migration application and stopping existing database
+retry loops require owner action; local mocked tests do not establish recovery.

@@ -15,6 +15,7 @@ import { getHattrickWeekDetails, getStockholmWallClock } from '../../utils/hattr
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
 import { isFixtureMisarranged } from '../../utils/fixture-status';
+import { compareFixtures } from '../../utils/fixture-sorting';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
@@ -460,24 +461,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [rounds]);
-  const filteredRounds = React.useMemo(() => {
-    const result = rounds.map((round) => ({
-      ...round,
-      matches: round.matches.filter((match) =>
-        (showMisarrangedMatches || match.status !== 'misarranged') &&
-        (fixtureView === 'mine'
-          ? isOwnedMatch(match)
-          : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
-      ),
-    })).filter((round) => round.matches.length > 0 || (fixtureView === 'all' && !selectedTeamId));
-    if (fixtureView === 'mine') {
-      const finished = (round: typeof result[number]) => round.matches.every((match) => match.completed || match.status === 'misarranged');
-      const chronological = orderFixtureRounds(result);
-      const position = new Map(chronological.map((round, index) => [round.id, index]));
-      result.sort((a, b) => Number(finished(a)) - Number(finished(b)) || (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!));
-    }
-    return result;
-  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch]);
   const selectedTeamName = fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
@@ -789,6 +772,30 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         .some((roundStart) => roundStart !== null && roundStart <= nowMs);
     });
   }, [nowMs, resolveMatchDate, rounds, warnings]);
+  const filteredRounds = React.useMemo(() => {
+    const result = rounds.map((round) => ({
+      ...round,
+      matches: round.matches.map((match) => {
+        const hasWarnings = visibleWarnings.some((warning) => warning.round_id === round.id && (
+          (warning.team_id === match.home_team_id && !(match.reserve_replaces_team_id === match.home_team_id && match.home_team?.reserve_active === true)) ||
+          (warning.team_id === match.away_team_id && !(match.reserve_replaces_team_id === match.away_team_id && match.away_team?.reserve_active === true))
+        ));
+        return { ...match, status: isFixtureMisarranged(match.status, match.completed, hasWarnings) ? 'misarranged' as const : match.status };
+      }).sort(compareFixtures).filter((match) =>
+        (showMisarrangedMatches || match.status !== 'misarranged') &&
+        (fixtureView === 'mine'
+          ? isOwnedMatch(match)
+          : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
+      ),
+    })).filter((round) => round.matches.length > 0 || (fixtureView === 'all' && !selectedTeamId));
+    if (fixtureView === 'mine') {
+      const finished = (round: typeof result[number]) => round.matches.every((match) => match.completed || match.status === 'misarranged');
+      const chronological = orderFixtureRounds(result);
+      const position = new Map(chronological.map((round, index) => [round.id, index]));
+      result.sort((a, b) => Number(finished(a)) - Number(finished(b)) || (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!));
+    }
+    return result;
+  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch, visibleWarnings]);
   const showRatingsAuthPrompt =
     !isHistorical &&
     Boolean(currentHtUserId) &&

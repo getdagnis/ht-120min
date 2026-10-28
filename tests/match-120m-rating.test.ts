@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchSidePerformance } from '../shared/match-events.js';
 import { analyzeMatch120mCoaching, calculateMatch120mRating, normalizeMatch120mGrade, usesMatch120mRatings } from '../shared/match-120m-rating.js';
 import { mapMatchEventDetailsToFixture } from '../src/server/api/_lib/chpp-match-events.js';
-import { prepareMatch120mRatings, tryRecalculateMatch120mRatings } from '../src/server/api/_lib/match-120m-ratings.js';
+import { prepareMatch120mRatings, recalculateMatch120mRatings, tryRecalculateMatch120mRatings } from '../src/server/api/_lib/match-120m-ratings.js';
 
 const raw = (display: number) => display * 4 - 3;
 
@@ -269,5 +269,34 @@ test('rating database failures are returned for reporting instead of escaping in
     assert.equal(logged.length, 1);
   } finally {
     console.error = originalError;
+  }
+});
+
+
+test('rating conflicts return to application for at most one fresh-snapshot retry', async () => {
+  for (const persistent of [false, true]) {
+    const details = { actualHomeTeamId: 101, actualAwayTeamId: 202,
+      home: { teamId: 101, performance: setup() }, away: { teamId: 202, performance: setup() } };
+    const rows: Record<string, unknown> = {
+      matches: { id: 'fixture', round_id: 'round', completed: true, match_event_details: details,
+        home_team_id: 'home', away_team_id: 'away', home_team: { id: 'home', ht_team_id: 101 },
+        away_team: { id: 'away', ht_team_id: 202 }, reserve_team: null },
+      rounds: { tournament_id: 'cup', season_number: 1 }, tournaments: { scoring_mode: '120m', season: 1 },
+    };
+    let attempts = 0;
+    let snapshotReads = 0;
+    const db = {
+      from: (table: string) => ({ select() { return this; }, eq() { return this; },
+        async maybeSingle() { snapshotReads += 1; return { data: rows[table], error: null }; },
+        async single() { return { data: rows[table], error: null }; } }),
+      async rpc() {
+        attempts += 1;
+        return { error: attempts === 1 || persistent ? { code: 'PT409', message: 'Fixture performance changed' } : null };
+      },
+    } as unknown as SupabaseClient;
+    if (persistent) await assert.rejects(recalculateMatch120mRatings(db, 'fixture'), { code: 'PT409' });
+    else await recalculateMatch120mRatings(db, 'fixture');
+    assert.equal(attempts, 2);
+    assert.equal(snapshotReads, 2);
   }
 });

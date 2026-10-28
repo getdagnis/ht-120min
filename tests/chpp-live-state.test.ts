@@ -7,7 +7,7 @@ import {
   shouldFetchMatchDetailsAfterLive,
 } from '../src/server/api/_lib/chpp-live-state.ts';
 import { mergeLiveMatchData } from '../src/hooks/useLiveMatches.ts';
-import { formatLiveMatchStatus, getLiveClockDisplay, getLivePollDelay } from '../shared/live-match.ts';
+import { formatLiveMatchStatus, getLiveClockDisplay, getLivePollDelay, getLiveMatchBatches } from '../shared/live-match.ts';
 
 const matchId = 771594762;
 const details = (body: string) => `<HattrickData><FileName>matchdetails.xml</FileName><Match><MatchID>${matchId}</MatchID>${body}</Match></HattrickData>`;
@@ -162,4 +162,14 @@ test('same-score polls replace the full live snapshot, including cards', () => {
   const previous = { '123': { status: 'ongoing' as const, homeGoals: 0, awayGoals: 0, home_yellow_cards: 0 } };
   const current = { '123': { status: 'ongoing' as const, homeGoals: 0, awayGoals: 0, home_yellow_cards: 1 } };
   assert.deepEqual(mergeLiveMatchData(previous, current), current);
+});
+
+
+test('manual and polling batches respect the endpoint limit and preserve overdue match IDs', () => {
+  const ids = Array.from({ length: 163 }, (_, index) => index + 1);
+  const batches = getLiveMatchBatches([...ids, 1, 163]);
+  assert.equal(batches.length, 6);
+  assert.ok(batches.every((batch) => batch.length <= 30));
+  assert.deepEqual(batches.flat(), ids);
+  assert.deepEqual(getLiveMatchBatches([]), []);
 });

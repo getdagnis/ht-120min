@@ -1,5 +1,7 @@
 'use client';
 
+import { getLiveMatchBatches } from '../../../shared/live-match';
+
 import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2714,7 +2716,7 @@ export const TournamentView: React.FC<{
         // 2. Also trigger a live check for HT-linked matches that may have result data.
         //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
         const matchesToSync = allMatches.filter(
-          (m) => m.ht_match_id && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
+          (m) => m.ht_match_id && (manualRatings || !m.completed) && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
         );
         const matchIdsToSync = new Set<number>();
         for (const match of matchesToSync) {
@@ -2724,12 +2726,12 @@ export const TournamentView: React.FC<{
           if (matchId) matchIdsToSync.add(matchId);
         }
 
-        if (matchIdsToSync.size > 0) {
-          const ids = Array.from(matchIdsToSync).join(',');
+        for (const batch of getLiveMatchBatches([...matchIdsToSync])) {
+          const ids = batch.join(',');
           const liveResponse = await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
           if (!liveResponse.ok) {
             const liveResult = (await liveResponse.json().catch(() => null)) as { error?: string } | null;
-            setFixtureRefreshError(liveResult?.error || 'Failed to update match results');
+            throw new Error(liveResult?.error || 'Failed to update match results');
           } else {
             const liveResult = (await liveResponse.json().catch(() => null)) as { ratingFailures?: unknown[] } | null;
             if (liveResult?.ratingFailures?.length) {

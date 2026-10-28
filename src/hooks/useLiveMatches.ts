@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { MatchEventDetails } from '../../shared/match-events';
-import { getLivePollDelay, type LivePollCandidate } from '../../shared/live-match';
+import { getLivePollDelay, getLiveMatchBatches, type LivePollCandidate } from '../../shared/live-match';
 
-const LIVE_MATCH_REQUEST_BATCH_SIZE = 30;
 
 export interface LiveMatchData extends Partial<LiveMatchClock> {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -105,8 +104,7 @@ export function useLiveMatches(
 
       const ids = [...new Set(potentialLive.flatMap((match) => match.ht_match_id ? [match.ht_match_id] : []))];
       let newlyFinished = false;
-      for (let offset = 0; offset < ids.length; offset += LIVE_MATCH_REQUEST_BATCH_SIZE) {
-        const batch = ids.slice(offset, offset + LIVE_MATCH_REQUEST_BATCH_SIZE);
+      for (const batch of getLiveMatchBatches(ids)) {
         try {
           const res = await fetch(
             `/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${batch.join(',')}&_t=${Date.now()}`,
