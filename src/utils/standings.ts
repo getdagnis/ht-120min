@@ -185,16 +185,13 @@ export function calculateStandings(
   scoringMode: PersistedScoringMode,
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
-  const participatingTeamIds = new Set(
-    matches.flatMap((match) => [match.home_team_id, match.away_team_id]).filter((teamId): teamId is string => !!teamId),
-  );
-
+  const activeTeamIds = new Set(teams.filter((team) => team.active && !team.is_placeholder).map((team) => team.id));
   // Initialize teams
-  teams.filter((team) => !team.reserve_active).forEach((team) => {
+  teams.filter((team) => !team.reserve_active && !team.is_placeholder).forEach((team) => {
     standingsMap[team.id] = {
       teamId: team.id,
-      teamName: team.active ? team.name : 'Open spot',
-      isOpenSpot: !team.active,
+      teamName: team.name,
+      isOpenSpot: false,
       htTeamId: team.ht_team_id,
       hattrickUserId: team.hattrick_user_id,
       lastSeenAt: null,
@@ -341,13 +338,8 @@ export function calculateStandings(
     away.appgPlayed++;
   });
 
-  // Keep inactive teams that participated this season so their stats remain visible.
-  const standings = Object.values(standingsMap).filter(
-    (standing) => {
-      const team = teams.find((candidate) => candidate.id === standing.teamId);
-      return Boolean(team && !team.reserve_active && (team.active || participatingTeamIds.has(standing.teamId)));
-    },
-  );
+  // Keep inactive teams only when a counted result gives them standings history.
+  const standings = Object.values(standingsMap).filter((standing) => standing.played > 0 || activeTeamIds.has(standing.teamId));
 
   // Sorting logic based on mode
   if (isAverage120ScoringMode(scoringMode)) {
@@ -403,14 +395,11 @@ export function calculateSeasonSlotStandings(
   scoringMode: PersistedScoringMode,
   slotAssignments: SeasonSlotAssignment[] = [],
   membershipBased = false,
-  additionalParticipantIds: ReadonlySet<string> = new Set(),
 ): TeamStanding[] {
   if (membershipBased) {
-    const activeIds = new Set(teams.filter(team => team.active && !team.reserve_active && !team.is_placeholder).map(team => team.id));
-    // Keep departed opponents available while counting real results; only the
-    // final rows are filtered. Slot identity never transfers another team's score.
+    // Keep each real participant's own history. Upcoming organizer fixtures
+    // do not make inactive Lobby/Past teams standings entries.
     return calculateStandings(teams.map(team => ({ ...team, reserve_active: false })), matches, scoringMode)
-      .filter(standing => activeIds.has(standing.teamId) || additionalParticipantIds.has(standing.teamId));
   }
   if (slots.length === 0) return calculateStandings(teams, matches, scoringMode);
 

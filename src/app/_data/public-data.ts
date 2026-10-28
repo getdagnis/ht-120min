@@ -1,4 +1,4 @@
-import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round.js';
+import { orderFixtureRounds } from '../../utils/organizer-round.js';
 import 'server-only';
 
 import { projectPublicFixture, projectPublicSeason } from '../../utils/public-fixture-projection.js';
@@ -305,7 +305,6 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     String(tournament.scoring_mode || '120min'),
     slotAssignments,
     tournament.schedule_mode === 'length',
-    additionalRoundParticipantIds(rounds as Array<{ round_source?: string; round_participants?: Array<{ team_id: string }> }>),
   ) as Record<string, unknown>[];
 
   return {

@@ -2,7 +2,7 @@
 
 import { getLiveMatchBatches } from '../../../shared/live-match';
 
-import { additionalRoundParticipantIds, orderFixtureRounds } from '../../utils/organizer-round';
+import { orderFixtureRounds } from '../../utils/organizer-round';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -2062,7 +2062,6 @@ export const TournamentView: React.FC<{
           tournament.scoring_mode as '120m' | '120min' | 'average120' | 'points' | 'appg',
           seasonSlotAssignments,
           tournament.schedule_mode === 'length',
-          additionalRoundParticipantIds(newRounds as RoundWithMatches[]),
         ),
       );
     }

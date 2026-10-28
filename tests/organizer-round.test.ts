@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { additionalRoundParticipantIds, generateOrganizerPairings, orderFixtureRounds, roundPairingHistory, serializeOrganizerPairings, validateOrganizerPairings, type OrganizerRoundTeam } from '../src/utils/organizer-round.js';
+import { generateOrganizerPairings, orderFixtureRounds, roundPairingHistory, serializeOrganizerPairings, validateOrganizerPairings, type OrganizerRoundTeam } from '../src/utils/organizer-round.js';
 import { buildCalendarSlots } from '../src/utils/hattrick-calendar.js';
 import { calculateSeasonSlotStandings } from '../src/utils/standings.js';
 import { getFixtureWeekendFlag } from '../src/server/api/_lib/fixture-challenge.js';
@@ -62,7 +62,6 @@ test('extra rounds display by date without renumbering frozen regular or playoff
   ];
   assert.deepEqual(orderFixtureRounds(rounds).map(round => round.round_number), [1, 3, 2]);
   assert.deepEqual(rounds.map(round => round.round_number), [1, 2, 3]);
-  assert.deepEqual([...additionalRoundParticipantIds(rounds)], ['guest']);
 });
 
 test('counted Lobby and Past participants retain their own table results without becoming Active', () => {
@@ -71,7 +70,7 @@ test('counted Lobby and Past participants retain their own table results without
     { home_team_id: 'active', away_team_id: 'lobby', home_goals: 1, away_goals: 0, completed: true },
     { home_team_id: 'past', away_team_id: 'active', home_goals: 2, away_goals: 0, completed: true },
   ];
-  const table = calculateSeasonSlotStandings(members, results, [], 'points', [], true, new Set(['lobby', 'past']));
+  const table = calculateSeasonSlotStandings(members, results, [], 'points', [], true);
   assert.deepEqual(new Set(table.map(row => row.teamId)), new Set(['active', 'lobby', 'past']));
   assert.equal(table.find(row => row.teamId === 'active')?.played, 2);
   assert.equal(table.find(row => row.teamId === 'past')?.pts, 3);

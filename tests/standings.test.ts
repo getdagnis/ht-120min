@@ -130,7 +130,7 @@ test('120-minute goals and goal difference include only matches that reached ext
   assert.equal(away?.pts, 5);
 });
 
-test('inactive current-season teams keep their stats as an open spot', () => {
+test('inactive teams with completed counted results keep their identity and stats', () => {
   const standings = calculateStandings(
     [
       {
@@ -157,10 +157,51 @@ test('inactive current-season teams keep their stats as an open spot', () => {
   );
 
   assert.equal(standings.length, 1);
-  assert.equal(standings[0].teamName, 'Open spot');
-  assert.equal(standings[0].isOpenSpot, true);
+  assert.equal(standings[0].teamName, 'Team A');
+  assert.equal(standings[0].isOpenSpot, false);
   assert.equal(standings[0].played, 1);
   assert.equal(standings[0].won, 1);
+});
+
+test('Lobby and Past teams selected for a future organizer round do not enter standings from upcoming fixtures', () => {
+  const organizerRound = {
+    round_source: 'organizer',
+    round_participants: [
+      { team_id: 'lobby', participation: 'round_only' },
+      { team_id: 'past', participation: 'round_only' },
+    ],
+    matches: [{ home_team_id: 'past', away_team_id: 'lobby', home_goals: null, away_goals: null, went_120: false, completed: false }],
+  };
+  const standings = calculateSeasonSlotStandings(
+    [
+      { id: 'active', name: 'Active', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+      { id: 'lobby', name: 'Lobby team', ht_team_id: 2, hattrick_user_id: 2, active: false, reserve_active: true, replacement_for_team_id: null },
+      { id: 'past', name: 'Past team', ht_team_id: 3, hattrick_user_id: 3, active: false, replacement_for_team_id: null },
+    ],
+    organizerRound.matches,
+    [],
+    'points',
+    [],
+    true,
+  );
+
+  assert.deepEqual(standings.map((standing) => standing.teamId), ['active']);
+  assert.equal(standings[0].played, 0);
+  assert.deepEqual(organizerRound.round_participants.map((participant) => participant.team_id), ['lobby', 'past']);
+});
+
+test('placeholders are never competitors, even when active or present in a completed fixture', () => {
+  const standings = calculateStandings(
+    [
+      { id: 'placeholder', name: 'Open spot', ht_team_id: null, hattrick_user_id: null, active: true, is_placeholder: true, replacement_for_team_id: null },
+      { id: 'active', name: 'Active', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+    ],
+    [{ home_team_id: 'placeholder', away_team_id: 'active', home_goals: 0, away_goals: 0, went_120: false, completed: true }],
+    'points',
+  );
+
+  assert.deepEqual(standings.map((standing) => standing.teamId), ['active']);
+  assert.equal(standings.some((standing) => standing.isOpenSpot), false);
 });
 
 test('a current slot renders its incoming team while completed statistics stay on the physical slot', () => {
@@ -260,7 +301,7 @@ test('Average 120 min quota ranks a 9/12 team ahead of a provisional 1/1 team', 
   assert.ok(compareAverage120Standings(rows[0], rows[1], quota) < 0);
 });
 
-test('length membership standings show Active only and do not inherit another slot occupant results', () => {
+test('length membership standings preserve departed teams completed results under their own identity', () => {
   const teams = ['past', 'waiting', 'active', 'opponent'].map((id, index) => ({
     id, name: id, ht_team_id: index + 1, hattrick_user_id: 1,
     active: ['active', 'opponent'].includes(id), reserve_active: id === 'waiting', replacement_for_team_id: null,
@@ -271,8 +312,9 @@ test('length membership standings show Active only and do not inherit another sl
   ];
   const standings = calculateSeasonSlotStandings(teams, matches,
     [{ id: 'slot-a', current_team_id: 'active' }, { id: 'slot-b', current_team_id: 'opponent' }], 'points', [], true);
-  assert.deepEqual(standings.map(row => row.teamId), ['active', 'opponent']);
+  assert.deepEqual(standings.map(row => row.teamId), ['past', 'active', 'opponent']);
+  assert.equal(standings[0]!.teamName, 'past');
   assert.equal(standings[0]!.played, 1);
   assert.equal(standings[0]!.pts, 3);
-  assert.equal(standings[1]!.played, 2); // The departed opponent's result remains real history.
+  assert.equal(standings[2]!.played, 2); // The opponent's results remain its own real history.
 });

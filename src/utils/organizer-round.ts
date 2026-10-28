@@ -69,10 +69,6 @@ export function serializeOrganizerPairings(slot: CalendarSlot, pairs: LengthSche
   });
 }
 
-export function additionalRoundParticipantIds(rounds: Array<{ round_source?: string; round_participants?: Array<{ team_id: string }> }>): Set<string> {
-  return new Set(rounds.filter(round => round.round_source === 'organizer').flatMap(round => (round.round_participants || []).map(row => row.team_id)));
-}
-
 // Reserved round numbers belong to the frozen pairing plan. Display extra rounds
 // by calendar date without renumbering that plan or existing fixture identities.
 export function orderFixtureRounds<T extends { round_number: number; round_source?: string; reserved_slot_date?: string | null }>(rounds: T[]): T[] {

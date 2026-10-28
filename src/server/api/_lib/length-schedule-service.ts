@@ -9,7 +9,6 @@ import {
   type PairingHistory,
 } from '../../../utils/length-schedule.js';
 import { getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
-import { additionalRoundParticipantIds } from '../../../utils/organizer-round.js';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment, type Team } from '../../../utils/standings.js';
 import type { PersistedScoringMode } from '../../../../shared/scoring-profile.js';
 import type { getServiceSupabase } from './supabase.js';
@@ -460,7 +459,6 @@ export async function progressLengthSchedule(
         state.tournament.scoring_mode as PersistedScoringMode,
         state.assignments,
         true,
-        additionalRoundParticipantIds(state.rounds),
       );
       const activeIds = new Set(state.teams.map(team => team.id));
       const eligibleStandings = standings.filter((standing) => activeIds.has(standing.teamId));
