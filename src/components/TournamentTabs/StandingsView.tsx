@@ -742,12 +742,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       styles.center120,
                       uiText('percentage120Tooltip'),
                     )}
-                    {sortableHeader(uiText('gamesColumn'), 'played', styles.center, uiText('gamesTooltip'))}
                     {sortableHeader(
-                      uiText('matches120Column'),
+                      uiText('matches120PerGamesColumn'),
                       'achievements120min',
                       styles.center,
-                      uiText('matches120Tooltip'),
+                      uiText('matches120PerGamesTooltip'),
                     )}
                     {sortableHeader(
                       uiText('avgPointsColumn'),
@@ -778,10 +777,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       uiText('matches120Tooltip'),
                     )}
                     {sortableHeader(
-                      uiText('pointsColumn'),
+                      uiText('tieBreakPointsColumn'),
                       'pts',
                       `${styles.center} ${styles.pointsHeader}`,
-                      '120 min mode tie-break points',
+                      uiText('tieBreakPointsTooltip'),
                     )}
                     {sortableHeader(
                       uiText('percentage120Column'),
@@ -1001,8 +1000,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           <td className={`${styles.highlight} ${styles.center}`}>
                             {percentage120min(s).toFixed(0)}%
                           </td>
-                          <td className={styles.center}>{s.played}</td>
-                          <td className={styles.center}>{s.achievements120min}</td>
+                          <td className={styles.center}>{s.achievements120min}/{s.played}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'pts'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'totalMinutes'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gd'))}</td>

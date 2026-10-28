@@ -162,7 +162,10 @@ export function meetsAppgStandingsQuota(standing: Pick<TeamStanding, 'played'>, 
 
 export function compareAverage120Standings(a: TeamStanding, b: TeamStanding): number {
   if (a.played === 0 || b.played === 0) return Number(b.played > 0) - Number(a.played > 0);
-  for (const key of ['achievements120min', 'pts', 'gd', 'gf', 'totalMinutes'] as const) {
+  const achievementRate = b.achievements120min / b.played - a.achievements120min / a.played;
+  if (achievementRate !== 0) return achievementRate;
+  if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
+  for (const key of ['pts', 'gd', 'gf', 'totalMinutes'] as const) {
     const difference = b[key] / b.played - a[key] / a.played;
     if (difference !== 0) return difference;
   }
