@@ -130,8 +130,9 @@ budget is explicitly rechecked.
 The auto-booking batch endpoint is routed through this same function at
 `POST /api/cron/auto-booking`; it uses server-only `AUTO_BOOKING_CRON_SECRET`
 and defaults to dry-run. A single replacement-job SQL template and read-only
-enabled-tournament preview are in `docs/auto-booking-cron.sql`. Neither live
-cron nor deployment has been changed.
+enabled-tournament preview are in `docs/auto-booking-cron.sql`. The owner reports
+the generalized production cron runs every five minutes; it was not independently
+inspected or changed in this work.
 
 ## Deployment Notes
 

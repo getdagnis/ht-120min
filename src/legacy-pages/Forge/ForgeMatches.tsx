@@ -98,6 +98,28 @@ interface MatchesResponse {
   error?: string;
 }
 
+interface AutoBookingActivityEntry {
+  id: string;
+  fixtureId: string | null;
+  fixture: { home: string | null; away: string | null } | null;
+  status: string;
+  result: string;
+  action: string | null;
+  actualAction: boolean;
+  errorCode: number | string | null;
+  explanation: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  nextAttemptAt: string | null;
+}
+
+interface AutoBookingSettingResponse {
+  enabled?: boolean;
+  season?: number;
+  activity?: AutoBookingActivityEntry[];
+  error?: string;
+}
+
 type BulkResult = { status: 'booked' | 'pending' | 'skipped' | 'failed'; reason: string };
 
 function isChallengeRefusal(message: string) {
@@ -147,6 +169,35 @@ function formatPrecisePresence(value: string | null) {
 function formatRoundDate(value: string | null) {
   if (!value) return null;
   return new Date(value).toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit' });
+}
+
+function formatLocalDateTime(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toLocaleString(undefined, {
+    year: 'numeric', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
+}
+
+function autoBookingResultLabel(result: string) {
+  const labels: Record<string, string> = {
+    booking_confirmed: 'Booked',
+    booking_confirmed_after_error_70: 'Booked after Hattrick error 70',
+    booking_pending: 'Challenge sent; waiting for acceptance',
+    challenge_pending: 'Challenge sent; waiting for acceptance',
+    challenge_sent_accept_failed: 'Challenge sent; acceptance failed',
+    error_70_unresolved: 'Hattrick error 70; retry scheduled',
+    action_failed: 'Booking action failed',
+    no_safe_action: 'Skipped; no safe action available',
+    preliminary_check: 'Preliminary state check',
+    schedule_deferred: 'Waiting for the next scheduled check',
+    state_check_failed: 'Hattrick state check failed',
+    no_outstanding_fixture: 'No fixture due for a check',
+    stale_run_recovered: 'Recovered an unfinished worker attempt',
+    would_act: 'Dry run; no booking action sent',
+  };
+  return labels[result] || result.replaceAll('_', ' ');
 }
 
 function stateIsDangerous(state: string) {
@@ -284,6 +335,9 @@ export function ForgeMatchesSection() {
   const [autoBooking, setAutoBooking] = useState<boolean | null>(null);
   const [autoBookingBusy, setAutoBookingBusy] = useState(false);
   const [autoBookingError, setAutoBookingError] = useState('');
+  const [autoBookingActivity, setAutoBookingActivity] = useState<AutoBookingActivityEntry[]>([]);
+  const [autoBookingActivityLoading, setAutoBookingActivityLoading] = useState(false);
+  const [autoBookingActivityError, setAutoBookingActivityError] = useState('');
   const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null);
   const [selectionRestored, setSelectionRestored] = useState(false);
   const [tournamentOptionsLoaded, setTournamentOptionsLoaded] = useState(false);
@@ -461,6 +515,9 @@ export function ForgeMatchesSection() {
     loadController.current?.abort();
     setAutoBooking(null);
     setAutoBookingError('');
+    setAutoBookingActivity([]);
+    setAutoBookingActivityError('');
+    setAutoBookingActivityLoading(true);
     setSelectedTournamentId(tournamentId);
     setSelectedRoundNumber(null);
     setData(null);
@@ -475,15 +532,41 @@ export function ForgeMatchesSection() {
     const params = new URLSearchParams({ tournamentId: selectedTournamentId, setting: 'auto-booking' });
     void fetch(`/api/forge/matches?${params}`, { credentials: 'include', cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
-        const payload = await response.json() as { enabled?: boolean; error?: string };
+        const payload = await response.json() as AutoBookingSettingResponse;
         if (!response.ok) throw new Error(payload.error || 'Could not load automatic booking setting.');
         setAutoBooking(payload.enabled === true);
+        setAutoBookingActivity(payload.activity || []);
+        setAutoBookingActivityError('');
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setAutoBookingError(error instanceof Error ? error.message : 'Could not load automatic booking setting.');
+        if (!controller.signal.aborted) {
+          setAutoBookingError(error instanceof Error ? error.message : 'Could not load automatic booking setting.');
+          setAutoBookingActivityError(error instanceof Error ? error.message : 'Could not load booking activity.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAutoBookingActivityLoading(false);
       });
     return () => controller.abort();
   }, [selectedTournamentId]);
+
+  const refreshAutoBookingActivity = async () => {
+    if (!selectedTournamentId) return;
+    setAutoBookingActivityLoading(true);
+    setAutoBookingActivityError('');
+    try {
+      const params = new URLSearchParams({ tournamentId: selectedTournamentId, setting: 'auto-booking' });
+      const response = await fetch(`/api/forge/matches?${params}`, { credentials: 'include', cache: 'no-store' });
+      const payload = await response.json() as AutoBookingSettingResponse;
+      if (!response.ok) throw new Error(payload.error || 'Could not load booking activity.');
+      setAutoBooking(payload.enabled === true);
+      setAutoBookingActivity(payload.activity || []);
+    } catch (error) {
+      setAutoBookingActivityError(error instanceof Error ? error.message : 'Could not load booking activity.');
+    } finally {
+      setAutoBookingActivityLoading(false);
+    }
+  };
 
   const saveAutoBooking = async (enabled: boolean) => {
     setAutoBookingBusy(true);
@@ -497,6 +580,7 @@ export function ForgeMatchesSection() {
       const payload = await response.json() as { enabled?: boolean; error?: string };
       if (!response.ok) throw new Error(payload.error || 'Could not save automatic booking setting.');
       setAutoBooking(payload.enabled === true);
+      await refreshAutoBookingActivity();
     } catch (error) {
       setAutoBookingError(error instanceof Error ? error.message : 'Could not save automatic booking setting.');
     } finally {
@@ -517,7 +601,10 @@ export function ForgeMatchesSection() {
       if (savedSelection) {
         const parsed = JSON.parse(savedSelection) as { tournamentId?: unknown; roundNumber?: unknown };
         restoreTimeoutId = window.setTimeout(() => {
-          if (typeof parsed.tournamentId === 'string') setSelectedTournamentId(parsed.tournamentId as string);
+          if (typeof parsed.tournamentId === 'string') {
+            setAutoBookingActivityLoading(true);
+            setSelectedTournamentId(parsed.tournamentId as string);
+          }
           if (
             typeof parsed.roundNumber === 'number' &&
             Number.isSafeInteger(parsed.roundNumber) &&
@@ -964,7 +1051,7 @@ export function ForgeMatchesSection() {
                 />
                 <span>{autoBooking === null ? 'Loading…' : autoBookingBusy ? 'Saving…' : autoBooking ? 'On' : 'Off'}</span>
                 {autoBookingError && <p className={styles.error} role="alert">{autoBookingError}</p>}
-                <small>Saved for this season. Scheduled booking is not active yet.</small>
+                <small>Saved for this season. Worker activity is shown at the bottom of this page.</small>
               </div>
             )}
             {!loading && !error && selectedTournamentId && data?.roundOptions && data.roundOptions.length > 0 && (
@@ -1415,6 +1502,63 @@ export function ForgeMatchesSection() {
           </SectionCard>
         </aside>
       </div>
+      {selectedTournamentId && (
+        <SectionCard title="Automatic booking activity" className={styles.surfaceCard}>
+          <div className={styles.autoBookingActivityHeader}>
+            <div>
+              <strong>Automatic booking is {autoBooking === null ? 'loading' : autoBooking ? 'enabled' : 'disabled'}{data?.tournament?.season ? ` for Season ${data.tournament.season}` : ''}.</strong>
+              <p>Activity is recorded when the worker checks a fixture or attempts a booking. This log does not by itself confirm the cron is running.</p>
+            </div>
+            <Button variant="outline" size="sm" disabled={autoBookingActivityLoading} onClick={() => void refreshAutoBookingActivity()}>
+              <ArrowClockwise size={16} />
+              {autoBookingActivityLoading ? 'Refreshing…' : 'Refresh activity'}
+            </Button>
+          </div>
+          {autoBookingActivityError && <p className={styles.error} role="alert">{autoBookingActivityError}</p>}
+          {autoBookingActivityLoading && autoBookingActivity.length === 0 ? (
+            <p className={styles.empty}>Loading automatic booking activity…</p>
+          ) : autoBookingActivity.length === 0 ? (
+            <p className={styles.empty}>
+              {autoBooking === false ? 'No attempts recorded. Automatic booking is off.' : 'No worker activity recorded for this season yet.'}
+            </p>
+          ) : (
+            <>
+              <div className={styles.autoBookingLatest}>
+                <p>
+                  <strong>Last attempt:</strong> {formatLocalDateTime(autoBookingActivity[0].startedAt) || 'Time unavailable'}
+                  {' · '}{autoBookingActivity[0].actualAction ? 'Booking action' : 'Skipped / state check'}
+                  {' · '}{autoBookingResultLabel(autoBookingActivity[0].result)}
+                </p>
+                {autoBookingActivity[0].nextAttemptAt ? (
+                  <p><strong>Next scheduled attempt:</strong> {formatLocalDateTime(autoBookingActivity[0].nextAttemptAt)}</p>
+                ) : autoBookingActivity[0].result === 'booking_confirmed' || autoBookingActivity[0].result === 'booking_confirmed_after_error_70' ? (
+                  <p>No further attempt is scheduled for the booked fixture.</p>
+                ) : null}
+                <small>Times shown in your browser’s local time.</small>
+              </div>
+              <details className={styles.autoBookingHistory}>
+                <summary>Recent attempts ({autoBookingActivity.length})</summary>
+                <ol>
+                  {autoBookingActivity.map((entry) => (
+                    <li key={entry.id}>
+                      <div className={styles.autoBookingHistoryHeading}>
+                        <strong>{entry.fixture?.home && entry.fixture.away
+                          ? `${entry.fixture.home} vs ${entry.fixture.away}`
+                          : entry.fixtureId ? `Fixture ${entry.fixtureId.slice(0, 8)}` : 'Tournament check'}</strong>
+                        <time dateTime={entry.startedAt}>{formatLocalDateTime(entry.startedAt) || 'Time unavailable'}</time>
+                      </div>
+                      <span>{entry.actualAction ? 'Booking action' : 'Skipped / state check'} · {autoBookingResultLabel(entry.result)}</span>
+                      {entry.action && <span>Action: {entry.action}</span>}
+                      {entry.errorCode !== null && <span>Hattrick error code: {entry.errorCode}</span>}
+                      {entry.explanation && <p>{entry.explanation}</p>}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            </>
+          )}
+        </SectionCard>
+      )}
     </section>
   );
 }

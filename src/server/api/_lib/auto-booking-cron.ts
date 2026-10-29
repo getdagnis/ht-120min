@@ -1,7 +1,7 @@
 export const MAX_AUTO_BOOKING_TOURNAMENTS_PER_RUN = 5;
 export const AUTO_BOOKING_RUN_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 export const RECENTLY_BOOKED_FIXTURE_SKIP_MS = 24 * 60 * 60 * 1000;
-export const NO_SAFE_ACTION_FIXTURE_SKIP_MS = 60 * 60 * 1000;
+export const STALE_AUTO_BOOKING_RUN_MS = 10 * 60 * 1000;
 
 export type AutoBookingTournament = {
   id: string;
@@ -54,19 +54,18 @@ export function selectEnabledCurrentTournaments(settings: EnabledAutoBookingSett
 }
 
 export function autoBookingRetryDelayMs(run: AutoBookingRun) {
-  if (run.status === 'booked') return 0;
+  const nextAttemptAt = Date.parse(String(run.outcome?.nextAttemptAt || ''));
+  if (Number.isFinite(nextAttemptAt)) return Math.max(0, nextAttemptAt - Date.parse(run.started_at));
   if (run.status === 'dry_run') return 30 * 60 * 1000;
-  if (run.status === 'pending' && run.outcome?.result === 'error_70_unresolved') return 15 * 60 * 1000;
-  if (run.status === 'pending' || run.status === 'failed') return 10 * 60 * 1000;
-  if (run.status === 'skipped' && run.outcome?.result === 'no_safe_action') return 60 * 60 * 1000;
-  if (run.status === 'skipped') return 15 * 60 * 1000;
+  if (run.status === 'pending' || run.status === 'failed') return 30 * 60 * 1000;
+  if (run.status === 'skipped') return 2 * 60 * 60 * 1000;
   return 0;
 }
 
 export function autoBookingRunIsDue(run: AutoBookingRun | undefined, now: number) {
   if (!run) return true;
   if (run.status === 'running') return false;
-  if (run.status === 'skipped' && run.outcome?.result === 'no_safe_action') return true;
+  if (run.outcome?.result !== 'no_outstanding_fixture') return true;
   const startedAt = Date.parse(run.started_at);
   if (!Number.isFinite(startedAt)) return true;
   return now - startedAt >= autoBookingRetryDelayMs(run);
@@ -76,8 +75,8 @@ export function shouldSkipRecentFixture(run: AutoBookingRun, now: number) {
   const startedAt = Date.parse(run.started_at);
   if (!run.fixture_id || !Number.isFinite(startedAt)) return false;
   if (run.status === 'booked') return now - startedAt < RECENTLY_BOOKED_FIXTURE_SKIP_MS;
-  return run.status === 'skipped' && run.outcome?.result === 'no_safe_action'
-    && now - startedAt < NO_SAFE_ACTION_FIXTURE_SKIP_MS;
+  const nextAttemptAt = Date.parse(String(run.outcome?.nextAttemptAt || ''));
+  return Number.isFinite(nextAttemptAt) && nextAttemptAt > now;
 }
 
 export function autoBookingRunKey(tournamentId: string, seasonNumber: number) {

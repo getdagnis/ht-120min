@@ -5,10 +5,10 @@ import {
   autoBookingRetryDelayMs,
   autoBookingRunIsDue,
   MAX_AUTO_BOOKING_TOURNAMENTS_PER_RUN,
-  NO_SAFE_ACTION_FIXTURE_SKIP_MS,
   RECENTLY_BOOKED_FIXTURE_SKIP_MS,
   selectEnabledCurrentTournaments,
   shouldSkipRecentFixture,
+  STALE_AUTO_BOOKING_RUN_MS,
   type AutoBookingRun,
   type EnabledAutoBookingSetting,
 } from '../src/server/api/_lib/auto-booking-cron.js';
@@ -34,30 +34,28 @@ test('automatic booking selects only enabled current-season, non-terminal tourna
   assert.deepEqual(selected.map(({ tournament: row }) => row.id), ['enabled']);
 });
 
-test('retry delays back off pending, failed and opt-out runs, but booked fixtures do not block the next fixture', () => {
+test('persisted due times gate empty rounds while other fixtures can continue', () => {
   const run = (status: string, result?: string): AutoBookingRun => ({
     tournament_id: 't', season_number: 2, mode: 'real', status,
     outcome: result ? { result } : {}, fixture_id: 'fixture', started_at: new Date(1_000).toISOString(),
   });
   const now = 1_000 + 60 * 60 * 1000;
-  assert.equal(autoBookingRetryDelayMs(run('pending')), 10 * 60 * 1000);
-  assert.equal(autoBookingRetryDelayMs(run('pending', 'error_70_unresolved')), 15 * 60 * 1000);
-  assert.equal(autoBookingRetryDelayMs(run('failed')), 10 * 60 * 1000);
-  assert.equal(autoBookingRetryDelayMs(run('skipped', 'no_safe_action')), 60 * 60 * 1000);
-  assert.equal(autoBookingRetryDelayMs(run('booked')), 0);
-  assert.equal(autoBookingRunIsDue(run('pending'), now), true);
-  assert.equal(autoBookingRunIsDue(run('skipped', 'no_safe_action'), now), true);
+  const waiting = { ...run('skipped', 'no_outstanding_fixture'), started_at: new Date(now).toISOString(), outcome: { result: 'no_outstanding_fixture', nextAttemptAt: new Date(now + 10_000).toISOString() } };
+  assert.equal(autoBookingRetryDelayMs(waiting), 10_000);
+  assert.equal(autoBookingRunIsDue(waiting, now), false);
+  assert.equal(autoBookingRunIsDue(waiting, now + 10_000), true);
+  const fixtureWaiting = { ...run('pending', 'challenge_pending'), started_at: new Date(now).toISOString(), outcome: { result: 'challenge_pending', nextAttemptAt: new Date(now + 10_000).toISOString() } };
+  assert.equal(autoBookingRunIsDue(fixtureWaiting, now), true, 'a waiting fixture must not block another fixture in the tournament');
+  assert.equal(shouldSkipRecentFixture(fixtureWaiting, now), true);
   assert.equal(autoBookingRunIsDue(run('running'), now), false);
   assert.equal(autoBookingRunIsDue(undefined, now), true);
-  assert.equal(autoBookingRunIsDue(run('skipped', 'no_safe_action'), 2_000), true);
   assert.equal(shouldSkipRecentFixture(run('booked'), now), true);
   assert.equal(shouldSkipRecentFixture(run('skipped', 'no_safe_action'), now), false);
-  assert.equal(shouldSkipRecentFixture(run('skipped', 'no_safe_action'), 2_000), true);
 });
 
-test('worker run limits stay bounded and recently booked fixture skip window is finite', () => {
+test('worker limits stay bounded and stale running records have a finite recovery window', () => {
   assert.equal(MAX_AUTO_BOOKING_TOURNAMENTS_PER_RUN, 5);
   assert.equal(AUTO_BOOKING_RUN_LOOKBACK_MS, 24 * 60 * 60 * 1000);
   assert.equal(RECENTLY_BOOKED_FIXTURE_SKIP_MS, 24 * 60 * 60 * 1000);
-  assert.equal(NO_SAFE_ACTION_FIXTURE_SKIP_MS, 60 * 60 * 1000);
+  assert.equal(STALE_AUTO_BOOKING_RUN_MS, 10 * 60 * 1000);
 });

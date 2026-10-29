@@ -36,6 +36,11 @@ import {
   type ForgeTeamChallengeInspection,
 } from '../_lib/forge-matches.js';
 import { bookingWorkerMode, chooseWorkerFixture, hasRealBookingConfirmation, isAmbiguousChallengeFailure, isWorkerTournamentId, REAL_BOOKING_CONFIRMATION, validFixtureIds, workerInitialAction } from '../_lib/auto-booking-worker.js';
+import {
+  internationalBookingOpensAt,
+  nextAutoBookingAttemptAt,
+  shouldWaitForInternationalBookingWindow,
+} from '../_lib/auto-booking-schedule.js';
 
 type ForgeTournamentRow = {
   id: string;
@@ -1209,9 +1214,40 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
       && row.status !== 'misarranged' && !['arranged', 'ongoing', 'finished'].includes(row.status || '')
       && !skipFixtureIds.has(row.id));
     if (!candidate) {
-      outcome = { result: 'no_outstanding_fixture' };
+      const proposedNext = Date.parse(readString(req.body?.nextCandidateAttemptAt));
+      const fallbackNext = nextAutoBookingAttemptAt({
+        scheduled_for: null, schedule_slot_type: null, home_country_id: null, away_country_id: null,
+      }, new Date(), 'no_outstanding');
+      outcome = {
+        result: 'no_outstanding_fixture',
+        explanation: 'No unbooked fixture is due for a check.',
+        nextAttemptAt: Number.isFinite(proposedNext) && proposedNext > Date.now()
+          ? new Date(Math.min(proposedNext, Date.now() + 2 * 60 * 60 * 1000)).toISOString()
+          : fallbackNext.toISOString(),
+      };
     } else {
       fixtureId = candidate.id;
+      const bookingSchedule = {
+        scheduled_for: candidate.scheduled_for,
+        schedule_slot_type: candidate.schedule_slot_type,
+        home_country_id: relationOne(candidate.home_team)?.country_id ?? null,
+        away_country_id: relationOne(candidate.away_team)?.country_id ?? null,
+      };
+      const now = new Date();
+      const opensAt = internationalBookingOpensAt(bookingSchedule);
+      const opensAtLabel = opensAt ? new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Stockholm', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      }).format(opensAt) : null;
+      if (mode === 'real' && shouldWaitForInternationalBookingWindow(bookingSchedule, now)) {
+        finalStatus = 'skipped';
+        outcome = {
+          fixtureId: candidate.id,
+          result: 'schedule_deferred',
+          explanation: 'The first Hattrick challenge-state check is scheduled for Wednesday at 10:00 Hattrick time.',
+          nextAttemptAt: nextAutoBookingAttemptAt(bookingSchedule, now, 'preliminary_check')?.toISOString() || null,
+        };
+        return res.status(200).json({ runId: run.id, mode, status: finalStatus, ...outcome });
+      }
       const readState = async () => buildMatchesResponse(supabase, tournament, {
         roundNumber: round.round_number, mode: 'states', matchIds: [candidate.id],
       });
@@ -1220,17 +1256,41 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
       const checkError = firstState.fixtureErrors.find((item) => item.matchId === candidate.id)?.error;
       if (!fixture || checkError) {
         finalStatus = 'failed';
-        outcome = { fixtureId: candidate.id, result: 'state_check_failed', reason: checkError || 'Hattrick state unavailable.' };
+        outcome = {
+          fixtureId: candidate.id,
+          result: 'state_check_failed',
+          reason: checkError || 'Hattrick state unavailable.',
+          nextAttemptAt: nextAutoBookingAttemptAt(
+            bookingSchedule, now, opensAt && now < opensAt ? 'preliminary_check' : 'transient_error',
+          )?.toISOString(),
+        };
+      } else if (mode === 'real' && opensAt && now < opensAt) {
+        finalStatus = 'skipped';
+        outcome = {
+          fixtureId: candidate.id,
+          result: 'preliminary_check',
+          explanation: `State checked; booking actions wait until ${opensAtLabel} Hattrick time.`,
+          nextAttemptAt: nextAutoBookingAttemptAt(bookingSchedule, now, 'preliminary_check')?.toISOString(),
+        };
       } else {
         const eligible = chooseWorkerFixture([fixture]);
         const action = eligible ? workerInitialAction(eligible) : null;
         if (!eligible || !action) {
           finalStatus = 'skipped';
+          const persistentBlock = [fixture.home, fixture.away].some((side) =>
+            side.autoArrangeEnabled === false || [
+              'CHPP CREDENTIALS MISSING', 'CHPP PERMISSION MISSING', 'CHPP OWNERSHIP MISMATCH',
+            ].includes(side.chppState));
+          const challengePending = [fixture.home, fixture.away].some((side) =>
+            ['INCOMING CHALLENGE', 'OUTGOING CHALLENGE'].includes(side.chppState));
           outcome = {
             fixtureId: candidate.id,
             result: 'no_safe_action',
             reason: fixture.home.autoArrangeEnabled !== true || fixture.away.autoArrangeEnabled !== true
               ? 'Manager auto-arrange consent is off or unavailable.' : 'No exact-opponent challenge action is ready.',
+            nextAttemptAt: nextAutoBookingAttemptAt(
+              bookingSchedule, now, persistentBlock ? 'persistent_block' : challengePending ? 'pending' : 'no_safe_action',
+            )?.toISOString(),
           };
         } else if (mode === 'dry_run') {
           finalStatus = 'dry_run';
@@ -1258,10 +1318,27 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
             const booked = Boolean(refreshed && (refreshed.htMatchId || refreshed.completed
               || ['arranged', 'ongoing', 'finished'].includes(refreshed.status)));
             finalStatus = booked ? 'booked' : 'pending';
-            outcome = { fixtureId: candidate.id, result: booked ? 'booking_confirmed_after_error_70' : 'error_70_unresolved', errorCode: 70 };
+            outcome = {
+              fixtureId: candidate.id,
+              result: booked ? 'booking_confirmed_after_error_70' : 'error_70_unresolved',
+              actionAttempted: true,
+              errorCode: 70,
+              explanation: booked ? 'Hattrick confirmed the fixture after its ambiguous response.' : 'Hattrick error 70; state was rechecked and no booking was confirmed.',
+              ...(booked ? {} : { nextAttemptAt: nextAutoBookingAttemptAt(bookingSchedule, now, 'error_70')?.toISOString() }),
+            };
           } else if (firstAction.statusCode >= 400) {
             finalStatus = 'failed';
-            outcome = { fixtureId: candidate.id, result: 'action_failed', action: action.action, error: firstAction.body.error || 'CHPP action failed.' };
+            const persistentBlock = firstAction.statusCode === 409 || firstAction.statusCode === 400;
+            outcome = {
+              fixtureId: candidate.id,
+              result: 'action_failed',
+              action: action.action,
+              actionAttempted: firstAction.statusCode >= 500,
+              error: firstAction.body.error || 'CHPP action failed.',
+              ...(firstAction.body.errorCode === undefined ? {} : { errorCode: firstAction.body.errorCode }),
+              httpStatus: firstAction.statusCode,
+              nextAttemptAt: nextAutoBookingAttemptAt(bookingSchedule, now, persistentBlock ? 'persistent_block' : 'transient_error')?.toISOString(),
+            };
           } else {
             const afterChallenge = await readState();
             const refreshed = afterChallenge.fixtures.find((item) => item.id === candidate.id);
@@ -1269,7 +1346,7 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
             let acceptFailure: Record<string, unknown> | null = null;
             if (action.action === 'challenge' && receiver) {
               const accepted = await invoke('accept', receiver);
-              if (accepted.statusCode >= 400) acceptFailure = accepted.body;
+              if (accepted.statusCode >= 400) acceptFailure = { ...accepted.body, httpStatus: accepted.statusCode };
             }
             const finalState = await readState();
             const finalFixture = finalState.fixtures.find((item) => item.id === candidate.id);
@@ -1279,6 +1356,10 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
             outcome = {
               fixtureId: candidate.id,
               result: booked ? 'booking_confirmed' : acceptFailure ? 'challenge_sent_accept_failed' : 'challenge_pending',
+              action: action.action,
+              actionAttempted: true,
+              explanation: booked ? 'The fixture is booked.' : acceptFailure ? 'Challenge was sent, but acceptance failed; the fixture will be checked again.' : 'Challenge sent; waiting for the exact opponent to accept.',
+              ...(booked ? {} : { nextAttemptAt: nextAutoBookingAttemptAt(bookingSchedule, now, 'pending')?.toISOString() }),
               ...(acceptFailure ? {
                 error: acceptFailure.error || 'Acceptance failed.',
                 ...(acceptFailure.errorCode === undefined ? {} : { errorCode: acceptFailure.errorCode }),
@@ -1312,7 +1393,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data, error } = await supabase.from('tournament_season_auto_booking_settings')
         .select('enabled').eq('tournament_id', tournament.id).eq('season_number', season).maybeSingle();
       if (error) throw error;
-      return res.status(200).json({ enabled: data?.enabled === true, season });
+      const { data: runs, error: runsError } = await supabase.from('forge_booking_worker_runs')
+        .select('id, fixture_id, status, outcome, started_at, finished_at')
+        .eq('tournament_id', tournament.id)
+        .eq('season_number', season)
+        .eq('mode', 'real')
+        .order('started_at', { ascending: false })
+        .limit(10);
+      if (runsError) throw runsError;
+      const fixtureIds = [...new Set((runs || []).map((run) => run.fixture_id).filter((id): id is string => Boolean(id)))];
+      const fixturesById = new Map<string, { home: string | null; away: string | null }>();
+      if (fixtureIds.length) {
+        const { data: fixtures, error: fixturesError } = await supabase.from('matches')
+          .select('id, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)')
+          .in('id', fixtureIds);
+        if (fixturesError) throw fixturesError;
+        for (const fixture of fixtures || []) {
+          const home = relationOne(fixture.home_team as { name: string } | { name: string }[] | null)?.name || null;
+          const away = relationOne(fixture.away_team as { name: string } | { name: string }[] | null)?.name || null;
+          fixturesById.set(fixture.id, { home, away });
+        }
+      }
+      const activity = (runs || []).map((run) => {
+        const outcome = run.outcome && typeof run.outcome === 'object' ? run.outcome as Record<string, unknown> : {};
+        const result = typeof outcome.result === 'string' ? outcome.result : run.status;
+        const actualAction = outcome.actionAttempted === true || [
+          'booking_confirmed', 'booking_confirmed_after_error_70', 'booking_pending',
+          'challenge_pending', 'challenge_sent_accept_failed', 'error_70_unresolved',
+        ].includes(result);
+        const nextAttemptAt = typeof outcome.nextAttemptAt === 'string' && Number.isFinite(Date.parse(outcome.nextAttemptAt))
+          ? outcome.nextAttemptAt : null;
+        const explanationValue = [outcome.explanation, outcome.reason, outcome.error]
+          .find((value): value is string => typeof value === 'string' && value.length > 0);
+        const explanation = explanationValue?.slice(0, 240) || null;
+        const errorCode = typeof outcome.errorCode === 'number' || typeof outcome.errorCode === 'string'
+          ? outcome.errorCode : null;
+        return {
+          id: run.id,
+          fixtureId: run.fixture_id,
+          fixture: run.fixture_id ? fixturesById.get(run.fixture_id) || null : null,
+          status: run.status,
+          result,
+          action: typeof outcome.action === 'string' ? outcome.action : null,
+          actualAction,
+          errorCode,
+          explanation,
+          startedAt: run.started_at,
+          finishedAt: run.finished_at,
+          nextAttemptAt,
+        };
+      });
+      return res.status(200).json({ enabled: data?.enabled === true, season, activity });
     }
     if (req.method === 'POST' && req.body?.action === 'set-auto-booking') {
       if (typeof req.body?.tournamentId !== 'string' || !req.body.tournamentId.trim() || typeof req.body?.enabled !== 'boolean') {

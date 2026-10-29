@@ -86,22 +86,41 @@ Finished, archived, cancelled, test, disabled, and old-season entries are
 excluded. Each invocation is capped at five tournament fixtures and records
 outcomes in the service-only `forge_booking_worker_runs` table. A database
 uniqueness constraint prevents overlapping runs for the same tournament season.
-Unresolved CHPP failures wait 10 minutes before retry, Hattrick error 70 waits
-15 minutes, and empty-round checks wait 15 minutes. A fixture with no safe action
-is skipped for one hour before it is checked again; this does not delay other
-fixtures in that tournament. Recent successful fixture IDs are skipped for 24
-hours, so stale local rows do not cause repeated challenge-state reads or block
-other fixtures.
+Recent results are bounded to the last 24 hours; booked fixtures and fixtures
+whose saved next-attempt time is still in the future are skipped without CHPP
+reads.
+
+For international midweek fixtures (different team countries and
+`midweek_friendly` schedule metadata), the worker derives the opening from the
+fixture date in Europe/Stockholm time. It makes three preliminary checks on
+Wednesday at 10:00, 14:00 and 18:00, then checks every two hours overnight until
+Thursday 06:00. Once open, pending bookings and Hattrick error 70 are checked
+again after five minutes. Weekend and domestic fixtures do not use that Thursday
+window; ordinary eligibility checks wait two hours. Persistent opt-out or CHPP
+permission/ownership blocks wait up to 12 hours, while other transient state
+errors wait 30 minutes (five minutes once the international window is open).
+When no fixture is due, the tournament waits at least two hours before another
+database check. Unfinished `running` audit rows older than ten minutes are marked
+failed to release the overlap guard.
+
+Forge → Match Bookings reads the latest ten real-mode audit rows through its
+authenticated server endpoint and shows activity at the bottom of the page.
+No browser access to the private audit table is granted. The panel shows the
+latest result and next scheduled attempt when available; absence of recent rows
+does not prove the Cron is healthy.
 
 Live actions additionally require the server-only
 `AUTO_BOOKING_CRON_LIVE_ENABLED=true`, an explicit request for `mode: "real"`,
 and the season's existing automatic-booking setting. Each challenge/accept still
 uses the existing Forge action checks for live booking state, consent, permission,
 credential ownership, and manager preferences. Hattrick error 70 causes a state
-reread and no retry. The single-job replacement SQL and enabled-tournament preview
+reread without an immediate action retry; if unresolved, the next check is five
+minutes later. The single-job replacement SQL and enabled-tournament preview
 are in [auto-booking-cron.sql](auto-booking-cron.sql). That SQL has not been run;
-no cron, deployment, or automatic execution is configured. It uses the existing
-`AUTO_BOOKING_CRON_SECRET` Vault entry and the owner-confirmed production URL.
+no cron was changed and no deployment was made in this work. The owner reports
+the generalized production cron is already running; live status was not
+independently inspected. The SQL uses the existing `AUTO_BOOKING_CRON_SECRET`
+Vault entry and owner-confirmed production URL.
 
 For a local auth smoke check, configure `AUTO_BOOKING_CRON_SECRET` in the local
 server environment, then send a POST with `Authorization: Bearer <secret>` and

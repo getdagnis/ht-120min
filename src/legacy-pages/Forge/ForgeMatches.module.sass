@@ -86,6 +86,74 @@
     flex-basis: 100%
     color: var(--text60)
 
+.autoBookingActivityHeader
+  display: flex
+  align-items: flex-start
+  justify-content: space-between
+  gap: 1rem
+
+  p
+    margin: 0.35rem 0 0
+    color: var(--text60)
+    font-size: 0.85rem
+
+.autoBookingLatest
+  margin-top: 1rem
+  padding: 0.75rem 1rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--bg)
+
+  p
+    margin: 0.2rem 0
+
+  small
+    display: block
+    margin-top: 0.5rem
+    color: var(--text60)
+
+.autoBookingHistory
+  margin-top: 0.9rem
+
+  summary
+    color: var(--text-h)
+    cursor: pointer
+    font-weight: 700
+
+  ol
+    display: grid
+    gap: 0.6rem
+    margin: 0.75rem 0
+    padding-left: 1.4rem
+
+  li
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+    padding: 0.65rem 0
+    border-bottom: 1px solid var(--border)
+    color: var(--text60)
+    font-size: 0.85rem
+
+  p
+    margin: 0.25rem 0 0
+    color: var(--text)
+
+  small
+    color: var(--text60)
+
+.autoBookingHistoryHeading
+  display: flex
+  justify-content: space-between
+  gap: 1rem
+
+  strong
+    color: var(--text-h)
+
+  time
+    color: var(--text60)
+    text-align: right
+
 .select
   width: 100%
   border: 1px solid var(--border)
@@ -453,3 +521,11 @@
 
   .overviewTeams
     grid-template-columns: 1fr
+
+  .autoBookingActivityHeader,
+  .autoBookingHistoryHeading
+    align-items: flex-start
+    flex-direction: column
+
+  .autoBookingHistoryHeading time
+    text-align: left

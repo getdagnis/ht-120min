@@ -6,6 +6,7 @@ import {
   MAX_AUTO_BOOKING_TOURNAMENTS_PER_RUN,
   selectEnabledCurrentTournaments,
   shouldSkipRecentFixture,
+  STALE_AUTO_BOOKING_RUN_MS,
   type AutoBookingRun,
   type EnabledAutoBookingSetting,
 } from '../_lib/auto-booking-cron.js';
@@ -58,6 +59,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const now = Date.now();
     const tournamentIds = enabled.map(({ tournament }) => tournament.id);
+    const staleBefore = new Date(now - STALE_AUTO_BOOKING_RUN_MS).toISOString();
+    const { data: staleRuns, error: staleRunsError } = await supabase.from('forge_booking_worker_runs')
+      .select('id, started_at, outcome')
+      .in('tournament_id', tournamentIds)
+      .eq('mode', mode)
+      .eq('status', 'running')
+      .lt('started_at', staleBefore)
+      .limit(MAX_AUTO_BOOKING_TOURNAMENTS_PER_RUN * 10);
+    if (staleRunsError) throw staleRunsError;
+    for (const staleRun of staleRuns || []) {
+      const { error } = await supabase.from('forge_booking_worker_runs').update({
+        status: 'failed',
+        outcome: { ...(staleRun.outcome || {}), result: 'stale_run_recovered', explanation: 'The previous worker stopped without finishing; its overlap guard was released.' },
+        finished_at: new Date(now).toISOString(),
+      }).eq('id', staleRun.id).eq('status', 'running');
+      if (error) throw error;
+    }
+
     const { data: runRows, error: runsError } = await supabase.from('forge_booking_worker_runs')
       .select('tournament_id, season_number, mode, status, outcome, fixture_id, started_at')
       .in('tournament_id', tournamentIds)
@@ -68,14 +87,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (runsError) throw runsError;
 
     const latestRun = new Map<string, AutoBookingRun>();
+    const latestFixtureRun = new Map<string, AutoBookingRun>();
     const recentlyBookedFixtureIds = new Map<string, string[]>();
+    const nextFixtureAttemptAt = new Map<string, number>();
     for (const run of (runRows || []) as AutoBookingRun[]) {
       const key = autoBookingRunKey(run.tournament_id, run.season_number);
       if (!latestRun.has(key)) latestRun.set(key, run);
+      if (run.fixture_id) {
+        const fixtureKey = `${key}:${run.fixture_id}`;
+        if (!latestFixtureRun.has(fixtureKey)) latestFixtureRun.set(fixtureKey, run);
+      }
+    }
+    for (const run of latestFixtureRun.values()) {
+      const key = autoBookingRunKey(run.tournament_id, run.season_number);
       if (shouldSkipRecentFixture(run, now)) {
         const fixtureIds = recentlyBookedFixtureIds.get(key) || [];
-        fixtureIds.push(run.fixture_id);
+        if (run.fixture_id && !fixtureIds.includes(run.fixture_id)) fixtureIds.push(run.fixture_id);
         recentlyBookedFixtureIds.set(key, fixtureIds);
+        if (run.fixture_id && run.status !== 'booked') {
+          const nextAt = Date.parse(String(run.outcome?.nextAttemptAt || ''));
+          if (Number.isFinite(nextAt) && nextAt > now) {
+            const previous = nextFixtureAttemptAt.get(key);
+            if (previous === undefined || nextAt < previous) nextFixtureAttemptAt.set(key, nextAt);
+          }
+        }
       }
     }
 
@@ -113,6 +148,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           tournamentId: tournament.id,
           mode,
           skipFixtureIds: recentlyBookedFixtureIds.get(key) || [],
+          ...(nextFixtureAttemptAt.has(key)
+            ? { nextCandidateAttemptAt: new Date(nextFixtureAttemptAt.get(key)!).toISOString() }
+            : {}),
           ...(mode === 'real' ? { confirmRealChpp: REAL_BOOKING_CONFIRMATION } : {}),
         },
       } as VercelRequest;
