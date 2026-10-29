@@ -45,7 +45,7 @@ export async function handleFlagQuiz(req: VercelRequest, res: VercelResponse) {
   if (stateError || !state) throw new Error('Could not load flag quiz results.');
   const payload: FlagQuizState = {
     question: { id: question.starts_at, expiresAt: question.expires_at, emoji: question.emoji, options: question.options },
-    canAnswer: Boolean(session), answer: state.answer, results: state.results, leaders: state.leaders,
+    canAnswer: Boolean(session), answer: state.answer, results: state.results, leaderboards: state.leaderboards,
   };
   return res.status(200).json(payload);
 }

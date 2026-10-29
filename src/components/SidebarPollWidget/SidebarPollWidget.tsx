@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Flag } from 'phosphor-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -15,6 +15,7 @@ const QUIZ_URL = '/api/app?route=flag-quiz';
 
 export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myHtUserId }) => {
   const t = useTranslations('PublicUI.SidebarPollWidget');
+  const locale = useLocale();
   const pathname = usePathname() || '/';
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,9 +124,11 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
               </li>;
             })}
           </ol>
-          {quiz.leaders.length > 0 && <div className={styles.leaderboard}>
-            <strong>{t('bestThisMonth')}</strong>
-            <ol className={styles.leaders}>{quiz.leaders.map((leader) => {
+          {[{ ...quiz.leaderboards.current, label: t('bestThisMonth', { month: formatMonth(quiz.leaderboards.current.month, locale) }), limit: 20 },
+            { ...quiz.leaderboards.previous, label: t('bestPreviousMonth', { month: formatMonth(quiz.leaderboards.previous.month, locale) }), limit: 5 }]
+            .filter((board) => board.leaders.length > 0).map((board) => <div className={styles.leaderboard} key={board.month}>
+            <strong>{board.label}</strong>
+            <ol className={styles.leaders}>{board.leaders.slice(0, board.limit).map((leader) => {
               const countryName = getCanonicalCountryName(leader.countryName, leader.countryId);
               const countryFlag = getCountryFlagUrl(leader.countryId, countryName);
               return <li key={leader.managerId}>
@@ -145,7 +148,7 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
                 <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
               </li>;
             })}</ol>
-          </div>}
+          </div>)}
         </div> : <form onSubmit={submit} className={styles.form}>
           <fieldset disabled={busy || !quiz.canAnswer} className={styles.options}>
             <legend className={styles.legend}>{t('chooseCountry')}</legend>
@@ -166,3 +169,8 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
     </ReusableWidget>
   );
 };
+
+function formatMonth(month: string, locale: string) {
+  const date = new Date(`${month}-01T00:00:00Z`);
+  return new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(date);
+}

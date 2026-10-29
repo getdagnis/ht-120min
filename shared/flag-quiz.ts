@@ -31,12 +31,16 @@ export interface FlagQuizLeader {
   correct: number;
   attempted: number;
 }
+export interface FlagQuizLeaderboard {
+  month: string;
+  leaders: FlagQuizLeader[];
+}
 export interface FlagQuizState {
   question: FlagQuizQuestion;
   canAnswer: boolean;
   answer: null | { selectedLeagueId: number; correctLeagueId: number };
   results: null | { total: number; options: Array<{ leagueId: number; count: number }> };
-  leaders: FlagQuizLeader[];
+  leaderboards: { current: FlagQuizLeaderboard; previous: FlagQuizLeaderboard };
 }
 
 function shuffle<T>(values: T[], random: () => number): T[] {

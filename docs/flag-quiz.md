@@ -50,14 +50,15 @@ Responses use `private, no-store`; personalized quiz state is outside shared
 Home/tournament snapshots and does not invalidate them.
 
 The leaderboard is calculated in SQL from answers submitted during the current
-UTC calendar month. It shows up to 20 managers with at least one correct answer,
-ranked by correct total, with correct/attempted counts. Equal totals share a rank;
-nickname then manager ID provide stable display ordering and cutoff. Nicknames
-come from `profiles`, with a neutral fallback for missing profiles. The answered
-leaderboard response includes profile ID, avatar, and base-country fields for these
-20 clickable profile rows; it never returns a raw voter list. Raw tables and RPCs
-have RLS and service-role-only privileges; browser localStorage identity never
-authorizes a vote.
+and previous UTC calendar months. It shows up to 20 managers for the current
+month and five for the previous month, with month keys for localized labels.
+Managers with at least one correct answer rank by correct total, then by the
+timestamp of their first guess that month; nickname and manager ID provide stable
+ordering for exact timestamp ties and the display cutoff. Nicknames come from
+`profiles`, with a neutral fallback for missing profiles. Leaderboard rows include
+profile ID, avatar, and base-country fields; raw voter lists are never returned.
+Raw tables and RPCs have RLS and service-role-only privileges; browser localStorage
+identity never authorizes a vote.
 
 ## Presentation
 
@@ -66,7 +67,7 @@ neutral accessible label, no `title` or tooltip wrapper, and no country-name lab
 before answering. The widget disables text selection, including Safari. Browser
 or operating-system emoji lookup tools remain outside the page's control. Radio
 options remain keyboard accessible. Results label both the manager's guess and
-the correct option. The monthly ranking appears below answered results only.
+the correct option. The current and previous month rankings appear below answered results only.
 
 Leaderboard rows follow the tournament chat treatment: 22px avatar, clickable
 manager name opening the existing `profileId` view, and smaller canonical country
