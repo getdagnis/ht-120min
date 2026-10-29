@@ -459,6 +459,8 @@ export function ForgeMatchesSection() {
   const chooseTournament = (tournamentId: string) => {
     loadEpoch.current++;
     loadController.current?.abort();
+    setAutoBooking(null);
+    setAutoBookingError('');
     setSelectedTournamentId(tournamentId);
     setSelectedRoundNumber(null);
     setData(null);
@@ -468,8 +470,6 @@ export function ForgeMatchesSection() {
   };
 
   useEffect(() => {
-    setAutoBooking(null);
-    setAutoBookingError('');
     if (!selectedTournamentId) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ tournamentId: selectedTournamentId, setting: 'auto-booking' });
