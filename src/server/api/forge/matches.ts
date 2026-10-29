@@ -35,6 +35,7 @@ import {
   type ForgeMatchSide,
   type ForgeTeamChallengeInspection,
 } from '../_lib/forge-matches.js';
+import { bookingWorkerMode, chooseWorkerFixture, hasRealBookingConfirmation, isAmbiguousChallengeFailure, isWorkerTournamentId, REAL_BOOKING_CONFIRMATION, workerInitialAction } from '../_lib/auto-booking-worker.js';
 
 type ForgeTournamentRow = {
   id: string;
@@ -1124,7 +1125,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       matchPlace: requestedMatchPlace ?? context.target.matchPlace,
       isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
     });
-    if (!sent.success) return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.' });
+    if (!sent.success) return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.', errorCode: sent.errorCode });
     if (req.body?.compactResponse === true) return res.status(200).json({
       action: { type: 'challenge', matchId, actingSide, message: 'Challenge sent. Refreshing this fixture from Hattrick.' },
     });
@@ -1150,7 +1151,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
     trainingMatchId: existingIncoming.trainingMatchId,
     isWeekendFriendly: getFixtureWeekendFlag(context.row.schedule_slot_type),
   });
-  if (!accepted.success) return res.status(502).json({ error: accepted.errorMessage || 'Hattrick could not accept this challenge.' });
+  if (!accepted.success) return res.status(502).json({ error: accepted.errorMessage || 'Hattrick could not accept this challenge.', errorCode: accepted.errorCode });
   if (req.body?.compactResponse === true) return res.status(200).json({
     action: { type: 'accept', matchId, actingSide, message: 'Challenge accepted. Refreshing this fixture.' },
   });
@@ -1163,6 +1164,141 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       message: 'Challenge accepted. Fixture refresh was requested by the Matches UI.',
     },
   }));
+}
+
+export async function runAutoBookingWorker(req: VercelRequest, res: VercelResponse) {
+  const tournamentId = readString(req.body?.tournamentId);
+  const mode = bookingWorkerMode(req.body?.mode);
+  if (!isWorkerTournamentId(tournamentId)) return res.status(400).json({ error: 'A valid tournamentId UUID is required.' });
+
+  const supabase = getServiceSupabase();
+  const tournament = await loadTournament(supabase, tournamentId);
+  if (!tournament || tournament.slug?.toLowerCase() !== 'staburaga-kauss') {
+    return res.status(404).json({ error: 'The booking worker is restricted to Staburaga kauss.' });
+  }
+  const round = await loadCurrentRound(supabase, tournament);
+  if (!round || round.phase_status !== 'materialized') {
+    return res.status(409).json({ error: 'There is no materialized round to inspect.' });
+  }
+
+  if (mode === 'real') {
+    if (!hasRealBookingConfirmation(req.body?.confirmRealChpp)) {
+      return res.status(400).json({ error: `Real CHPP actions require confirmRealChpp: "${REAL_BOOKING_CONFIRMATION}".` });
+    }
+    const { data: setting, error } = await supabase.from('tournament_season_auto_booking_settings')
+      .select('enabled').eq('tournament_id', tournament.id).eq('season_number', tournament.season || 1).maybeSingle();
+    if (error) throw error;
+    if (setting?.enabled !== true) return res.status(409).json({ error: 'Automatic booking must be enabled for this season before real worker actions.' });
+  }
+
+  const startedAt = new Date().toISOString();
+  const { data: run, error: claimError } = await supabase.from('forge_booking_worker_runs').insert({
+    tournament_id: tournament.id, season_number: tournament.season || 1, round_id: round.id,
+    mode, status: 'running', outcome: {}, started_at: startedAt,
+  }).select('id').single();
+  if (claimError) {
+    if (claimError.code === '23505') return res.status(409).json({ error: 'A booking worker run is already active for this tournament season.' });
+    throw claimError;
+  }
+
+  let finalStatus: 'dry_run' | 'booked' | 'pending' | 'skipped' | 'failed' = mode === 'dry_run' ? 'dry_run' : 'skipped';
+  let outcome: Record<string, unknown> = {};
+  let fixtureId: string | null = null;
+  try {
+    const rows = await loadFixtureRows(supabase, round.id);
+    const candidate = rows.find((row) => row.home_team_id && row.away_team_id && !row.completed && !row.ht_match_id
+      && row.status !== 'misarranged' && !['arranged', 'ongoing', 'finished'].includes(row.status || ''));
+    if (!candidate) {
+      outcome = { result: 'no_outstanding_fixture' };
+    } else {
+      fixtureId = candidate.id;
+      const readState = async () => buildMatchesResponse(supabase, tournament, {
+        roundNumber: round.round_number, mode: 'states', matchIds: [candidate.id],
+      });
+      const firstState = await readState();
+      const fixture = firstState.fixtures.find((item) => item.id === candidate.id);
+      const checkError = firstState.fixtureErrors.find((item) => item.matchId === candidate.id)?.error;
+      if (!fixture || checkError) {
+        finalStatus = 'failed';
+        outcome = { fixtureId: candidate.id, result: 'state_check_failed', reason: checkError || 'Hattrick state unavailable.' };
+      } else {
+        const eligible = chooseWorkerFixture([fixture]);
+        const action = eligible ? workerInitialAction(eligible) : null;
+        if (!eligible || !action) {
+          finalStatus = 'skipped';
+          outcome = {
+            fixtureId: candidate.id,
+            result: 'no_safe_action',
+            reason: fixture.home.autoArrangeEnabled !== true || fixture.away.autoArrangeEnabled !== true
+              ? 'Manager auto-arrange consent is off or unavailable.' : 'No exact-opponent challenge action is ready.',
+          };
+        } else if (mode === 'dry_run') {
+          finalStatus = 'dry_run';
+          outcome = { fixtureId: candidate.id, result: 'would_act', action: action.action, actingSide: action.side };
+        } else {
+          const invoke = async (act: 'challenge' | 'accept', side: 'home' | 'away') => {
+            let statusCode = 200;
+            let body: Record<string, unknown> = {};
+            const response = {
+              status(code: number) { statusCode = code; return this; },
+              json(value: Record<string, unknown>) { body = value; return this; },
+            } as unknown as VercelResponse;
+            await executeAction({ ...req, body: {
+              tournamentId, roundNumber: round.round_number, matchId: candidate.id,
+              actingSide: side, action: act, compactResponse: true, bulkAutoArrange: true,
+            } } as VercelRequest, response);
+            return { statusCode, body };
+          };
+
+          const firstAction = await invoke(action.action, action.side);
+          if (firstAction.statusCode >= 400 && action.action === 'challenge'
+            && isAmbiguousChallengeFailure(firstAction.body.errorCode)) {
+            const stateAfter70 = await readState();
+            const refreshed = stateAfter70.fixtures.find((item) => item.id === candidate.id);
+            const booked = Boolean(refreshed && (refreshed.htMatchId || refreshed.completed
+              || ['arranged', 'ongoing', 'finished'].includes(refreshed.status)));
+            finalStatus = booked ? 'booked' : 'pending';
+            outcome = { fixtureId: candidate.id, result: booked ? 'booking_confirmed_after_error_70' : 'error_70_unresolved', errorCode: 70 };
+          } else if (firstAction.statusCode >= 400) {
+            finalStatus = 'failed';
+            outcome = { fixtureId: candidate.id, result: 'action_failed', action: action.action, error: firstAction.body.error || 'CHPP action failed.' };
+          } else {
+            const afterChallenge = await readState();
+            const refreshed = afterChallenge.fixtures.find((item) => item.id === candidate.id);
+            const receiver = refreshed?.home.canAccept ? 'home' : refreshed?.away.canAccept ? 'away' : null;
+            let acceptFailure: Record<string, unknown> | null = null;
+            if (action.action === 'challenge' && receiver) {
+              const accepted = await invoke('accept', receiver);
+              if (accepted.statusCode >= 400) acceptFailure = accepted.body;
+            }
+            const finalState = await readState();
+            const finalFixture = finalState.fixtures.find((item) => item.id === candidate.id);
+            const booked = Boolean(finalFixture && (finalFixture.htMatchId || finalFixture.completed
+              || ['arranged', 'ongoing', 'finished'].includes(finalFixture.status)));
+            finalStatus = booked ? 'booked' : 'pending';
+            outcome = {
+              fixtureId: candidate.id,
+              result: booked ? 'booking_confirmed' : acceptFailure ? 'challenge_sent_accept_failed' : 'challenge_pending',
+              ...(acceptFailure ? {
+                error: acceptFailure.error || 'Acceptance failed.',
+                ...(acceptFailure.errorCode === undefined ? {} : { errorCode: acceptFailure.errorCode }),
+              } : {}),
+            };
+          }
+        }
+      }
+    }
+    return res.status(200).json({ runId: run.id, mode, status: finalStatus, ...outcome });
+  } catch (error) {
+    finalStatus = 'failed';
+    outcome = { result: 'worker_failed', reason: error instanceof Error ? error.message : 'Unknown worker failure.' };
+    throw error;
+  } finally {
+    const { error } = await supabase.from('forge_booking_worker_runs').update({
+      fixture_id: fixtureId, status: finalStatus, outcome, finished_at: new Date().toISOString(),
+    }).eq('id', run.id);
+    if (error) console.error('Could not persist Forge booking worker outcome:', error);
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -1191,6 +1327,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }, { onConflict: 'tournament_id,season_number' });
       if (error) throw error;
       return res.status(200).json({ enabled: req.body.enabled, season });
+    }
+    if (req.method === 'POST' && req.body?.action === 'run-auto-booking-worker') {
+      return await runAutoBookingWorker(req, res);
     }
     if (req.method === 'POST') return await executeAction(req, res);
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });

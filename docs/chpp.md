@@ -76,8 +76,60 @@ actions reread both managers' current auto-arrange preferences server-side and
 skip an opt-out. A specific Hattrick refusal to accept challenges permits one
 retry from the other fixture side; the existing side-based `matchPlace` keeps
 the scheduled home/away venue. The browser runs actions one at a time and Stop
-finishes the current request. Accepted fixtures are reconciled once at the end;
-the run is not a scheduled Thursday worker and has no durable queue or audit log.
+finishes the current request. Accepted fixtures are reconciled once at the end.
+
+A separate server-side worker is available through the existing consolidated
+API at `POST /api/cron/auto-booking`. It requires a server-only bearer secret
+(`AUTO_BOOKING_CRON_SECRET`, at least 32 characters), does not require a Forge
+session, and is restricted to `staburaga-kauss`. It handles at most one open
+fixture per run, defaults to dry-run, and records each outcome in the service-only
+`forge_booking_worker_runs` table. Database uniqueness prevents overlapping runs
+for the same tournament season. Live actions additionally require the server-only
+`AUTO_BOOKING_CRON_LIVE_ENABLED=true`, an explicit request for `mode: "real"`,
+and the season's existing automatic-booking setting. Each challenge/accept still
+uses the existing Forge action checks for live booking state, consent, permission,
+credential ownership, and manager preferences. Hattrick error 70 causes a state
+reread and no retry. No cron, deployment, or automatic execution is configured.
+
+For a local auth smoke check, configure `AUTO_BOOKING_CRON_SECRET` in the local
+server environment, then send a POST with `Authorization: Bearer <secret>` and a
+JSON body containing Staburaga kauss's `tournamentId`. Omit `mode` to remain in
+dry-run. Do not put the secret in browser code or a URL. The handler and auth
+contract are covered by `tests/cron-auto-booking.test.ts`.
+
+To run one local dry-run after applying migration 162 to the database used by
+the local app, open Forge while signed in as a Forge admin and run this in the
+browser console. It looks up the tournament UUID by its restricted slug:
+
+```js
+const { tournaments } = await fetch('/api/forge/matches', { credentials: 'include' }).then((r) => r.json());
+const tournament = tournaments.find((item) => item.slug === 'staburaga-kauss');
+if (!tournament) throw new Error('Staburaga kauss was not returned by Forge.');
+const response = await fetch('/api/forge/matches', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: 'run-auto-booking-worker', tournamentId: tournament.id }),
+});
+console.log(await response.json());
+```
+
+The response includes `runId`, `mode: "dry_run"`, and the inspected fixture's
+proposed action or skip reason. Inspect the durable record with:
+
+```sql
+select id, tournament_id, season_number, round_id, fixture_id, mode, status, outcome, started_at, finished_at
+from public.forge_booking_worker_runs
+order by started_at desc
+limit 10;
+```
+
+Dry-run performs CHPP state reads for one candidate and writes one audit row;
+it does not send or accept a challenge. Confirm the local app points to a
+non-production database before invoking it if an audit write there is not
+intended. If a server process is terminated mid-run, its `running` row safely
+blocks another attempt; after confirming no request is still active, mark that
+row failed before retrying rather than clearing the guard blindly.
 
 ## Match Refresh Rules
 

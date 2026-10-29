@@ -14,6 +14,7 @@ import teamInfoHandler from '../../../server/api/teams/info.js';
 import refreshFixturesHandler from '../../../server/api/teams/refresh-fixtures.js';
 import testingHandler from '../../../server/api/testing/index.js';
 import forgeMatchesHandler from '../../../server/api/forge/matches.js';
+import autoBookingCronHandler from '../../../server/api/cron/auto-booking.js';
 import { invalidatePublicTournament } from '../../../server/api/_lib/tournament-cache.js';
 
 const cookieHeaderToObject = (value: string | null) => {
@@ -58,6 +59,8 @@ function selectHandler(request: NextRequest, query: Record<string, string | stri
       return appHandler;
     case 'forge/matches':
       return forgeMatchesHandler;
+    case 'cron/auto-booking':
+      return autoBookingCronHandler;
     case 'auth/init':
       return authInitHandler;
     case 'auth/callback':

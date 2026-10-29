@@ -30,7 +30,8 @@ Important tables used by current code:
 - `tournament_announcement_dismissals`
 - `tournament_seasons`
 - `tournament_team_auto_arrange_preferences`
-- `tournament_season_auto_booking_settings` (161 prepared: private Forge setting keyed by tournament and season; absent row is OFF; no booking worker is connected)
+- `tournament_season_auto_booking_settings` (161 prepared: private Forge setting keyed by tournament and season; absent row is OFF; real worker actions require it ON)
+- `forge_booking_worker_runs` (162 prepared: private manual-only Forge worker audit and per-tournament-season overlap guard; no cron or automatic invocation)
 - `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
@@ -48,7 +49,7 @@ Team planning checks are tournament-owned snapshots in `tournament_team_planning
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration is `151_organizer_saved_round_repair.sql`, prepared locally and not applied. Foundation 150 requires 149 and supports checks/previews/creation independently; 151 separately enables saved-round repair. Earlier migration `144_tournament_team_planning_statuses.sql` creates service-only per-team snapshots for the first unresolved round in the current season (round 1 before fixtures exist). Migration `143_flag_quiz_leader_profiles.sql` remains prepared; migration 142 carries an owner-added applied marker, but live schema state is not independently verified. Apply 144 before deploying saved team planning statuses, and apply 143 before deploying the profile-enhanced quiz leaderboard. `141_repair_unslotted_length_participants.sql` is a prepared one-time repair for four specific Active teams. It has not been applied by the agent and must be reviewed against fresh target rows before use. It depends on the installed season-slot and assignment contracts, not on the unrelated 138/139 features. The earlier `140_allow_finalized_unplayed_slot_departure.sql` remains a separate prepared file; whether the owner applied it is being checked. `139_match_120m_ratings.sql` is prepared locally and not applied to Supabase; apply it before deploying the 120mRt public projection or finished-match writers. `138_use_confirmed_kickoff_for_fixture_ratings.sql` is also prepared locally and requires the confirmed-date and ratings contracts from 101, 118 and 119; inspect those installed definitions before applying it. `137_reserve_waiting_and_past_actions.sql` remains prepared in the local ledger and requires 134–136 (owner-marked applied, not independently live-verified). Apply 137 before deploying its API/UI. See [reserve membership actions](#team-membership-phase-1). Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
+- The latest active migrations are `161_tournament_season_auto_booking_settings.sql` and `162_forge_booking_worker_runs.sql`; both are prepared locally, and 162 is required before using the manual worker endpoint. The worker is not scheduled or deployed. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -95,6 +96,8 @@ Recent important migrations:
 - `150_organizer_pairing_assistant.sql` (prepared, not applied: private slot-check records, expanded stale-context identity fingerprint, and atomic verified creation of organizer-added rounds plus locked profile flag merges. Requires 149. Tests authored but not run; apply before deploying the updated editor/API or Forge flag-cache writes.)
 
 - `151_organizer_saved_round_repair.sql` (prepared, not applied: separately enables atomic saved-round repair and its editor capability; requires 150. Higher-risk milestone with unrun disposable database checks.)
+- `161_tournament_season_auto_booking_settings.sql` (prepared: private per-season opt-in; does not itself execute booking)
+- `162_forge_booking_worker_runs.sql` (prepared: private run outcomes and one-active-run constraint for the manual Forge worker; no cron)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared
@@ -123,6 +126,11 @@ The migrated application exposes one consolidated Next.js API route at
 `src/server/api/` and are not standalone root `api/` functions. Keep future
 server work behind the consolidated route unless the deployment function
 budget is explicitly rechecked.
+
+The manual auto-booking cron target is routed through this same function at
+`POST /api/cron/auto-booking`; it uses server-only `AUTO_BOOKING_CRON_SECRET`
+and defaults to dry-run. Do not create a Supabase Cron job until the separate
+production setup step is explicitly completed.
 
 ## Deployment Notes
 
