@@ -225,9 +225,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <div className={chatStyles.chatSection}>
         <div className={chatStyles.chatMessages} ref={chatContainerRef}>
           {displayMessages.length > visibleMessageCount && (
-            <button className={chatStyles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
+            <Button variant="showMore" onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
               {t('chatLoadMore')}
-            </button>
+            </Button>
           )}
           {visibleMessages.map((msg, index) => {
             const isOwnMessage = msg.author_ht_id === myHtUserId;

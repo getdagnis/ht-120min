@@ -738,7 +738,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         {suggestionsHasMore && (
           <Button
             size="xs"
-            variant="secondaryAction"
+            variant="showMore"
             onClick={() => void handleFetchSuggestions({ append: true })}
             disabled={isFetchingSuggestions || isAddingAllSuggested}
           >

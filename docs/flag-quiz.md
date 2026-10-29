@@ -54,7 +54,10 @@ and previous UTC calendar months. It shows up to 20 managers for the current
 month and five for the previous month, with month keys for localized labels.
 Managers with at least one correct answer rank by correct total, then by the
 timestamp of their first guess that month; nickname and manager ID provide stable
-ordering for exact timestamp ties and the display cutoff. Nicknames come from
+ordering for exact timestamp ties and the display cutoff. Migration 160 supplies
+all one-attempt managers separately so the UI's Load more control can reveal them
+even when its display limit is lower than SQL's top-list limit.
+Nicknames come from
 `profiles`, with a neutral fallback for missing profiles. Leaderboard rows include
 profile ID, avatar, and base-country fields; raw voter lists are never returned.
 Raw tables and RPCs have RLS and service-role-only privileges; browser localStorage

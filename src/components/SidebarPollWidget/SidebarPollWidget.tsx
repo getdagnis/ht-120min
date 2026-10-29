@@ -22,6 +22,7 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
   const [quiz, setQuiz] = useState<FlagQuizState | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [expandedLeaderboards, setExpandedLeaderboards] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<'loadError' | 'saveError' | 'expired' | 'sessionExpired' | null>(null);
   const requestVersion = useRef(0);
 
@@ -33,6 +34,7 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
       const next: FlagQuizState = await response.json();
       if (version !== requestVersion.current) return false;
       setQuiz(next);
+      setExpandedLeaderboards({});
       setSelected(null);
       setError(null);
       return true;
@@ -45,15 +47,24 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
   useEffect(() => {
     let cancelled = false;
     const requests = requestVersion;
-    void Promise.resolve().then(() => { if (!cancelled) void load(); });
-    return () => { cancelled = true; requests.current++; };
+    void Promise.resolve().then(() => {
+      if (!cancelled) void load();
+    });
+    return () => {
+      cancelled = true;
+      requests.current++;
+    };
   }, [load, myHtUserId]);
 
   useEffect(() => {
     if (!quiz) return;
     const delay = Math.max(1000, Date.parse(quiz.question.expiresAt) - Date.now() + 250);
-    const timer = window.setTimeout(() => { void load(); }, delay);
-    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = window.setTimeout(() => {
+      void load();
+    }, delay);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearTimeout(timer);
@@ -80,7 +91,8 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
     setError(null);
     try {
       const response = await fetch(QUIZ_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId: quiz.question.id, selectedLeagueId: selected }),
       });
       if (response.status === 409) {
@@ -96,7 +108,10 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
       }
       if (!response.ok) throw new Error('Answer unavailable');
       const next: FlagQuizState = await response.json();
-      if (version === requestVersion.current) { setQuiz(next); setSelected(null); }
+      if (version === requestVersion.current) {
+        setQuiz(next);
+        setSelected(null);
+      }
     } catch {
       if (version === requestVersion.current) setError('saveError');
     } finally {
@@ -106,66 +121,166 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
 
   return (
     <ReusableWidget title={t('flagQuiz')} icon={<Flag size={20} weight="bold" />} className={styles.widget}>
-      {quiz ? <>
-        <span className={styles.flag} role="img" aria-label={t('flagLabel')}>{quiz.question.emoji}</span>
-        <p className={styles.question}>{t('question')}</p>
-        {quiz.answer && quiz.results ? <div className={styles.results} aria-live="polite">
-          <span>{t('totalAnswers', { count: quiz.results.total })}</span>
-          <ol className={styles.resultList}>
-            {quiz.question.options.map((option) => {
-              const count = quiz.results!.options.find((result) => result.leagueId === option.leagueId)?.count ?? 0;
-              const percent = quiz.results!.total ? Math.round(count / quiz.results!.total * 100) : 0;
-              const correct = option.leagueId === quiz.answer!.correctLeagueId;
-              const mine = option.leagueId === quiz.answer!.selectedLeagueId;
-              return <li key={option.leagueId} className={styles.resultItem}>
-                <div className={styles.resultHeading}><span>{option.name}</span><span>{percent}% · {count}</span></div>
-                <div className={styles.bar} aria-hidden="true"><span className={correct ? styles.correctBar : styles.fill} style={{ width: `${percent}%` }} /></div>
-                {(mine || correct) && <span className={styles.markers}>{[mine && t('yourGuess'), correct && t('correctAnswer')].filter(Boolean).join(' · ')}</span>}
-              </li>;
-            })}
-          </ol>
-          {[{ ...quiz.leaderboards.current, label: t('bestThisMonth', { month: formatMonth(quiz.leaderboards.current.month, locale) }), limit: 20 },
-            { ...quiz.leaderboards.previous, label: t('bestPreviousMonth', { month: formatMonth(quiz.leaderboards.previous.month, locale) }), limit: 5 }]
-            .filter((board) => board.leaders.length > 0).map((board) => <div className={styles.leaderboard} key={board.month}>
-            <strong>{board.label}</strong>
-            <ol className={styles.leaders}>{board.leaders.slice(0, board.limit).map((leader) => {
-              const countryName = getCanonicalCountryName(leader.countryName, leader.countryId);
-              const countryFlag = getCountryFlagUrl(leader.countryId, countryName);
-              return <li key={leader.managerId}>
-                <div className={styles.manager}>
-                  <span className={styles.rank}>{leader.rank}.</span>
-                  <Avatar avatar={leader.avatar} variant="rect" size={22} />
-                  <div className={styles.managerDetails}>
-                    <button type="button" className={styles.managerName} onClick={() => openProfile(leader.managerId)}>
-                      {leader.managerName}
-                    </button>
-                    {countryName && <span className={styles.managerCountry}>
-                      {countryFlag && <img src={countryFlag} alt="" loading="lazy" />}
-                      {countryName}
-                    </span>}
-                  </div>
-                </div>
-                <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
-              </li>;
-            })}</ol>
-          </div>)}
-        </div> : <form onSubmit={submit} className={styles.form}>
-          <fieldset disabled={busy || !quiz.canAnswer} className={styles.options}>
-            <legend className={styles.legend}>{t('chooseCountry')}</legend>
-            {quiz.question.options.map((option) => <label key={option.leagueId} className={styles.option}>
-              <input type="radio" name={`flag-quiz-${quiz.question.id}`} value={option.leagueId}
-                checked={selected === option.leagueId} onChange={() => setSelected(option.leagueId)} />
-              <span>{option.name}</span>
-            </label>)}
-          </fieldset>
-          {quiz.canAnswer ? <Button type="submit" size="sm" fullWidth disabled={selected === null || busy}>
-            {busy ? t('submitting') : t('submitGuess')}
-          </Button> : <Button type="button" size="sm" fullWidth onClick={login}>{t('loginToGuess')}</Button>}
-        </form>}
-        <span className={styles.notice}>{t('rotationNotice')}</span>
-      </> : !error && <p className={styles.notice} role="status">{t('loading')}</p>}
-      {error && <p className={styles.error} role="alert">{t(error)}</p>}
-      {error === 'loadError' && <Button type="button" size="sm" onClick={() => { void load(); }}>{t('retry')}</Button>}
+      {quiz ? (
+        <>
+          <span className={styles.flag} role="img" aria-label={t('flagLabel')}>
+            {quiz.question.emoji}
+          </span>
+          <p className={styles.question}>{t('question')}</p>
+          {quiz.answer && quiz.results ? (
+            <div className={styles.results} aria-live="polite">
+              <span>{t('totalAnswers', { count: quiz.results.total })}</span>
+              <ol className={styles.resultList}>
+                {quiz.question.options.map((option) => {
+                  const count = quiz.results!.options.find((result) => result.leagueId === option.leagueId)?.count ?? 0;
+                  const percent = quiz.results!.total ? Math.round((count / quiz.results!.total) * 100) : 0;
+                  const correct = option.leagueId === quiz.answer!.correctLeagueId;
+                  const mine = option.leagueId === quiz.answer!.selectedLeagueId;
+                  return (
+                    <li key={option.leagueId} className={styles.resultItem}>
+                      <div className={styles.resultHeading}>
+                        <span>{option.name}</span>
+                        <span>
+                          {percent}% · {count}
+                        </span>
+                      </div>
+                      <div className={styles.bar} aria-hidden="true">
+                        <span className={correct ? styles.correctBar : styles.fill} style={{ width: `${percent}%` }} />
+                      </div>
+                      {(mine || correct) && (
+                        <span className={styles.markers}>
+                          {[mine && t('yourGuess'), correct && t('correctAnswer')].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+              {[
+                {
+                  ...quiz.leaderboards.current,
+                  label: t('bestThisMonth', { month: formatMonth(quiz.leaderboards.current.month, locale) }),
+                  limit: 20,
+                },
+                {
+                  ...quiz.leaderboards.previous,
+                  label: t('bestPreviousMonth', { month: formatMonth(quiz.leaderboards.previous.month, locale) }),
+                  limit: 5,
+                },
+              ]
+                .filter((board) => board.leaders.length > 0)
+                .map((board) => {
+                  const hasOverflow = board.leaders.length > board.limit;
+                  const oneCorrectLeaders = hasOverflow ? board.leaders.filter((leader) => leader.correct === 1) : [];
+                  const visibleLeaders = hasOverflow
+                    ? board.leaders.filter((leader) => leader.correct !== 1).slice(0, board.limit)
+                    : board.leaders.slice(0, board.limit);
+                  const shownLeaders = expandedLeaderboards[board.month]
+                    ? [...visibleLeaders, ...oneCorrectLeaders]
+                    : visibleLeaders;
+
+                  return (
+                    <div className={styles.leaderboard} key={board.month}>
+                      <strong>{board.label}</strong>
+                      <ol className={styles.leaders}>
+                        {shownLeaders.map((leader) => {
+                          const countryName = getCanonicalCountryName(leader.countryName, leader.countryId);
+                          const countryFlag = getCountryFlagUrl(leader.countryId, countryName);
+                          return (
+                            <li key={leader.managerId}>
+                              <div className={styles.manager}>
+                                <span className={styles.rank}>{leader.rank}.</span>
+                                <Avatar avatar={leader.avatar} variant="rect" size={22} />
+                                <div className={styles.managerDetails}>
+                                  <button
+                                    type="button"
+                                    className={styles.managerName}
+                                    onClick={() => openProfile(leader.managerId)}
+                                  >
+                                    {leader.managerName}
+                                  </button>
+                                  {countryName && (
+                                    <span className={styles.managerCountry}>
+                                      {countryFlag && <img src={countryFlag} alt="" loading="lazy" />}
+                                      {countryName}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      {hasOverflow && oneCorrectLeaders.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="showMore"
+                          size="xs"
+                          onClick={() =>
+                            setExpandedLeaderboards((current) => ({ ...current, [board.month]: !current[board.month] }))
+                          }
+                        >
+                          {expandedLeaderboards[board.month] ? t('showLess') : t('loadMore')}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <form onSubmit={submit} className={styles.form}>
+              <fieldset disabled={busy || !quiz.canAnswer} className={styles.options}>
+                <legend className={styles.legend}>{t('chooseCountry')}</legend>
+                {quiz.question.options.map((option) => (
+                  <label key={option.leagueId} className={styles.option}>
+                    <input
+                      type="radio"
+                      name={`flag-quiz-${quiz.question.id}`}
+                      value={option.leagueId}
+                      checked={selected === option.leagueId}
+                      onChange={() => setSelected(option.leagueId)}
+                    />
+                    <span>{option.name}</span>
+                  </label>
+                ))}
+              </fieldset>
+              {quiz.canAnswer ? (
+                <Button type="submit" size="sm" fullWidth disabled={selected === null || busy}>
+                  {busy ? t('submitting') : t('submitGuess')}
+                </Button>
+              ) : (
+                <Button type="button" size="sm" fullWidth onClick={login}>
+                  {t('loginToGuess')}
+                </Button>
+              )}
+            </form>
+          )}
+          <span className={styles.notice}>{t('rotationNotice')}</span>
+        </>
+      ) : (
+        !error && (
+          <p className={styles.notice} role="status">
+            {t('loading')}
+          </p>
+        )
+      )}
+      {error && (
+        <p className={styles.error} role="alert">
+          {t(error)}
+        </p>
+      )}
+      {error === 'loadError' && (
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            void load();
+          }}
+        >
+          {t('retry')}
+        </Button>
+      )}
     </ReusableWidget>
   );
 };

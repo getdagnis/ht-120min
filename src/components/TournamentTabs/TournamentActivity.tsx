@@ -12,6 +12,7 @@ import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { isSuppressedJoinStory } from '../../utils/tournament-activity';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import { supabase } from '../../lib/supabase';
+import { Button } from '../Button/Button';
 import styles from './TournamentActivity.module.sass';
 
 export interface TournamentActivityTeam {
@@ -500,14 +501,14 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
         ))}
       </ul>
       {entries.length > INITIAL_ACTIVITY_ENTRIES && (
-        <button
+        <Button
           type="button"
-          className={styles.showMore}
+          variant="showMore"
           onClick={() => setShowAllEntries((current) => !current)}
           aria-expanded={showAllEntries}
         >
           {showAllEntries ? uiText('showLess') : uiText('showMore')}
-        </button>
+        </Button>
       )}
     </section>
   );

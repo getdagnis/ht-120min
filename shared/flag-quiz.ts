@@ -34,6 +34,7 @@ export interface FlagQuizLeader {
 export interface FlagQuizLeaderboard {
   month: string;
   leaders: FlagQuizLeader[];
+  moreOneAttempted: FlagQuizLeader[];
 }
 export interface FlagQuizState {
   question: FlagQuizQuestion;

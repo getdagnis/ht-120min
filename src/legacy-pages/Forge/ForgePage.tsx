@@ -2115,7 +2115,7 @@ function ForgeStatsSection() {
                   </div>
                 )}
                 {data.hasMore && (
-                  <Button variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+                  <Button variant="showMore" disabled={loadingMore} onClick={() => void loadMore()}>
                     {loadingMore ? 'Loading...' : 'Load 30 more visits'}
                   </Button>
                 )}
@@ -2141,7 +2141,7 @@ function ForgeStatsSection() {
                   </div>
                 )}
                 {data.hasMoreActivity && (
-                  <Button variant="outline" disabled={loadingMoreActivity} onClick={() => void loadMoreActivity()}>
+                  <Button variant="showMore" disabled={loadingMoreActivity} onClick={() => void loadMoreActivity()}>
                     {loadingMoreActivity ? 'Loading...' : 'Load 30 more activities'}
                   </Button>
                 )}

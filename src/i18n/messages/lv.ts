@@ -998,6 +998,8 @@ const messages = {
       correctAnswer: "Pareizā atbilde",
       bestThisMonth: "Labākie šomēnes ({month})",
       bestPreviousMonth: "Labākie iepriekšējā mēnesī ({month})",
+      loadMore: "Rādīt vairāk",
+      showLess: "Rādīt mazāk",
       score: "Atbildes",
       totalAnswers: "Atbildes kopā",
       rotationNotice: "Katru dienu atmini kādas citas valsts karogu. Tie mainās divreiz dienā.",

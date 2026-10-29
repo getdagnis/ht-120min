@@ -33,6 +33,14 @@ WITH mine AS (
 ), previous_leaders AS (
   SELECT * FROM ranked WHERE month_start = (SELECT previous_start FROM months)
   ORDER BY correct DESC, first_answer_at ASC, manager_name, manager_id LIMIT 5
+), current_more AS (
+  SELECT * FROM ranked r WHERE r.month_start = (SELECT current_start FROM months) AND r.correct = 1
+    AND (SELECT count(*) FROM scores WHERE month_start = (SELECT current_start FROM months)) > 20
+    AND (SELECT count(*) FROM ranked WHERE month_start = (SELECT current_start FROM months) AND correct = 1) > 5
+), previous_more AS (
+  SELECT * FROM ranked r WHERE r.month_start = (SELECT previous_start FROM months) AND r.correct = 1
+    AND (SELECT count(*) FROM scores WHERE month_start = (SELECT previous_start FROM months)) > 5
+    AND (SELECT count(*) FROM ranked WHERE month_start = (SELECT previous_start FROM months) AND correct = 1) > 5
 )
 SELECT jsonb_build_object(
   'answer', (SELECT jsonb_build_object('selectedLeagueId', selected_league_id, 'correctLeagueId', q.correct_league_id) FROM mine),
@@ -45,14 +53,20 @@ SELECT jsonb_build_object(
     'current', jsonb_build_object('month', to_char((SELECT current_start FROM months), 'YYYY-MM'), 'leaders',
       coalesce((SELECT jsonb_agg(jsonb_build_object('rank', rank, 'managerId', manager_id, 'managerName', manager_name,
         'avatar', avatar_json, 'countryId', country_id, 'countryName', country_name, 'correct', correct, 'attempted', attempted)
-        ORDER BY correct DESC, first_answer_at ASC, manager_name, manager_id) FROM current_leaders), '[]'::jsonb)),
+        ORDER BY correct DESC, first_answer_at ASC, manager_name, manager_id) FROM current_leaders), '[]'::jsonb),
+      'moreOneCorrect', coalesce((SELECT jsonb_agg(jsonb_build_object('rank', rank, 'managerId', manager_id, 'managerName', manager_name,
+        'avatar', avatar_json, 'countryId', country_id, 'countryName', country_name, 'correct', correct, 'attempted', attempted)
+        ORDER BY first_answer_at ASC, manager_name, manager_id) FROM current_more), '[]'::jsonb)),
     'previous', jsonb_build_object('month', to_char((SELECT previous_start FROM months), 'YYYY-MM'), 'leaders',
       coalesce((SELECT jsonb_agg(jsonb_build_object('rank', rank, 'managerId', manager_id, 'managerName', manager_name,
         'avatar', avatar_json, 'countryId', country_id, 'countryName', country_name, 'correct', correct, 'attempted', attempted)
-        ORDER BY correct DESC, first_answer_at ASC, manager_name, manager_id) FROM previous_leaders), '[]'::jsonb))
+        ORDER BY correct DESC, first_answer_at ASC, manager_name, manager_id) FROM previous_leaders), '[]'::jsonb),
+      'moreOneCorrect', coalesce((SELECT jsonb_agg(jsonb_build_object('rank', rank, 'managerId', manager_id, 'managerName', manager_name,
+        'avatar', avatar_json, 'countryId', country_id, 'countryName', country_name, 'correct', correct, 'attempted', attempted)
+        ORDER BY first_answer_at ASC, manager_name, manager_id) FROM previous_more), '[]'::jsonb))
   ) ELSE jsonb_build_object(
-    'current', jsonb_build_object('month', to_char((SELECT current_start FROM months), 'YYYY-MM'), 'leaders', '[]'::jsonb),
-    'previous', jsonb_build_object('month', to_char((SELECT previous_start FROM months), 'YYYY-MM'), 'leaders', '[]'::jsonb)
+    'current', jsonb_build_object('month', to_char((SELECT current_start FROM months), 'YYYY-MM'), 'leaders', '[]'::jsonb, 'moreOneCorrect', '[]'::jsonb),
+    'previous', jsonb_build_object('month', to_char((SELECT previous_start FROM months), 'YYYY-MM'), 'leaders', '[]'::jsonb, 'moreOneCorrect', '[]'::jsonb)
   ) END
 ) FROM public.flag_quiz_questions q WHERE q.starts_at = p_question_id;
 $$;

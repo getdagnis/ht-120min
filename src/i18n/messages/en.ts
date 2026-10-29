@@ -1013,6 +1013,8 @@ const messages = {
       correctAnswer: "Correct answer",
       bestThisMonth: "Best this month ({month})",
       bestPreviousMonth: "Best 5 previous month ({month})",
+      loadMore: "Load more",
+      showLess: "Show less",
       score: "{correct}/{attempted} right",
       totalAnswers: "{count, plural, one {# answer} other {# answers}}",
       rotationNotice: "Guess the flag of a different country every day. The flag changes twice a day.",
