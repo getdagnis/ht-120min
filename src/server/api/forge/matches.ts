@@ -1168,6 +1168,30 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireForgeAdmin(req, res)) return;
   try {
+    if (req.method === 'GET' && readString(req.query.setting) === 'auto-booking') {
+      const supabase = getServiceSupabase();
+      const tournament = await loadTournament(supabase, readString(req.query.tournamentId));
+      if (!tournament) return res.status(404).json({ error: 'Tournament not found or not active.' });
+      const season = tournament.season || 1;
+      const { data, error } = await supabase.from('tournament_season_auto_booking_settings')
+        .select('enabled').eq('tournament_id', tournament.id).eq('season_number', season).maybeSingle();
+      if (error) throw error;
+      return res.status(200).json({ enabled: data?.enabled === true, season });
+    }
+    if (req.method === 'POST' && req.body?.action === 'set-auto-booking') {
+      if (typeof req.body?.tournamentId !== 'string' || !req.body.tournamentId.trim() || typeof req.body?.enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid automatic booking setting.' });
+      }
+      const supabase = getServiceSupabase();
+      const tournament = await loadTournament(supabase, req.body.tournamentId);
+      if (!tournament) return res.status(404).json({ error: 'Tournament not found or not active.' });
+      const season = tournament.season || 1;
+      const { error } = await supabase.from('tournament_season_auto_booking_settings').upsert({
+        tournament_id: tournament.id, season_number: season, enabled: req.body.enabled, updated_at: new Date().toISOString(),
+      }, { onConflict: 'tournament_id,season_number' });
+      if (error) throw error;
+      return res.status(200).json({ enabled: req.body.enabled, season });
+    }
     if (req.method === 'POST') return await executeAction(req, res);
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
 

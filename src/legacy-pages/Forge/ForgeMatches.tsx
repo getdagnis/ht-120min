@@ -281,6 +281,9 @@ function exportRoundCsv(data: MatchesResponse, fixtureErrors: Record<string, str
 export function ForgeMatchesSection() {
   const [tournaments, setTournaments] = useState<TournamentOption[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState('');
+  const [autoBooking, setAutoBooking] = useState<boolean | null>(null);
+  const [autoBookingBusy, setAutoBookingBusy] = useState(false);
+  const [autoBookingError, setAutoBookingError] = useState('');
   const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null);
   const [selectionRestored, setSelectionRestored] = useState(false);
   const [tournamentOptionsLoaded, setTournamentOptionsLoaded] = useState(false);
@@ -462,6 +465,43 @@ export function ForgeMatchesSection() {
     setMessage('');
     setError('');
     setBusyActions({});
+  };
+
+  useEffect(() => {
+    setAutoBooking(null);
+    setAutoBookingError('');
+    if (!selectedTournamentId) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ tournamentId: selectedTournamentId, setting: 'auto-booking' });
+    void fetch(`/api/forge/matches?${params}`, { credentials: 'include', cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as { enabled?: boolean; error?: string };
+        if (!response.ok) throw new Error(payload.error || 'Could not load automatic booking setting.');
+        setAutoBooking(payload.enabled === true);
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setAutoBookingError(error instanceof Error ? error.message : 'Could not load automatic booking setting.');
+      });
+    return () => controller.abort();
+  }, [selectedTournamentId]);
+
+  const saveAutoBooking = async (enabled: boolean) => {
+    setAutoBookingBusy(true);
+    setAutoBookingError('');
+    try {
+      const response = await fetch('/api/forge/matches', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-auto-booking', tournamentId: selectedTournamentId, enabled }),
+      });
+      const payload = await response.json() as { enabled?: boolean; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Could not save automatic booking setting.');
+      setAutoBooking(payload.enabled === true);
+    } catch (error) {
+      setAutoBookingError(error instanceof Error ? error.message : 'Could not save automatic booking setting.');
+    } finally {
+      setAutoBookingBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -902,7 +942,7 @@ export function ForgeMatchesSection() {
                 id="forge-matches-tournament"
                 className={styles.select}
                 value={selectedTournamentId}
-                disabled={bulkRunning}
+                disabled={bulkRunning || autoBookingBusy}
                 onChange={(event) => chooseTournament(event.target.value)}
               >
                 <option value="">Choose a tournament</option>
@@ -913,6 +953,20 @@ export function ForgeMatchesSection() {
                 ))}
               </select>
             </div>
+            {selectedTournamentId && (
+              <div className={styles.autoBookingSetting}>
+                <label htmlFor="forge-auto-booking">Automatic booking</label>
+                <input
+                  id="forge-auto-booking" type="checkbox" role="switch"
+                  checked={autoBooking === true}
+                  disabled={autoBooking === null || autoBookingBusy}
+                  onChange={(event) => void saveAutoBooking(event.target.checked)}
+                />
+                <span>{autoBooking === null ? 'Loading…' : autoBookingBusy ? 'Saving…' : autoBooking ? 'On' : 'Off'}</span>
+                {autoBookingError && <p className={styles.error} role="alert">{autoBookingError}</p>}
+                <small>Saved for this season. Scheduled booking is not active yet.</small>
+              </div>
+            )}
             {!loading && !error && selectedTournamentId && data?.roundOptions && data.roundOptions.length > 0 && (
               <div className={styles.toolbar}>
                 <label className={styles.label} htmlFor="forge-matches-round">

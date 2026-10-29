@@ -30,6 +30,7 @@ Important tables used by current code:
 - `tournament_announcement_dismissals`
 - `tournament_seasons`
 - `tournament_team_auto_arrange_preferences`
+- `tournament_season_auto_booking_settings` (161 prepared: private Forge setting keyed by tournament and season; absent row is OFF; no booking worker is connected)
 - `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
