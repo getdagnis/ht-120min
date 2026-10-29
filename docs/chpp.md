@@ -81,30 +81,43 @@ finishes the current request. Accepted fixtures are reconciled once at the end.
 A separate server-side worker is available through the existing consolidated
 API at `POST /api/cron/auto-booking`. It requires a server-only bearer secret
 (`AUTO_BOOKING_CRON_SECRET`, at least 32 characters), does not require a Forge
-session, and is restricted to `staburaga-kauss`. It handles at most one open
-fixture per run, defaults to dry-run, and records each outcome in the service-only
-`forge_booking_worker_runs` table. Database uniqueness prevents overlapping runs
-for the same tournament season. Live actions additionally require the server-only
+session, and discovers enabled settings for each tournament's current season.
+Finished, archived, cancelled, test, disabled, and old-season entries are
+excluded. Each invocation is capped at five tournament fixtures and records
+outcomes in the service-only `forge_booking_worker_runs` table. A database
+uniqueness constraint prevents overlapping runs for the same tournament season.
+Unresolved CHPP failures wait 10 minutes before retry, Hattrick error 70 waits
+15 minutes, and empty-round checks wait 15 minutes. A fixture with no safe action
+is skipped for one hour before it is checked again; this does not delay other
+fixtures in that tournament. Recent successful fixture IDs are skipped for 24
+hours, so stale local rows do not cause repeated challenge-state reads or block
+other fixtures.
+
+Live actions additionally require the server-only
 `AUTO_BOOKING_CRON_LIVE_ENABLED=true`, an explicit request for `mode: "real"`,
 and the season's existing automatic-booking setting. Each challenge/accept still
 uses the existing Forge action checks for live booking state, consent, permission,
 credential ownership, and manager preferences. Hattrick error 70 causes a state
-reread and no retry. No cron, deployment, or automatic execution is configured.
+reread and no retry. The single-job replacement SQL and enabled-tournament preview
+are in [auto-booking-cron.sql](auto-booking-cron.sql). That SQL has not been run;
+no cron, deployment, or automatic execution is configured. It uses the existing
+`AUTO_BOOKING_CRON_SECRET` Vault entry and the owner-confirmed production URL.
 
 For a local auth smoke check, configure `AUTO_BOOKING_CRON_SECRET` in the local
-server environment, then send a POST with `Authorization: Bearer <secret>` and a
-JSON body containing Staburaga kauss's `tournamentId`. Omit `mode` to remain in
-dry-run. Do not put the secret in browser code or a URL. The handler and auth
-contract are covered by `tests/cron-auto-booking.test.ts`.
+server environment, then send a POST with `Authorization: Bearer <secret>` and
+an empty JSON object. Omit `mode` to remain in dry-run. Do not put the secret in
+browser code or a URL. The handler and auth contract are covered by
+`tests/cron-auto-booking.test.ts`.
 
-To run one local dry-run after applying migration 162 to the database used by
-the local app, open Forge while signed in as a Forge admin and run this in the
-browser console. It looks up the tournament UUID by its restricted slug:
+To run one local dry-run for a selected tournament after applying migration 162
+to the database used by the local app, open Forge while signed in as a Forge
+admin and run this in the browser console. Choose the tournament UUID from the
+Forge Matches page or the read-only SQL preview in `auto-booking-cron.sql`:
 
 ```js
 const { tournaments } = await fetch('/api/forge/matches', { credentials: 'include' }).then((r) => r.json());
-const tournament = tournaments.find((item) => item.slug === 'staburaga-kauss');
-if (!tournament) throw new Error('Staburaga kauss was not returned by Forge.');
+const tournament = tournaments[0];
+if (!tournament) throw new Error('No tournament was returned by Forge.');
 const response = await fetch('/api/forge/matches', {
   method: 'POST',
   credentials: 'include',

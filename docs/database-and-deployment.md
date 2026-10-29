@@ -31,7 +31,7 @@ Important tables used by current code:
 - `tournament_seasons`
 - `tournament_team_auto_arrange_preferences`
 - `tournament_season_auto_booking_settings` (161 prepared: private Forge setting keyed by tournament and season; absent row is OFF; real worker actions require it ON)
-- `forge_booking_worker_runs` (162 prepared: private manual-only Forge worker audit and per-tournament-season overlap guard; no cron or automatic invocation)
+- `forge_booking_worker_runs` (162 prepared: private Forge worker audit and per-tournament-season overlap guard, shared by manual and cron invocations)
 - `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
@@ -97,7 +97,7 @@ Recent important migrations:
 
 - `151_organizer_saved_round_repair.sql` (prepared, not applied: separately enables atomic saved-round repair and its editor capability; requires 150. Higher-risk milestone with unrun disposable database checks.)
 - `161_tournament_season_auto_booking_settings.sql` (prepared: private per-season opt-in; does not itself execute booking)
-- `162_forge_booking_worker_runs.sql` (prepared: private run outcomes and one-active-run constraint for the manual Forge worker; no cron)
+- `162_forge_booking_worker_runs.sql` (prepared: private run outcomes and one-active-run constraint shared by manual and cron worker calls; no cron was activated)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared
@@ -127,10 +127,11 @@ The migrated application exposes one consolidated Next.js API route at
 server work behind the consolidated route unless the deployment function
 budget is explicitly rechecked.
 
-The manual auto-booking cron target is routed through this same function at
+The auto-booking batch endpoint is routed through this same function at
 `POST /api/cron/auto-booking`; it uses server-only `AUTO_BOOKING_CRON_SECRET`
-and defaults to dry-run. Do not create a Supabase Cron job until the separate
-production setup step is explicitly completed.
+and defaults to dry-run. A single replacement-job SQL template and read-only
+enabled-tournament preview are in `docs/auto-booking-cron.sql`. Neither live
+cron nor deployment has been changed.
 
 ## Deployment Notes
 

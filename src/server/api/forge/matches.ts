@@ -35,7 +35,7 @@ import {
   type ForgeMatchSide,
   type ForgeTeamChallengeInspection,
 } from '../_lib/forge-matches.js';
-import { bookingWorkerMode, chooseWorkerFixture, hasRealBookingConfirmation, isAmbiguousChallengeFailure, isWorkerTournamentId, REAL_BOOKING_CONFIRMATION, workerInitialAction } from '../_lib/auto-booking-worker.js';
+import { bookingWorkerMode, chooseWorkerFixture, hasRealBookingConfirmation, isAmbiguousChallengeFailure, isWorkerTournamentId, REAL_BOOKING_CONFIRMATION, validFixtureIds, workerInitialAction } from '../_lib/auto-booking-worker.js';
 
 type ForgeTournamentRow = {
   id: string;
@@ -243,7 +243,7 @@ type ManagerCache = {
   ownership: Map<number, Promise<Set<number> | null>>;
 };
 
-const TERMINAL_TOURNAMENT_STATUSES = new Set(['finished', 'archived', 'cancelled']);
+const TERMINAL_TOURNAMENT_STATUSES = new Set(['finished', 'archived', 'cancelled', 'disabled']);
 
 function readString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] ?? '').trim();
@@ -1173,9 +1173,7 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
 
   const supabase = getServiceSupabase();
   const tournament = await loadTournament(supabase, tournamentId);
-  if (!tournament || tournament.slug?.toLowerCase() !== 'staburaga-kauss') {
-    return res.status(404).json({ error: 'The booking worker is restricted to Staburaga kauss.' });
-  }
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found, inactive, or archived.' });
   const round = await loadCurrentRound(supabase, tournament);
   if (!round || round.phase_status !== 'materialized') {
     return res.status(409).json({ error: 'There is no materialized round to inspect.' });
@@ -1206,8 +1204,10 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
   let fixtureId: string | null = null;
   try {
     const rows = await loadFixtureRows(supabase, round.id);
+    const skipFixtureIds = new Set(validFixtureIds(req.body?.skipFixtureIds));
     const candidate = rows.find((row) => row.home_team_id && row.away_team_id && !row.completed && !row.ht_match_id
-      && row.status !== 'misarranged' && !['arranged', 'ongoing', 'finished'].includes(row.status || ''));
+      && row.status !== 'misarranged' && !['arranged', 'ongoing', 'finished'].includes(row.status || '')
+      && !skipFixtureIds.has(row.id));
     if (!candidate) {
       outcome = { result: 'no_outstanding_fixture' };
     } else {

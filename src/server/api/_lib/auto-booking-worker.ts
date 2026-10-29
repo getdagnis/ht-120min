@@ -7,7 +7,13 @@ export type WorkerFixture = {
   away: { autoArrangeEnabled: boolean; canChallenge: boolean; canAccept: boolean; canWithdraw: boolean };
 };
 
-export const REAL_BOOKING_CONFIRMATION = 'BOOK ONE STABURAGA KAUSS FIXTURE';
+export const REAL_BOOKING_CONFIRMATION = 'BOOK ONE ENABLED TOURNAMENT FIXTURE';
+
+export function validFixtureIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.filter((id): id is string => typeof id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))].slice(0, 500);
+}
 
 export function isWorkerTournamentId(input: unknown): input is string {
   return typeof input === 'string'

@@ -25,7 +25,7 @@ test('worker defaults to dry-run and only enables real mode for explicit request
   assert.equal(bookingWorkerMode('dry_run'), 'dry_run');
   assert.equal(bookingWorkerMode('real'), 'real');
   assert.equal(hasRealBookingConfirmation(undefined), false);
-  assert.equal(hasRealBookingConfirmation('BOOK ONE STABURAGA KAUSS FIXTURE'), true);
+  assert.equal(hasRealBookingConfirmation('BOOK ONE ENABLED TOURNAMENT FIXTURE'), true);
   assert.equal(isWorkerTournamentId('TOURNAMENT_UUID'), false);
   assert.equal(isWorkerTournamentId('00000000-0000-4000-8000-000000000001'), true);
 });
