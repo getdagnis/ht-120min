@@ -44,13 +44,15 @@ authorization decisions, or cross-tab mutations there.
 
 The Admin Manage Teams table uses current-season materialized regular fixtures and recorded per-team
 `fixture_warnings` for organizer review. Played counts completed games; Misarranged counts
-distinct recorded warning rounds attributed to the team; Fixture is false when at least one
-round had no assigned opponent and true otherwise. Risk examines each team's last four eligible resolved
+distinct recorded warning rounds attributed to the team, including organizer-added rounds.
+Fixture shows one badge per open round from the page's focused round onward: assigned opponent,
+missing opponent, BYE, or not selected. Next shows the team's earliest open
+fixture. Risk examines each team's last five eligible resolved
 or warned rounds: three or more recorded misarrangements are
 Critical; two are High if the latest eligible round was misarranged and Medium otherwise; one is
 Low; zero is None. Historical inactive warning rows count, but a fixture's
 `misarranged` status alone cannot identify the offending team. Intentional BYEs are separate from
-No fixture; unknown historical participation is displayed as unknown rather than zero. These
+No fixture. These
 labels are advisory and never change membership automatically.
 
 ## Server and data flow

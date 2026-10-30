@@ -1,4 +1,5 @@
 import type { RoundWithMatches, Team } from '../legacy-pages/Public/TournamentView';
+import { getRoundDisplayLabel } from '../../shared/round-display';
 
 export type TeamRisk = 'critical' | 'high' | 'medium' | 'low' | 'none' | 'unknown';
 export type TeamNow = 'played' | 'booked' | 'unbooked' | 'conflict' | 'bye' | 'no-fixture' | 'unknown' | 'none';
@@ -20,6 +21,7 @@ export interface TeamTableStats {
   played: number;
   misarranged: number | null;
   fixture: boolean | null;
+  fixtureRounds: Array<{ roundId: string; label: string; status: 'yes' | 'no' | 'bye' | 'not-selected' }>;
   risk: TeamRisk;
   now: TeamNow;
   latestMisarrangedRound: number;
@@ -30,7 +32,7 @@ interface WarningRow { team_id: string; round_id: string; reason: string; active
 interface AssignmentRow { team_id: string | null; assigned_at: string; released_at: string | null }
 
 const isRegularRound = (round: RoundWithMatches) =>
-  round.phase !== 'postseason' && round.is_unscored !== true && round.round_source !== 'organizer';
+  round.phase !== 'postseason' && round.is_unscored !== true;
 
 const isResolvedRound = (round: RoundWithMatches) =>
   round.phase_status === 'completed' ||
@@ -47,6 +49,9 @@ const effectiveTeamIds = (match: RoundWithMatches['matches'][number]) => {
 };
 
 const isExpected = (team: Team, round: RoundWithMatches, assignments: AssignmentRow[]): boolean | null => {
+  if (round.round_source === 'organizer') {
+    return round.round_participants?.some((entry) => entry.team_id === team.id) ?? null;
+  }
   if (!round.matches.length) return null;
   if (round.round_participants?.some((entry) => entry.team_id === team.id)) return true;
   const moment = Date.parse(round.reserved_slot_date || round.created_at);
@@ -65,8 +70,9 @@ export function getAdminTeamTableStats(
   rounds: RoundWithMatches[],
   warnings: WarningRow[] | null,
   assignments: AssignmentRow[],
+  focusedRoundId?: string | null,
 ): TeamTableStats {
-  const regular = rounds.filter(isRegularRound).sort((a, b) => a.round_number - b.round_number);
+  const regular = rounds.filter(isRegularRound);
   const regularRoundIds = new Set(regular.map((round) => round.id));
   const currentRoundIds = new Set(regular.filter((round) => round.phase_status === 'materialized').map((round) => round.id));
   const warningRoundIds = warnings === null ? null : new Set(warnings
@@ -74,56 +80,67 @@ export function getAdminTeamTableStats(
       (!currentRoundIds.has(warning.round_id) || warning.active !== false))
     .map((warning) => warning.round_id));
   let played = 0;
-  let noFixture = false;
-  let noFixtureKnown = true;
   let latestMisarrangedRound = 0;
-  const eligible: Array<{ round: number; misarranged: boolean }> = [];
+  const eligible: Array<{ label: string; misarranged: boolean }> = [];
 
-  for (const round of regular) {
+  for (const [index, round] of regular.entries()) {
     if (round.phase_status === 'pending') continue;
     const match = round.matches.find((item) => effectiveTeamIds(item).includes(team.id));
     if (!match && Date.parse(team.created_at) > Date.parse(round.reserved_slot_date || round.created_at)) continue;
     const warned = warningRoundIds?.has(round.id) ?? false;
-    if (warned) latestMisarrangedRound = round.round_number;
+    if (warned) latestMisarrangedRound = index + 1;
     if (!match) {
-      const expectation = isExpected(team, round, assignments);
-      if (expectation === true) {
-        noFixture = true;
-      } else if (expectation === null) {
-        noFixtureKnown = false;
-      }
       continue;
     }
     const bye = !match.home_team_id || !match.away_team_id;
     if (bye) continue;
     if (match.completed) played += 1;
     if (isResolvedRound(round) || warned) {
-      eligible.push({ round: round.round_number, misarranged: warned });
+      eligible.push({ label: getRoundDisplayLabel(round, rounds), misarranged: warned });
     }
   }
 
-  const latestFour = eligible.slice(-4);
-  const failures = latestFour.filter((entry) => entry.misarranged).length;
+  const latestFive = eligible.slice(-5);
+  const failures = latestFive.filter((entry) => entry.misarranged).length;
   const risk: TeamRisk = warningRoundIds === null ? 'unknown'
     : failures >= 3 ? 'critical'
-      : failures === 2 ? (latestFour.at(-1)?.misarranged ? 'high' : 'medium')
+      : failures === 2 ? (latestFive.at(-1)?.misarranged ? 'high' : 'medium')
         : failures === 1 ? 'low' : 'none';
-  const warnedRounds = latestFour.filter((entry) => entry.misarranged).map((entry) => `R${entry.round}`);
+  const warnedRounds = latestFive.filter((entry) => entry.misarranged).map((entry) => entry.label);
   const riskReason = warningRoundIds === null
     ? 'Warning history is unavailable.'
-    : latestFour.length === 0 ? 'No eligible rounds yet.'
-    : `${failures} misarranged ${failures === 1 ? 'round' : 'rounds'} in the last ${latestFour.length} eligible ${latestFour.length === 1 ? 'round' : 'rounds'}` +
+    : latestFive.length === 0 ? 'No eligible rounds yet.'
+    : `${failures} misarranged ${failures === 1 ? 'round' : 'rounds'} in the last ${latestFive.length} eligible ${latestFive.length === 1 ? 'round' : 'rounds'}` +
       `${warnedRounds.length ? ` (${warnedRounds.join(', ')})` : ''}.` +
       (risk === 'high' ? ' The latest eligible round was misarranged.'
         : risk === 'medium' ? ' The latest eligible round was not misarranged.' : '');
-  const currentRound = regular.find((round) => round.phase_status === 'materialized') ||
-    regular.find((round) => round.phase_status == null && round.matches.length > 0 && !isResolvedRound(round));
-  const currentMatch = currentRound?.matches.find((item) => effectiveTeamIds(item).includes(team.id));
+  const focusedIndex = focusedRoundId === undefined ? 0
+    : focusedRoundId === null ? -1 : rounds.findIndex((round) => round.id === focusedRoundId);
+  const openRounds = (focusedIndex < 0 ? [] : rounds.slice(focusedIndex)).filter((round) =>
+    round.phase !== 'postseason' && round.is_unscored !== true &&
+    (round.phase_status === 'materialized' || round.phase_status == null) &&
+    round.matches.some((match) => !match.completed && match.status !== 'misarranged'));
+  const openMatches = openRounds.map((round) => ({
+    round,
+    match: round.matches.find((item) => effectiveTeamIds(item).includes(team.id)),
+  }));
+  const fixtureRounds: TeamTableStats['fixtureRounds'] = openMatches.map(({ round, match }) => ({
+    roundId: round.id,
+    label: getRoundDisplayLabel(round, rounds),
+    status: match
+      ? match.home_team_id && match.away_team_id ? 'yes' : 'bye'
+      : isExpected(team, round, assignments) === true ? 'no' : 'not-selected',
+  }));
+  const next = openMatches.find(({ match }) => match && !match.completed) ||
+    openMatches.find(({ round, match }) => !match && isExpected(team, round, assignments) === true);
+  const currentRound = next?.round;
+  const currentMatch = next?.match;
+  const fixture = fixtureRounds.some((entry) => entry.status === 'no') ? false
+    : fixtureRounds.some((entry) => entry.status === 'yes') ? true : null;
   let now: TeamNow = 'none';
   if (currentRound) {
     if (!currentMatch) {
-      const expectation = isExpected(team, currentRound, assignments);
-      now = expectation === true ? 'no-fixture' : expectation === null ? 'unknown' : 'none';
+      now = isExpected(team, currentRound, assignments) === true ? 'no-fixture' : 'none';
     }
     else if (!currentMatch.home_team_id || !currentMatch.away_team_id) now = 'bye';
     else if (currentMatch.status === 'misarranged') now = 'conflict';
@@ -134,7 +151,8 @@ export function getAdminTeamTableStats(
   return {
     played,
     misarranged: warningRoundIds?.size ?? null,
-    fixture: noFixtureKnown || noFixture ? !noFixture : null,
+    fixture,
+    fixtureRounds,
     risk,
     now,
     latestMisarrangedRound,

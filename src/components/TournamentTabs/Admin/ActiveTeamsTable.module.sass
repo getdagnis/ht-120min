@@ -86,14 +86,22 @@
         outline-offset: 2px
 
   th:first-child, td:first-child
-    padding-left: 0.55rem
+    padding-left: 0.35rem
+    padding-right: 0.1rem
 
-  th:not(:first-child), td:not(:first-child)
+  th:not(:nth-child(2)), td:not(:nth-child(2))
     width: 1%
     white-space: nowrap
 
-  th:nth-child(2), th:nth-child(3), th:nth-child(4), td:nth-child(2), td:nth-child(3), td:nth-child(4)
+  th:nth-child(2), td:nth-child(2)
+    padding-left: 0.55rem
+    text-align: left
+
+  th:nth-child(3), th:nth-child(4), th:nth-child(5), td:nth-child(3), td:nth-child(4), td:nth-child(5)
     text-align: center
+
+  td.rowNumber
+    text-align: right
 
   th:last-child, td:last-child
     padding-right: 0.65rem
@@ -101,6 +109,11 @@
 
 .teamCell
   min-width: 17rem
+
+.rowNumber
+  color: var(--text60)
+  font-size: 0.75rem
+  font-variant-numeric: tabular-nums
 
 .teamLine
   display: flex
@@ -169,6 +182,10 @@
 .teamId
   white-space: nowrap
 
+.fixtureBadges
+  display: inline-flex
+  gap: 0.2rem
+
 .risk, .fixtureBadge
   display: inline-flex
   align-items: center
@@ -211,12 +228,12 @@
   --risk-color: var(--text60)
   color: var(--text60)
 
-.conflict
+.table td.conflict
   color: var(--danger)
   font-family: var(--heading)
   font-weight: 500
 
-.arranged
+.table td.arranged
   color: var(--rating-a)
   font-family: var(--heading)
   font-weight: 500

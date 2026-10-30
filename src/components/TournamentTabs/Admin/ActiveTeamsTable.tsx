@@ -52,7 +52,7 @@ const nowLabel: Record<TeamTableStats['now'], string> = {
   none: '—',
 };
 const riskLabel: Record<TeamRisk, string> = {
-  critical: 'severe',
+  critical: 'critical',
   high: 'high',
   medium: 'medium',
   low: 'low',
@@ -63,6 +63,7 @@ interface Props {
   tournamentId: string;
   teams: Team[];
   rounds: RoundWithMatches[];
+  focusedRoundId: string | null;
   assignments: AssignmentRow[];
   leavingTeamIds: ReadonlySet<string>;
   renderTeamMarkers?: (team: Team) => React.ReactNode;
@@ -73,6 +74,7 @@ export function ActiveTeamsTable({
   tournamentId,
   teams,
   rounds,
+  focusedRoundId,
   assignments,
   leavingTeamIds,
   renderTeamMarkers,
@@ -94,9 +96,7 @@ export function ActiveTeamsTable({
   const roundIds = useMemo(
     () =>
       rounds
-        .filter(
-          (round) => round.phase !== 'postseason' && round.is_unscored !== true && round.round_source !== 'organizer',
-        )
+        .filter((round) => round.phase !== 'postseason' && round.is_unscored !== true)
         .map((round) => round.id),
     [rounds],
   );
@@ -141,9 +141,9 @@ export function ActiveTeamsTable({
     () =>
       teams.map((team) => ({
         team,
-        stats: getAdminTeamTableStats(team, rounds, warnings, assignments),
+        stats: getAdminTeamTableStats(team, rounds, warnings, assignments, focusedRoundId),
       })),
-    [teams, rounds, warnings, assignments],
+    [teams, rounds, warnings, assignments, focusedRoundId],
   );
   const visibleRows = useMemo(
     () =>
@@ -267,13 +267,17 @@ export function ActiveTeamsTable({
     { key: 'team', label: '', title: 'Team and manager' },
     { key: 'played', label: 'Played', title: 'Games played' },
     { key: 'misarranged', label: 'Misr.', title: 'Recorded misarranged games attributed to this team' },
-    { key: 'fixture', label: 'Fixture', title: 'No rounds without an assigned opponent; BYEs excluded' },
+    { key: 'fixture', label: 'Fixture', title: 'Fixture status for each open round, in calendar order' },
     {
       key: 'risk',
       label: 'Risk',
-      title: 'Recorded team misarrangements in the last four eligible rounds',
+      title: 'Recorded team misarrangements in the last five eligible rounds',
     },
-    { key: 'now', label: 'Next', title: 'Current round fixture status. Miss. means the fixture was misarranged.' },
+    {
+      key: 'now',
+      label: 'Next',
+      title: 'Earliest open fixture for this team. Misr. means the fixture was misarranged.',
+    },
     {
       key: 'joined',
       label: 'Joined',
@@ -324,6 +328,9 @@ export function ActiveTeamsTable({
         <table className={styles.table}>
           <thead>
             <tr>
+              <th scope="col">
+                <span className={styles.srOnly}>Row number</span>
+              </th>
               {headers.map(({ key, label, title }) => (
                 <th
                   key={key}
@@ -342,12 +349,13 @@ export function ActiveTeamsTable({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map(({ team, stats }) => {
+            {visibleRows.map(({ team, stats }, index) => {
               const teamFlag = getCountryFlagUrl(team.country_id, team.country_name);
               const managerFlag = getCountryFlagUrl(team.manager_country_id, team.manager_country_name);
               const actionsOpen = openActionsId === team.id;
               return (
                 <tr key={team.id}>
+                  <td className={styles.rowNumber}>{index + 1}</td>
                   <td className={styles.teamCell}>
                     <div className={styles.teamLine}>
                       <img
@@ -409,13 +417,17 @@ export function ActiveTeamsTable({
                   <td>{stats.played}</td>
                   <td>{stats.misarranged ?? '—'}</td>
                   <td>
-                    {stats.fixture === null ? (
-                      '—'
-                    ) : (
-                      <span className={`${styles.fixtureBadge} ${styles[stats.fixture ? 'none' : 'high']}`}>
-                        {String(stats.fixture)}
-                      </span>
-                    )}
+                    <span className={styles.fixtureBadges}>
+                      {stats.fixtureRounds.length ? stats.fixtureRounds.map(({ roundId, label, status }) => (
+                        <span
+                          key={roundId}
+                          className={`${styles.fixtureBadge} ${styles[status === 'yes' ? 'none' : status === 'no' ? 'high' : 'unknown']}`}
+                          aria-label={`${label}: ${status === 'yes' ? 'fixture' : status === 'no' ? 'no fixture' : status === 'bye' ? 'BYE' : 'not selected'}`}
+                        >
+                          {status === 'yes' ? '✓' : status === 'no' ? '𝖷' : status === 'bye' ? 'BYE' : '—'}
+                        </span>
+                      )) : '—'}
+                    </span>
                   </td>
                   <td>
                     <span
@@ -463,7 +475,7 @@ export function ActiveTeamsTable({
         {visibleRows.length === 0 && <p className={styles.empty}>No teams match this search or filter.</p>}
       </div>
       <p className={styles.legend}>
-        Fixture is false if any round had no assigned opponent; BYEs are excluded. Risk is for review only.
+        Fixture badges follow the open rounds in calendar order; — means not selected. Risk is for review only.
       </p>
       <Tooltip id={tooltipId} />
       {openTeam &&

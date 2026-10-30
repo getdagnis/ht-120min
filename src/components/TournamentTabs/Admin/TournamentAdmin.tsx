@@ -219,6 +219,7 @@ export interface TournamentAdminController {
     tournament: Tournament;
     teams: Team[];
     rounds: RoundWithMatches[];
+    focusedRoundId: string | null;
     seasonSlots: Array<{ id: string; current_team_id: string | null }>;
     seasonSlotAssignments: Array<{ team_id: string | null; assigned_at: string; released_at: string | null }>;
     fixtureWarningTeamIds: ReadonlySet<string>;
@@ -563,6 +564,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     tournament,
     teams,
     rounds,
+    focusedRoundId,
     seasonSlots,
     seasonSlotAssignments,
     fixtureWarningTeamIds,
@@ -1976,6 +1978,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             tournamentId={tournament.id}
                             teams={teams.filter((team) => team.active && !team.reserve_active)}
                             rounds={rounds}
+                            focusedRoundId={focusedRoundId}
                             assignments={seasonSlotAssignments}
                             leavingTeamIds={new Set(departureNotices.map((notice) => notice.teamId))}
                             renderTeamMarkers={(team) => <>

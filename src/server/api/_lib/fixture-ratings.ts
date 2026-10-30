@@ -9,7 +9,7 @@ import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../..
 import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../shared/player-specialties.js';
 
 // Local development only: explicitly opt in to viewing both teams' shared ratings.
-const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS === 'true';
+const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.NEXT_PUBLIC_ADMIN_SHOW_ALL_RATINGS === 'true';
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
