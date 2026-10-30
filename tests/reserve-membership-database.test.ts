@@ -372,3 +372,63 @@ test('Lobby and explicit organizer rounds', { skip: !enabled }, async (t) => {
     assert.equal(state(),'f|t|f|t');
   });
 });
+
+test('generated round extension admits Lobby teams and replaces only unlocked fixtures atomically', { skip: !enabled }, () => {
+  setup();
+  migration('124_repair_vacant_round_fixtures.sql');
+  migration('163_extend_generated_round_with_verified_pairs.sql');
+  write(`INSERT INTO teams(id,tournament_id,name,ht_team_id,hattrick_user_id,active,reserve_active,league_id,country_id)
+    VALUES('${id(4)}','${id(10)}','Lobby 4',4,400,false,true,1,1),
+      ('${id(5)}','${id(10)}','Incumbent 5',5,500,true,false,1,1),
+      ('${id(6)}','${id(10)}','Incumbent 6',6,600,true,false,1,1);`);
+  sql(`UPDATE rounds SET reserved_slot_id='S120-W3-midweek',reserved_slot_date='2030-03-12T18:25:00Z'
+    WHERE id='${id(20)}';
+    UPDATE matches SET completed=false,status='arranged',ht_match_id=999,scheduled_for='2030-03-12T18:25:00Z'
+    WHERE id='${id(40)}';
+    INSERT INTO tournament_season_slots(id,tournament_season_id,slot_index,box_size,current_team_id)
+      VALUES('${id(35)}','${id(11)}',3,4,'${id(5)}'),('${id(36)}','${id(11)}',4,4,'${id(6)}');
+    INSERT INTO tournament_season_slot_assignments(tournament_season_slot_id,team_id,reason)
+      VALUES('${id(35)}','${id(5)}','schedule_backfill'),('${id(36)}','${id(6)}','schedule_backfill');
+    INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,scheduled_for,schedule_resolution)
+      VALUES('${id(41)}','${id(20)}','${id(5)}','${id(6)}','not_arranged',false,'2030-03-12T18:25:00Z','pending');
+    INSERT INTO fixture_warnings(team_id,tournament_id,round_id,active)
+      VALUES('${id(5)}','${id(10)}','${id(20)}',true),('${id(1)}','${id(10)}','${id(20)}',true);`);
+  const checkId = id(80), requestId = id(81);
+  sql(`INSERT INTO tournament_slot_checks(tournament_id,season_number,slot_id,team_id,checked_at,observation,verification_id,proposal_hash,actor_id)
+    SELECT '${id(10)}',1,'S120-W3-midweek',id,now(),
+      '{"state":"free","challengesKnown":true,"pendingOpponentIds":[]}'::jsonb,'${checkId}','extension',100
+    FROM teams WHERE id IN('${id(3)}','${id(4)}','${id(5)}','${id(6)}');`);
+  const version = contextVersion();
+  const oldBooking = sql(`SELECT to_jsonb(m) FROM matches m WHERE id='${id(40)}';`);
+  const proposals = [{home_team_id:id(1),away_team_id:id(2),scheduled_for:'2030-03-12T18:25:00Z'},
+    {home_team_id:id(3),away_team_id:id(5),scheduled_for:'2030-03-12T18:25:00Z'},
+    {home_team_id:id(4),away_team_id:id(6),scheduled_for:'2030-03-12T18:25:00Z'}];
+  const dummy = [{home_team_id:id(3),away_team_id:id(4),scheduled_for:'2030-03-12T18:25:00Z'}];
+  const call = (fixtures = proposals) => `SELECT extend_generated_round_with_verified_pairs('${id(10)}',1,'${id(20)}',
+    '${requestId}',ARRAY['${id(3)}'::uuid,'${id(4)}'::uuid],${json(dummy)},${json(fixtures)},'${version}',
+    '${checkId}','extension',100,false,true);`;
+  assert.throws(() => sql(call([{...proposals[0],away_team_id:id(5)},proposals[1],proposals[2]])), /appears twice|booked fixture changed/);
+  assert.equal(sql(`SELECT count(*) FROM tournament_season_slots WHERE current_team_id IN('${id(3)}','${id(4)}');`),'0');
+  sql(`DELETE FROM tournament_slot_checks WHERE team_id='${id(6)}';`);
+  assert.throws(() => sql(call()), /Final availability/);
+  assert.equal(sql(`SELECT count(*) FROM tournament_season_slots WHERE current_team_id IN('${id(3)}','${id(4)}');`),'0');
+  sql(`INSERT INTO tournament_slot_checks(tournament_id,season_number,slot_id,team_id,checked_at,observation,verification_id,proposal_hash,actor_id)
+    VALUES('${id(10)}',1,'S120-W3-midweek','${id(6)}',now(),
+      '{"state":"free","challengesKnown":true,"pendingOpponentIds":[]}'::jsonb,'${checkId}','extension',100);`);
+  sql(call());
+  assert.equal(state(3),'t|f|f|t');
+  assert.equal(state(4),'t|f|f|t');
+  assert.equal(sql(`SELECT to_jsonb(m) FROM matches m WHERE id='${id(40)}';`),oldBooking);
+  assert.equal(sql(`SELECT count(*) FROM matches WHERE round_id='${id(20)}';`),'3');
+  assert.equal(sql(`SELECT count(*) FROM matches WHERE id='${id(41)}';`),'0');
+  assert.equal(sql(`SELECT active FROM fixture_warnings WHERE team_id='${id(5)}';`),'f');
+  assert.equal(sql(`SELECT active FROM fixture_warnings WHERE team_id='${id(1)}';`),'t');
+  assert.equal(sql(`SELECT count(*) FROM rounds;`),'2');
+  assert.equal(sql(`SELECT count(*) FROM tournament_slot_checks WHERE verification_id='${checkId}';`),'0');
+  assert.equal(sql(`SELECT has_function_privilege('authenticated',
+    'public.extend_generated_round_with_verified_pairs(uuid,integer,uuid,uuid,uuid[],jsonb,jsonb,text,uuid,text,bigint,boolean,boolean)','EXECUTE');`),'f');
+});
+
+function contextVersion(): string {
+  return (JSON.parse(sql(`SELECT get_organizer_round_context('${id(10)}',1);`)) as {rosterVersion:string}).rosterVersion;
+}

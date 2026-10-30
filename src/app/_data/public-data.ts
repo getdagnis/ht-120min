@@ -167,7 +167,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     userIds.length
       ? query('manager-names', () => supabase
           .from('profiles')
-          .select('hattrick_user_id, manager_name')
+          .select('hattrick_user_id, manager_name, country_name, country_id')
           .in('hattrick_user_id', userIds))
       : Promise.resolve({ data: [] }),
     currentSeasonId
@@ -186,6 +186,10 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   const profileRows = profilesResult.data;
   const profiles = (profileRows || []) as ManagerSpotlightProfile[];
   const profileMap = Object.fromEntries(profiles.map((profile) => [profile.hattrick_user_id, profile.manager_name]));
+  const managerCountries = new Map((profileRows || []).map((profile) => [profile.hattrick_user_id, {
+    country_name: profile.country_name,
+    country_id: profile.country_id,
+  }]));
   const { managerSpotlight, managerSpotlights, managerSpotlightsHasMore } = await loadInitialTournamentSpotlights(
     tournamentId, teams.filter(isCurrentParticipantTeam) as never[], fresh,
   );
@@ -309,7 +313,11 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
 
   return {
     tournament,
-    teams,
+    teams: teams.map((team) => ({
+      ...team,
+      manager_country_name: managerCountries.get(Number(team.hattrick_user_id || 0))?.country_name || null,
+      manager_country_id: managerCountries.get(Number(team.hattrick_user_id || 0))?.country_id || null,
+    })),
     rounds: orderFixtureRounds(roundWithMatches as Array<typeof roundWithMatches[number] & { round_number: number; round_source?: string; reserved_slot_date?: string | null }>),
     standings,
     warnings: (warningsRaw || []) as Record<string, unknown>[],

@@ -137,7 +137,7 @@ function predicted120mPerformance(preview: RatingsPreviewTeam): MatchSidePerform
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
-  4: { initials: 'NF', description: "Normal 90' Friendly" },
+  4: { initials: 'RR', description: "Regular 90' Rules Friendly" },
   5: { initials: 'CR', description: 'Cup Rules Friendly' },
   8: { initials: 'IF', description: "International 90' Friendly" },
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
@@ -189,26 +189,32 @@ function specialtyMarkersForSector(
     .map((marker) => {
       const specialtyCount = countMatch120mSpecialtyPlayers(groups, marker.specialtyId) ?? 0;
       const penalized = marker.roles.some((role) =>
-        marker.specialtyId === 2 ? role >= 106 && role <= 113
-          : marker.specialtyId === 5 || marker.specialtyId === 4 ? role >= 101 && role <= 113
-            : marker.specialtyId === 1 ? role === 106 || (role >= 110 && role <= 113)
-              : marker.specialtyId === 3 ? role >= 111 && role <= 113
-                : false);
+        marker.specialtyId === 2
+          ? role >= 106 && role <= 113
+          : marker.specialtyId === 5 || marker.specialtyId === 4
+            ? role >= 101 && role <= 113
+            : marker.specialtyId === 1
+              ? role === 106 || (role >= 110 && role <= 113)
+              : marker.specialtyId === 3
+                ? role >= 111 && role <= 113
+                : false,
+      );
       const threatPenaltyGrade = penalized && threatGrade !== 'A' && threatGrade !== 'B' ? threatGrade : null;
       return {
         ...marker,
         penalized,
         threatPenaltyGrade,
         red: penalized && specialtyCount >= 3,
-        green: (marker.specialtyId === 2
-          && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)))
-          || (marker.specialtyId === 3
-            && marker.roles.some((role) => analysis.powerfulPressingRoles.includes(role))),
+        green:
+          (marker.specialtyId === 2 && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role))) ||
+          (marker.specialtyId === 3 && marker.roles.some((role) => analysis.powerfulPressingRoles.includes(role))),
       };
     })
-    .sort((a, b) => Number(Boolean(b.threatPenaltyGrade) || b.red)
-      - Number(Boolean(a.threatPenaltyGrade) || a.red)
-      || Number(b.green) - Number(a.green));
+    .sort(
+      (a, b) =>
+        Number(Boolean(b.threatPenaltyGrade) || b.red) - Number(Boolean(a.threatPenaltyGrade) || a.red) ||
+        Number(b.green) - Number(a.green),
+    );
 }
 
 function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
@@ -265,8 +271,14 @@ function TacticValue({
 }) {
   const showSkill =
     tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
-  const displayScore = score === 1 && tactic?.trim().toLowerCase() === 'pressing'
-    && typeof skill === 'number' && Number.isFinite(skill) && skill < 8 ? 2 : score;
+  const displayScore =
+    score === 1 &&
+    tactic?.trim().toLowerCase() === 'pressing' &&
+    typeof skill === 'number' &&
+    Number.isFinite(skill) &&
+    skill < 8
+      ? 2
+      : score;
   return (
     <IndicatorTip score={displayScore} content={tip}>
       {tactic || '—'}
@@ -337,11 +349,11 @@ function gradeAdvice(
           ? ['fineTuneForAPlus']
           : [];
   const advice = adviceKeys
-    .map((key) => key === 'chooseDefensiveFormation' && analysis.formation === '4-5-1'
-      ? text('formation451')
-      : text(key, key === 'chooseDefensiveFormation'
-        ? { formation: analysis.formation ?? '—' }
-        : undefined))
+    .map((key) =>
+      key === 'chooseDefensiveFormation' && analysis.formation === '4-5-1'
+        ? text('formation451')
+        : text(key, key === 'chooseDefensiveFormation' ? { formation: analysis.formation ?? '—' } : undefined),
+    )
     .map((tip) => `• ${tip}`)
     .join('\n');
   const sections = [heading];
@@ -434,15 +446,22 @@ function RatingsPitch({
                       {markers.map(({ specialtyId, count, penalized, threatPenaltyGrade, red, green }) => (
                         <span
                           key={specialtyId}
-                          className={threatPenaltyGrade
-                            ? `${styles.ratingsThreatMarker} ${styles[`ratingGrade${threatPenaltyGrade}`]}`
-                            : undefined}
+                          className={
+                            threatPenaltyGrade
+                              ? `${styles.ratingsThreatMarker} ${styles[`ratingGrade${threatPenaltyGrade}`]}`
+                              : undefined
+                          }
                         >
                           {count > 1 && (
                             <span
                               className={
-                                threatPenaltyGrade ? undefined
-                                  : red ? styles.ratingIndicator4 : green ? styles.ratingIndicator1 : undefined
+                                threatPenaltyGrade
+                                  ? undefined
+                                  : red
+                                    ? styles.ratingIndicator4
+                                    : green
+                                      ? styles.ratingIndicator1
+                                      : undefined
                               }
                             >
                               {count}×
@@ -560,15 +579,18 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 }) => {
   const uiText = useTranslations('PublicUI.FixtureCard');
   const ratingText = useTranslations('PublicUI.RatingsPitch');
-  const specialtyThreatTooltip = (threat: Match120mSpecialtyThreatBreakdown) => [
-    uiText('seThreatBreakdownHeading'),
-    threat.quick.points > 0 && uiText('seThreatBreakdownQuick', threat.quick),
-    threat.head.points > 0 && uiText('seThreatBreakdownHead', threat.head),
-    threat.unpredictable.points > 0 && uiText('seThreatBreakdownUnpredictable', threat.unpredictable),
-    threat.technical.points > 0 && uiText('seThreatBreakdownTechnical', threat.technical),
-    threat.powerful.points > 0 && uiText('seThreatBreakdownPowerful', threat.powerful),
-    uiText('seThreatBreakdownTotal', { points: threat.total }),
-  ].filter(Boolean).join('\n');
+  const specialtyThreatTooltip = (threat: Match120mSpecialtyThreatBreakdown) =>
+    [
+      uiText('seThreatBreakdownHeading'),
+      threat.quick.points > 0 && uiText('seThreatBreakdownQuick', threat.quick),
+      threat.head.points > 0 && uiText('seThreatBreakdownHead', threat.head),
+      threat.unpredictable.points > 0 && uiText('seThreatBreakdownUnpredictable', threat.unpredictable),
+      threat.technical.points > 0 && uiText('seThreatBreakdownTechnical', threat.technical),
+      threat.powerful.points > 0 && uiText('seThreatBreakdownPowerful', threat.powerful),
+      uiText('seThreatBreakdownTotal', { points: threat.total }),
+    ]
+      .filter(Boolean)
+      .join('\n');
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   const [busySide, setBusySide] = React.useState<'home' | 'away' | null>(null);
   const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
@@ -653,8 +675,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 
   const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
   const showRatingsSection = Boolean(
-    (isOwned || ratingsPreview?.home || ratingsPreview?.away) &&
-    (ratingsPreview || ratingsSharedStatus),
+    (isOwned || ratingsPreview?.home || ratingsPreview?.away) && (ratingsPreview || ratingsSharedStatus),
   );
 
   const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (
@@ -679,10 +700,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           isRight={isRight}
           matchSummary={team.matchSummary}
           matchKitUrl={team.warning ? null : team.matchKitUrl}
-          matchNotice={!isOwned && status === 'arranged' && (
-            ratingsSharedStatus?.[isRight ? 'away' : 'home'] === 'shared' ||
-            ratingsPreview?.[isRight ? 'away' : 'home']
-          ) ? uiText('sharedPredictedRatings') : undefined}
+          matchNotice={
+            !isOwned &&
+            status === 'arranged' &&
+            (ratingsSharedStatus?.[isRight ? 'away' : 'home'] === 'shared' ||
+              ratingsPreview?.[isRight ? 'away' : 'home'])
+              ? uiText('sharedPredictedRatings')
+              : undefined
+          }
         />
       )}
       {status === 'finished' && !actualDetailsExpanded && team.ratingGrade && (
@@ -910,9 +935,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           skill={preview.tacticSkill}
                           score={predictedAnalysis?.tacticScore ?? null}
                           tip={ratingText(
-                            isCounterAttacks(preview.tactic) ? 'counterAttacksPenalty' : hasAdditionalTacticPenalty(preview.tactic) ? 'attackingTacticPenalty' : predictedAnalysis?.tacticScore === 1
-                              ? (preview.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
-                              : 'aimPressing',
+                            isCounterAttacks(preview.tactic)
+                              ? 'counterAttacksPenalty'
+                              : hasAdditionalTacticPenalty(preview.tactic)
+                                ? 'attackingTacticPenalty'
+                                : predictedAnalysis?.tacticScore === 1
+                                  ? (preview.tacticSkill ?? 0) < 15
+                                    ? 'pressingBelow15'
+                                    : 'pressingBest'
+                                  : 'aimPressing',
                           )}
                         />
                       </span>
@@ -1104,9 +1135,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         skill={performance?.tacticSkill}
                         score={analysis.tacticScore}
                         tip={ratingText(
-                          isCounterAttacks(performance?.tacticName) ? 'counterAttacksPenalty' : hasAdditionalTacticPenalty(performance?.tacticName) ? 'attackingTacticPenalty' : analysis.tacticScore === 1
-                            ? (performance?.tacticSkill ?? 0) < 15 ? 'pressingBelow15' : 'pressingBest'
-                            : 'aimPressing',
+                          isCounterAttacks(performance?.tacticName)
+                            ? 'counterAttacksPenalty'
+                            : hasAdditionalTacticPenalty(performance?.tacticName)
+                              ? 'attackingTacticPenalty'
+                              : analysis.tacticScore === 1
+                                ? (performance?.tacticSkill ?? 0) < 15
+                                  ? 'pressingBelow15'
+                                  : 'pressingBest'
+                                : 'aimPressing',
                         )}
                       />
                     </strong>

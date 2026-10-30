@@ -304,3 +304,12 @@ previous round-progression containment. Migration 157 is prepared, not applied
 by the agent; stale rating snapshots return `PT409` for one bounded application
 retry. Manual live-result requests are batched at 30 IDs; warning-derived
 misarranged fixtures are classified before filtering/sorting. Application follow-up deployed and READY (`dpl_HQeEFY9bBGbRY8bmsyzvdaH4ypmU`); 33 focused tests and production build passed. Migration 157 application, stopping existing database loops, and real CHPP recovery of overdue fixtures remain unverified.
+
+Generated regular rounds can be selected in the organizer pairing assistant for
+admitting an even number of Lobby teams and re-pairing unbooked fixtures with the
+existing flag-aware heuristic. Booked fixtures remain fixed. Migration
+`163_extend_generated_round_with_verified_pairs.sql` is prepared locally and
+unapplied; it owns the atomic admission and fixture replacement. A focused
+disposable PostgreSQL regression, local production build, and normal test suite
+passed. No live Supabase, CHPP, browser, deployment, or production data action
+was performed. See `docs/organizer-pairing-assistant.md`.

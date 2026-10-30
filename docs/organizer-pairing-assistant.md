@@ -90,8 +90,12 @@ and context version. `begin-verification` issues a server-signed token bound to
 that proposal and actor. Subsequent small `check` batches save server-owned
 receipts under the token's run ID and proposal hash. Tokens expire after one hour;
 start a new verification if that limit is reached. Editing invalidates the run.
-The final save performs **no CHPP fetches**: it checks receipt coverage and states,
-and the transaction locks/rechecks those same receipts and fixture/context state.
+The organizer-round creation and saved-repair final saves perform **no CHPP fetches**:
+they check receipt coverage and states, and the transaction locks/rechecks those
+same receipts and fixture/context state. Generated-round extension additionally
+reruns the existing Lobby admission eligibility and cup/booking checks before its
+single admission-and-repair transaction. That preflight does not persist ranking
+updates, so it cannot invalidate the signed proposal version before the transaction.
 Consumed receipts cannot be replayed as another successful save.
 
 Unknown checks, unresolved offers, context changes, or newly unavailable teams
@@ -107,7 +111,7 @@ All operations remain under `/api/app?route=organizer-round`:
 
 | Operation | Contract |
 | --- | --- |
-| GET | Current context/version, safe team identities, slots, flags, prior observations, organizer rounds, saved-repair capability, browser storage key, batch size |
+| GET | Current context/version, safe team identities, slots, flags, prior observations, materialized generated and organizer rounds, saved-repair capability, browser storage key, batch size |
 | POST `check` | Slot, optional round, up to two team IDs; final batches also include the exact proposal and signed verification token |
 | POST `flags` | Slot, optional round, up to two team IDs; returns individual success/failure and saves successful flag snapshots |
 | POST `begin-verification` | Exact roster, pairings, slot, context version, optional target round; returns signed verification token |
@@ -120,6 +124,19 @@ alter other rounds. Protected rows must remain identical. Unchanged unbooked row
 keep their IDs; replaced rows are deleted/recreated so linked ratings/shares are
 cleared by their existing foreign keys. Affected warnings are retired. All changes
 and receipt consumption are atomic under the existing tournament lifecycle lock.
+
+The same editor can extend a selectable materialized **generated** regular round.
+Existing participants remain selected. The organizer chooses an even number of
+Lobby teams, checks availability, explicitly refreshes missing or stale flags,
+and previews manager-first flag pairings. The normal preview may rearrange every
+unbooked fixture to improve flag gains; the bounded search does not promise a
+global optimum. Booked fixtures and pending outgoing challenges to the same
+opponents remain fixed. The service-only `extend_generated_round_with_verified_pairs`
+transaction (migration 163) admits the Lobby teams into the same tournament
+season and standings, removes only changeable fixture rows in that round, writes
+the verified proposed fixtures, retires warnings for replaced participants, and
+consumes verification receipts. Existing
+rounds, booked fixture identities, completed results, and other seasons stay put.
 
 Pairing CSV keeps `home_ht_team_id,away_ht_team_id` as its first two editable
 columns; empty cells represent a BYE. The export also includes planned kickoff,
@@ -146,9 +163,14 @@ cache writes. Apply 151 only when releasing saved-round repair. No extra serverl
 added. No live CHPP, Supabase, migration, publication, or booking action occurred
 during implementation.
 
-Tests were authored but **not run**, following the owner's current instruction.
-No build, lint, typecheck, browser automation, or SQL execution was performed.
-Coverage prepared in `tests/organizer-planning.test.ts` includes slot/DST
+Migration **163** adds only the service-role generated-round extension RPC. It is
+prepared locally and requires the existing admission, generated-round repair,
+and organizer verification RPCs. It has not been applied to Supabase or deployed.
+The focused disposable PostgreSQL regression covers rollback, booked fixture
+identity, newcomer admission, replacement, and private function grants. A local
+build and normal test suite pass; live UI and CHPP behavior remain unverified.
+
+Coverage in `tests/organizer-planning.test.ts` includes slot/DST
 boundaries, multiple fixtures, incomplete CHPP results, pending/accepted offers,
 legacy uncertainty, concurrent flag updates, signed verification, manager
 coverage, stability, CSV, and a synthetic 160-team field. The opt-in disposable

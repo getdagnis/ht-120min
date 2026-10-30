@@ -17,13 +17,16 @@ test('unscored legacy context offers future slots without staged metadata or an 
     const data = table === 'tournaments' ? { season: 2, schedule_mode: mode, schedule_generated_at: '2026-09-17T00:00:00Z' }
       : table === 'get_organizer_round_context' ? { rosterVersion: 'version', teams: [{ id: 'team', country_name: 'Guam', league_level: 1 }],
         rounds: [{ id: 'old', round_number: 1, phase: 'postseason', phase_status: 'completed', reserved_slot_id: null, reserved_slot_date: null }], history: [] }
-        : table === 'organizer_saved_repair_enabled' ? true : [];
+        : table === 'organizer_saved_repair_enabled' ? true
+          : table === 'rounds' ? [{ id: 'generated', round_number: 3, phase_status: 'materialized', round_source: 'scheduled',
+            reserved_slot_id: 'S120-W3-midweek', reserved_slot_kind: 'midweek_friendly', reserved_slot_date: '2030-03-12T18:25:00Z',
+            round_participants: [], matches: [] }] : [];
     return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
   };
   try {
     for (mode of ['single', 'double', 'recurring']) {
       let status = 200;
-      let body: { slots?: unknown[]; error?: string } = {};
+      let body: { slots?: unknown[]; existingRounds?: Array<{id:string}>; error?: string } = {};
       const response = { setHeader() {}, status(value: number) { status = value; return this; }, json(value: typeof body) { body = value; return this; } } as unknown as VercelResponse;
       await handleOrganizerRound({ method: 'GET' } as VercelRequest, response, 'cup', true, 0, true);
       assert.equal(status, 200);
@@ -31,6 +34,15 @@ test('unscored legacy context offers future slots without staged metadata or an 
       await handleOrganizerRound({ method: 'GET' } as VercelRequest, response, 'cup', true, 0, false);
       assert.equal(status, 409, 'Counted legacy creation remains unsupported');
     }
+    mode = 'length';
+    let status = 200;
+    let body: { existingRounds?: Array<{id:string}>; error?: string } = {};
+    const response = { setHeader() {}, status(value: number) { status = value; return this; }, json(value: typeof body) { body = value; return this; } } as unknown as VercelResponse;
+    await handleOrganizerRound({ method: 'GET' } as VercelRequest, response, 'cup', true, 0, false);
+    assert.equal(body.existingRounds?.[0]?.id, 'generated', 'Generated rounds are selectable by ID');
+    await handleOrganizerRound({ method: 'POST', body: { roundId: 'generated', slotId: 'S120-W3-midweek' } } as VercelRequest,
+      response, 'cup', true, 0, true);
+    assert.equal(status, 400, 'The unscored route cannot extend a scored generated round');
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalUrl;

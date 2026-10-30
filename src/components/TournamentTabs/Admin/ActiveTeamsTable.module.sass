@@ -1,0 +1,274 @@
+.root
+  min-width: 0
+
+.controls
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.5rem
+  margin-bottom: 0.85rem
+
+  input, select
+    min-height: 2.25rem
+    border: 1px solid var(--borderWeak)
+    border-radius: var(--radius-sm)
+    background: var(--lighter-less)
+    color: var(--text)
+    padding: 0.3rem 0.65rem
+    font: inherit
+    font-size: 0.84rem
+
+    &:focus-visible
+      outline: 2px solid var(--accent)
+      outline-offset: 1px
+
+  input
+    flex: 1 1 15rem
+    min-width: 11rem
+    max-width: 27rem
+
+  select
+    flex: 0 0 auto
+
+.count, .legend, .notice
+  color: var(--text60)
+  font-size: 0.75rem
+
+.count
+  margin-left: auto
+  font-weight: 600
+
+.scroll
+  max-width: 100%
+  overflow-x: auto
+
+.table
+  width: 100%
+  min-width: 720px
+  border-collapse: collapse
+  table-layout: auto
+  text-align: center
+  font-size: 0.84rem
+
+  th, td
+    padding: 0.62rem 0.45rem
+    vertical-align: middle
+    text-align: center
+    border-bottom: 1px solid var(--borderWeak)
+
+  thead
+    background: var(--lighter-less)
+
+  th
+    color: var(--text60)
+    font-size: 0.72rem
+    font-weight: 600
+    letter-spacing: 0.02em
+    white-space: nowrap
+    text-transform: uppercase
+
+    &[aria-sort="ascending"], &[aria-sort="descending"]
+      color: var(--text-h)
+
+    button
+      padding: 0
+      border: 0
+      background: transparent
+      color: inherit
+      font: inherit
+      font-weight: inherit
+      text-transform: inherit
+      cursor: pointer
+
+      &:focus-visible
+        outline: 2px solid var(--accent)
+        outline-offset: 2px
+
+  th:first-child, td:first-child
+    padding-left: 0.55rem
+
+  th:not(:first-child), td:not(:first-child)
+    width: 1%
+    white-space: nowrap
+
+  th:nth-child(2), th:nth-child(3), th:nth-child(4), td:nth-child(2), td:nth-child(3), td:nth-child(4)
+    text-align: center
+
+  th:last-child, td:last-child
+    padding-right: 0.65rem
+    text-align: right
+
+  tbody tr:hover
+    background: var(--lighter-less)
+
+.teamCell
+  min-width: 17rem
+
+.teamLine
+  display: flex
+  align-items: center
+  gap: 0.4rem
+
+.logo
+  width: 2.1rem
+  height: 2.1rem
+  flex: 0 0 2.1rem
+  object-fit: contain
+
+.identities
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+  min-width: 0
+  line-height: 1.2
+
+.identityLine
+  display: flex
+  align-items: center
+  gap: 0.25rem
+  min-width: 0
+
+  a, strong
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+    color: var(--text-h)
+    text-decoration: none
+
+  a:hover
+    text-decoration: underline
+
+  &:first-child
+    a, strong
+      flex: 0 1 auto
+      min-width: 0
+      overflow: visible
+      overflow-wrap: anywhere
+      text-overflow: clip
+      white-space: normal
+      font-family: var(--heading)
+      font-size: 1.25rem
+      font-weight: 600
+      line-height: 1.25
+
+  &:last-child
+    color: var(--text60)
+    font-size: 0.76rem
+
+    a
+      color: inherit
+      overflow: visible
+      overflow-wrap: anywhere
+      text-overflow: clip
+      white-space: normal
+
+.flag
+  width: 0.9rem
+  height: 0.65rem
+  flex: 0 0 0.9rem
+  object-fit: contain
+
+.teamId
+  white-space: nowrap
+
+.risk
+  display: inline-flex
+  align-items: center
+  padding: 0.18rem 0.44rem
+  border-radius: 1rem
+  background: color-mix(in srgb, var(--risk-color) 12%, transparent)
+  color: var(--text-h)
+  font-size: 0.72rem
+  font-weight: 700
+  line-height: 1.1
+  white-space: nowrap
+
+  &:focus-visible
+    outline: 2px solid var(--accent)
+    outline-offset: 2px
+
+.critical
+  color: white
+  background: var(--danger)
+
+.high
+  --risk-color: var(--rating-d)
+  background: color-mix(in srgb, var(--rating-e) 12%, transparent)
+  color: var(--rating-e)
+
+.medium
+  --risk-color: var(--rating-c)
+
+.low
+  --risk-color: var(--rating-b)
+  background: color-mix(in srgb, var(--risk-color) 8%, transparent)
+
+.none
+  --risk-color: var(--rating-a)
+  background: transparent
+  color: var(--rating-a)
+
+.unknown
+  --risk-color: var(--text60)
+  color: var(--text60)
+
+.conflict
+  color: var(--danger)
+  font-family: var(--heading)
+  font-weight: 500
+
+.arranged
+  color: var(--rating-a)
+  font-family: var(--heading)
+  font-weight: 500
+
+.missIcon
+  width: 0.85rem
+  height: 0.85rem
+  margin-right: 0.2rem
+  vertical-align: -0.13rem
+
+.srOnly
+  position: absolute
+  width: 1px
+  height: 1px
+  padding: 0
+  margin: -1px
+  overflow: hidden
+  clip: rect(0, 0, 0, 0)
+  white-space: nowrap
+
+.actionsButton
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 2rem
+  height: 2rem
+  border: 0
+  background: transparent
+  color: var(--text60)
+  cursor: pointer
+
+  &:hover, &[aria-expanded="true"]
+    background: var(--lighter-more)
+    color: var(--text-h)
+
+  &:focus-visible
+    outline: 2px solid var(--accent)
+
+.actionMenu
+  position: fixed
+  z-index: 1000
+  visibility: hidden
+  max-width: calc(100vw - 1rem)
+  overflow-y: auto
+  background: var(--bg-color)
+
+  button:focus-visible
+    outline: 2px solid var(--accent)
+
+.empty, .legend, .notice
+  margin: 0.6rem
+
+.empty
+  font-size: 0.85rem

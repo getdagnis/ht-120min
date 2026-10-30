@@ -8,6 +8,7 @@ import { validateFinalObservations, flagRoster, type SlotObservation, type Plann
 import { canFlagTeamsPair } from '../../../../shared/flag-matching.js';
 import type { ChppTeamOption } from './chpp-xml.js';
 import { loadPairingPreferences } from './pairing-preferences.js';
+import { checkReserveAdmission } from './reserve-admission.js';
 
 interface RoundContext {
   rosterVersion: string;
@@ -28,7 +29,7 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
   if (error) throw error;
   const context = data as RoundContext;
   const existingResult = await db.from('rounds').select('id,round_number,phase_status,round_source,reserved_slot_id,reserved_slot_kind,reserved_slot_date,round_participants(team_id,participation),matches(id,home_team_id,away_team_id,completed,status,ht_match_id,scheduled_for,chpp_match_date,finished_at)')
-    .eq('tournament_id', tournamentId).eq('season_number', seasonNumber).eq('round_source', 'organizer').eq('phase', 'regular');
+    .eq('tournament_id', tournamentId).eq('season_number', seasonNumber).eq('phase', 'regular');
   if (existingResult.error) throw existingResult.error;
   const existingRounds = existingResult.data as PlanningRound[];
   const now = new Date();
@@ -71,8 +72,10 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
       storageKey: `organizer-draft:${actorId}:${tournamentId}:${seasonNumber}`, batchSize: PLANNING_BATCH_SIZE });
   }
   const { slotId, roster, pairings, rosterVersion, action, roundId, teamIds, verification } = req.body || {};
-  const target = roundId ? existingRounds.find(round => round.id === roundId && round.phase_status === 'materialized') : null;
-  if (roundId && !target) return res.status(409).json({ error: 'Choose a materialized organizer-added round.' });
+  const target = roundId ? existingRounds.find(round => round.id === roundId && round.phase_status === 'materialized' &&
+    (round.round_source === 'organizer' || round.round_source === 'scheduled')) : null;
+  if (roundId && !target) return res.status(409).json({ error: 'Choose a materialized regular round.' });
+  if (unscored && target) return res.status(400).json({ error: 'This action creates a new round.' });
   const slot = target && target.reserved_slot_id === slotId ? { id: slotId, kind: target.reserved_slot_kind,
     nominalDate: new Date(target.reserved_slot_date), selectable: true } as ReturnType<typeof buildCalendarSlots>[number]
     : slots.find(candidate => candidate.id === slotId);
@@ -132,8 +135,19 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
   if (protectedPairs.some(match => !pairs.some(pair => pair.homeTeamId === match.home_team_id && pair.awayTeamId === match.away_team_id))) {
     return res.status(409).json({ error: 'A protected fixture changed. Reload the round.' });
   }
-  if (target && selections.some(row => !target.round_participants.some(previous => previous.team_id === row.teamId && previous.participation === row.participation))) {
+  if (target?.round_source === 'organizer' && selections.some(row => !target.round_participants.some(previous => previous.team_id === row.teamId && previous.participation === row.participation))) {
     return res.status(400).json({ error: 'Saved-round repair cannot add participants or change admission choices.' });
+  }
+  const scheduledParticipantIds = new Set(target?.round_source === 'scheduled'
+    ? target.matches.flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))) : []);
+  const newTeamIds = target?.round_source === 'scheduled'
+    ? selections.filter(row => !scheduledParticipantIds.has(row.teamId)).map(row => row.teamId) : [];
+  if (target?.round_source === 'scheduled' && (scheduledParticipantIds.size === 0 ||
+    [...scheduledParticipantIds].some(id => !selections.some(row => row.teamId === id)) ||
+    newTeamIds.length < 2 || newTeamIds.length % 2 !== 0 ||
+    newTeamIds.some(id => !context.teams.some(team => team.id === id && !team.active && team.reserve_active)) ||
+    selections.some(row => scheduledParticipantIds.has(row.teamId) ? row.participation === 'admit' : row.participation !== 'admit'))) {
+    return res.status(400).json({ error: 'Keep every existing participant and select an even number of Lobby teams.' });
   }
   const selected = selections.map(row => context.teams.find(team => team.id === row.teamId));
   if (selected.some(team => !team || team.is_placeholder)) return res.status(400).json({ error: 'Choose existing tournament teams.' });
@@ -166,7 +180,21 @@ export async function handleOrganizerRound(req: VercelRequest, res: VercelRespon
     p_matches: matches, p_override: canOverride,
     p_verification_id: run.id, p_proposal_hash: hash, p_actor_id: actorId,
   };
-  if (unscored && target) return res.status(400).json({ error: 'This action creates a new round.' });
+  if (target?.round_source === 'scheduled') {
+    let admission: Awaited<ReturnType<typeof checkReserveAdmission>>;
+    try { admission = await checkReserveAdmission(db, tournamentId, newTeamIds,
+      { isSiteAdmin: canOverride, roundId: target.id, persistRankings: false }); }
+    catch (cause) { return res.status(409).json({ error: cause instanceof Error ? cause.message : 'Lobby eligibility could not be verified.' }); }
+    if (!admission.canAdmit) return res.status(409).json({ error: 'The selected Lobby teams are unavailable. Recheck them.' });
+    const saved = await db.rpc('extend_generated_round_with_verified_pairs', {
+      p_tournament_id: tournamentId, p_season_number: seasonNumber, p_round_id: target.id,
+      p_request_id: run.id, p_team_ids: newTeamIds, p_dummy_matches: admission.matches,
+      p_matches: matches, p_roster_version: rosterVersion, p_verification_id: run.id,
+      p_proposal_hash: hash, p_actor_id: actorId, p_override: canOverride, p_raise_limit: canOverride ? false : true,
+    });
+    if (saved.error) return res.status(409).json({ error: saved.error.message });
+    return res.status(200).json({ ...saved.data, roundNumber: target.round_number });
+  }
   const saved = unscored
     ? await db.rpc('save_unscored_verified_organizer_round', rpcParams)
     : await db.rpc('save_verified_organizer_round', { ...rpcParams, p_round_id: target?.id || null });

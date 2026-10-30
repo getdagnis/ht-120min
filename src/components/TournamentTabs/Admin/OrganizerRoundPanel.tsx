@@ -38,6 +38,8 @@ const asPairs = (round: PlanningRound): LengthSchedulePairing[] => round.matches
   homeTeamId: match.home_team_id, awayTeamId: match.away_team_id, isBye: !match.home_team_id || !match.away_team_id,
 }));
 const teamGroup = (team: OrganizerRoundTeam) => team.active ? 'active' : team.reserve_active ? 'lobby' : 'past';
+const roundTeamIds = (round: PlanningRound) => new Set(round.matches.flatMap(match =>
+  [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))));
 
 async function request<T>(body: object, signal?: AbortSignal): Promise<T> {
   const response = await fetch('/api/app?route=organizer-round', { method: 'POST', credentials: 'same-origin',
@@ -71,8 +73,10 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   useEffect(() => () => { stop.current = true; controller.current?.abort(); }, []);
 
   const target = context?.existingRounds.find(round => round.id === roundId);
+  const extending = target?.round_source === 'scheduled';
+  const incumbentIds = target && extending ? roundTeamIds(target) : new Set<string>();
   const available = context?.teams.filter(team => !team.is_placeholder &&
-    (!context.departingTeamIds?.includes(team.id) || target?.round_participants.some(row => row.team_id === team.id))) || [];
+    (!context.departingTeamIds?.includes(team.id) || target?.round_participants.some(row => row.team_id === team.id) || incumbentIds.has(team.id))) || [];
   const selected = available.filter(team => selection.some(row => row.teamId === team.id));
   const shown = available.filter(team => (group === 'all' || teamGroup(team) === group) && team.name.toLowerCase().includes(query.toLowerCase()));
   const slot: Slot | undefined = target ? {
@@ -87,6 +91,11 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
   const locked = (pair: LengthSchedulePairing) => protectedPairs.some(row => pairKey(row) === pairKey(pair)) || pairIsBooked(pair, selected, checks);
   const playingIds = new Set((pairs || []).flatMap(pair => [pair.homeTeamId, pair.awayTeamId]));
   const playingRoster = selection.filter(row => playingIds.has(row.teamId));
+  const entrants = selection.filter(row => !incumbentIds.has(row.teamId));
+  const extensionIssue = extending && (entrants.length < 2 || entrants.length % 2 !== 0 ||
+    entrants.some(row => !available.some(team => team.id === row.teamId && !team.active && team.reserve_active)) ||
+    [...incumbentIds].some(id => !playingIds.has(id)) || entrants.some(row => !playingIds.has(row.teamId)))
+    ? 'Keep every existing participant and pair an even number of at least two Lobby teams.' : null;
   const validation = pairs ? validateOrganizerPairings(playingRoster, pairs, selected) : null;
   const previewIssue = pairs ? validateFinalObservations(pairs, selected, checks, protectedPairs, Boolean(roundId), target ? asPairs(target) : []) : null;
   const roster = flagRoster(selected);
@@ -167,12 +176,15 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     const round = context.existingRounds.find(row => row.id === id);
     const nextSlot = round?.reserved_slot_id || context.slots[0]?.id || '';
     setSlotId(nextSlot); setChecks(previousChecks(context, nextSlot));
-    if (round) { setSelection(round.round_participants.map(row => ({ teamId: row.team_id, participation: row.participation }))); setPairs(asPairs(round)); setBaseline(asPairs(round)); }
+    if (round) { setSelection(round.round_source === 'scheduled'
+      ? [...roundTeamIds(round)].map(teamId => ({ teamId, participation: 'round_only' }))
+      : round.round_participants.map(row => ({ teamId: row.team_id, participation: row.participation })));
+      setPairs(asPairs(round)); setBaseline(asPairs(round)); }
   }
   function restore() {
     if (!savedDraft || !context) return;
     const savedRound = context.existingRounds.find(round => round.id === savedDraft.roundId);
-    if ((savedDraft.roundId && (!savedRound || !context.canRepairSavedRounds)) || (!savedDraft.roundId && !context.slots.some(row => row.id === savedDraft.slotId))) {
+    if ((savedDraft.roundId && (!savedRound || (savedRound.round_source !== 'scheduled' && !context.canRepairSavedRounds))) || (!savedDraft.roundId && !context.slots.some(row => row.id === savedDraft.slotId))) {
       setError('The saved slot or round is no longer available.'); return;
     }
     const safeSelection = savedDraft.selection.filter(row => row && available.some(team => team.id === row.teamId) && ['round_only', 'admit'].includes(row.participation));
@@ -183,7 +195,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     setSuccess('Draft restored. Recheck availability before generating or saving.');
   }
   function choose(team: OrganizerRoundTeam, checked: boolean) {
-    edited(); setSelection(rows => checked ? [...rows.filter(row => row.teamId !== team.id), { teamId: team.id, participation: 'round_only' }]
+    edited(); setSelection(rows => checked ? [...rows.filter(row => row.teamId !== team.id), { teamId: team.id, participation: extending ? 'admit' : 'round_only' }]
       : rows.filter(row => row.teamId !== team.id)); setPairs(null);
   }
   function chooseShown(checked: boolean) {
@@ -250,8 +262,8 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not generate a compatible proposal.'); }
   }
   async function save(resume = false) {
-    if (!context || !pairs || validation || kickoffError || pastKickoff || incompatible) return;
-    if (!resume && !window.confirm(`${roundId ? 'Verify and apply this repair' : 'Verify and save this counted round'} with ${playingRoster.length} participants?\n${selected.length - playingRoster.length} selected teams have no fixture and will be excluded.\n${canOverride ? 'Existing organizer admission overrides apply.' : ''}`)) return;
+    if (!context || !pairs || validation || extensionIssue || kickoffError || pastKickoff || incompatible) return;
+    if (!resume && !window.confirm(`${extending ? 'Verify and add fixtures to this round' : roundId ? 'Verify and apply this repair' : 'Verify and save this counted round'} with ${playingRoster.length} participants?\n${selected.length - playingRoster.length} selected teams have no fixture and will be excluded.\n${extending && !canOverride ? 'If these admissions exceed the season team limit, it will be increased to fit.\n' : ''}${canOverride ? 'Existing organizer admission overrides apply.' : ''}`)) return;
     startWork();
     try {
       const proposal: Proposal = { tournamentId, slotId, roundId: roundId || null, rosterVersion: context.rosterVersion, roster: playingRoster, pairings: pairs };
@@ -314,10 +326,10 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
       }
       try { localStorage.removeItem(context.storageKey); } catch { /* The next restore still requires validation. */ }
       setTouched(false); setFinalRun(null); setContext(null); setPairs(null); setSelection([]); setSavedDraft(null);
-      const label = getRoundDisplayLabel({ round_number: result.roundNumber, round_source: 'organizer',
+      const label = getRoundDisplayLabel({ round_number: result.roundNumber, round_source: target?.round_source || 'organizer',
         reserved_slot_kind: slot.kind, reserved_slot_date: slot.nominalDate }, context.rounds);
       setProgress(`${label} saved.`);
-      setSuccess(`${label} ${roundId ? 'repaired' : 'saved'}. Fixtures are available in Fixtures & Results.`);
+      setSuccess(`${label} ${extending ? 'extended' : roundId ? 'repaired' : 'saved'}. Fixtures are available in Fixtures & Results.`);
       try { await onChanged(); } catch { setError('The round was saved, but the fixture view could not refresh. Reload the page.'); }
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save. Nothing was silently retried.'); }
     finally { setBusy(false); }
@@ -339,9 +351,13 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
     {error && <p role="alert">{error}</p>}{success && <p role="status">{success}</p>}
     {context && <fieldset disabled={busy} className={styles.form}>
       {savedDraft && <Button type="button" variant="secondaryAction" onClick={restore}>Restore saved draft</Button>}
-      {context.canRepairSavedRounds && <label>Round<select value={roundId} onChange={event => selectRound(event.target.value)}>
+      {(context.canRepairSavedRounds || context.existingRounds.some(round => round.round_source === 'scheduled')) && <label>Round<select value={roundId} onChange={event => selectRound(event.target.value)}>
         <option value="">New additional round</option>
-        {context.existingRounds.filter(round => round.phase_status === 'materialized').map(round => <option key={round.id} value={round.id}>Repair {getRoundDisplayLabel(round, context.rounds)}</option>)}
+        {context.existingRounds.filter(round => round.phase_status === 'materialized' &&
+          ((round.round_source === 'organizer' && context.canRepairSavedRounds) || (round.round_source === 'scheduled' && round.matches.length > 0 &&
+            round.matches.every(match => !match.completed && !['ongoing', 'finished'].includes(match.status) &&
+              !match.finished_at && (!match.scheduled_for || Date.parse(match.scheduled_for) > now)))))
+          .map(round => <option key={round.id} value={round.id}>{round.round_source === 'scheduled' ? 'Add fixtures to ' : 'Repair '}{getRoundDisplayLabel(round, context.rounds)}</option>)}
       </select></label>}
       {!roundId && <label>Calendar slot<select aria-label="Calendar slot" value={slotId} onChange={event => {
         edited(); setSlotId(event.target.value); setPairs(null); setAttemptedIds([]); setChecks(previousChecks(context, event.target.value));
@@ -361,7 +377,7 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
         const entry = selection.find(row => row.teamId === team.id), check = checks[team.id], flag = flags[String(team.ht_team_id)];
         const preference = context.preferences?.[String(team.ht_team_id)];
         return <div key={team.id} className={styles.team}>
-          <label><input type="checkbox" checked={Boolean(entry)} disabled={Boolean(roundId)} onChange={event => choose(team, event.target.checked)} />{team.name} <small>({teamGroup(team)})</small></label>
+          <label><input type="checkbox" checked={Boolean(entry)} disabled={Boolean(roundId && (!extending || incumbentIds.has(team.id) || team.active || !team.reserve_active))} onChange={event => choose(team, event.target.checked)} />{team.name} <small>({teamGroup(team)})</small></label>
           {entry && !team.active && !roundId && <select aria-label={`Participation for ${team.name}`} value={entry.participation} onChange={event => {
             edited(); setSelection(rows => rows.map(row => row.teamId === team.id ? { ...row, participation: event.target.value as RoundParticipation } : row));
           }}><option value="round_only">This round only</option><option value="admit">Admit for subsequent rounds</option></select>}
@@ -374,8 +390,8 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
         <Button type="button" variant="secondaryAction" disabled={!slot || !selected.length} onClick={() => void scan('check')}>Check / recheck availability</Button>
         {pairs && <Button type="button" variant="secondaryAction" disabled={!slot || !playingRoster.length} onClick={() => void scan('check', false, true)}>Recheck proposed teams</Button>}
         <Button type="button" variant="secondaryAction" disabled={!slot || !selected.length} onClick={() => void scan('flags')}>Refresh missing / stale flags</Button>
-        <Button type="button" disabled={!slot || selection.length < 2 || Boolean(roundId)} onClick={() => generate(false)}>Preview flag pairings</Button>
-        <Button type="button" variant="secondaryAction" disabled={!slot || selection.length < 2 || Boolean(roundId)} onClick={() => generate(false, true)}>Balanced preview</Button>
+        <Button type="button" disabled={!slot || selection.length < 2 || Boolean(roundId && !extending)} onClick={() => generate(false)}>Preview flag pairings</Button>
+        <Button type="button" variant="secondaryAction" disabled={!slot || selection.length < 2 || Boolean(roundId && !extending)} onClick={() => generate(false, true)}>Balanced preview</Button>
         <Button type="button" variant="secondaryAction" disabled={!pairs} onClick={() => generate(true)}>Preview minimal-change repair</Button>
       </div>
       {scanRun && <Button type="button" variant="secondaryAction" onClick={() => void scan(scanRun.action, true)}>Resume / retry {scanRun.action === 'check' ? 'availability' : 'flag refresh'}</Button>}
@@ -421,7 +437,8 @@ export function OrganizerRoundPanel({ tournamentId, onChanged, canOverride }: {
         {pastKickoff && <p role="alert">A planned kickoff has passed. Change the venue, roster, or slot.</p>}
         {previewIssue && <p role="alert">{previewIssue} Recheck unclear offers, resolve outgoing challenges, or use Preview minimal-change repair; then review the pairings.</p>}
         <p>{playingRoster.filter(row => row.participation === 'admit').length} continuing admissions. Other non-active participants keep their membership.</p>
-        <Button type="button" disabled={Boolean(validation || kickoffError || incompatible || pastKickoff || previewIssue)} onClick={() => void save()}>{roundId ? 'Verify and apply repair' : 'Verify and save counted round'}</Button>
+        {extensionIssue && <p role="alert">{extensionIssue}</p>}
+        <Button type="button" disabled={Boolean(validation || extensionIssue || kickoffError || incompatible || pastKickoff || previewIssue)} onClick={() => void save()}>{extending ? 'Verify and add fixtures' : roundId ? 'Verify and apply repair' : 'Verify and save counted round'}</Button>
         {finalRun && <Button type="button" variant="secondaryAction" onClick={() => void save(true)}>Retry / resume final verification</Button>}
         {progress && <p role="status" aria-live="polite">{progress}</p>}
         {error && <p role="alert">{error}</p>}

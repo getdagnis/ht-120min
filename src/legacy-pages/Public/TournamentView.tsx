@@ -397,6 +397,8 @@ export interface Team {
   country_name?: string;
   country_id?: number | null;
   manager_name?: string;
+  manager_country_name?: string | null;
+  manager_country_id?: number | null;
   is_placeholder?: boolean;
   hattrick_user_id?: number;
   league_level?: number | null;
@@ -5995,6 +5997,7 @@ export const TournamentView: React.FC<{
       teams,
       rounds,
       seasonSlots,
+      seasonSlotAssignments,
       fixtureWarningTeamIds: new Set(
         activityWarnings
           .map((warning) => warning.team_id)
