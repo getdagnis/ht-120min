@@ -142,19 +142,25 @@ export async function handleForgeLocales(req: VercelRequest, res: VercelResponse
     .in('hattrick_user_id', authorIds) : { data: [], error: null };
   if (authors.error) throw authors.error;
   const authorNames = Object.fromEntries((authors.data || []).map((item) => [item.hattrick_user_id, item.manager_name]));
-  const sourceValues = Object.fromEntries(keysForSection(selectedSection).map((key) => [key, sourceCatalogs[locale][key] || '']));
+  const registeredKeys = keysForSection(selectedSection);
+  const sourceValues = Object.fromEntries(registeredKeys.map((key) => [key, sourceCatalogs[locale][key] || '']));
+  const savedDraftValues = selectedRow?.draft_values as CatalogValues | null;
+  const draftValues = Object.fromEntries(registeredKeys.map((key) => [
+    key,
+    savedDraftValues?.[key] ?? sourceValues[key],
+  ]));
   return res.status(200).json({
     settings: visibleSettings, role: actor.admin ? 'admin' : 'editor', locale, section: selectedSection,
     canEdit,
     sourceValues,
-    draftValues: { ...sourceValues, ...(selectedRow?.draft_values || {}) },
+    draftValues,
     draftRevision: selectedRow?.draft_revision || 0,
     publishedValues: selectedRow?.published_values || {},
     publishedVersion: selectedRow?.published_version || 0,
     missingCounts,
     history: (historyResult.data || []).map((item) => ({ ...item, author_name: authorNames[item.author_ht_id] || null })),
-    registeredKeys: keysForSection(selectedSection),
-    groups: Object.fromEntries(keysForSection(selectedSection).map((key) => [key, sectionForKey(key)])),
+    registeredKeys,
+    groups: Object.fromEntries(registeredKeys.map((key) => [key, sectionForKey(key)])),
     englishValues: Object.fromEntries(keysForSection(selectedSection).map((key) => [key, englishCatalog[key]])),
     nativeName: localeNames[locale],
   });
