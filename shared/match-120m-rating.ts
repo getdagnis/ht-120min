@@ -2,6 +2,7 @@ import type { MatchSidePerformance } from './match-events.js';
 import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndicatorScore, getTacticIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
+import { getTacticKey, resolveTacticKey, type TacticKey } from './tactics.js';
 
 export const MATCH_120M_FORMULA_VERSION = 16;
 export const MATCH_120M_MAX_SE_THREAT_PENALTY = 25;
@@ -105,19 +106,17 @@ function seThreatRatingSurcharge(seThreatPoints: number): number {
 
 export const MATCH_120M_ATTACKING_TACTIC_PENALTY = 10;
 
-function normalizedTactic(tactic: string | null | undefined): string {
-  return tactic?.trim().toLowerCase().replace(/[ -]+/g, '_') ?? '';
-}
-
 export function isCounterAttacks(tactic: string | null | undefined): boolean {
-  return normalizedTactic(tactic) === 'counter_attacks';
+  return getTacticKey(tactic) === 'counter_attacks';
 }
 
 export function hasAdditionalTacticPenalty(tactic: string | null | undefined): boolean {
-  return ['counter_attacks', 'play_creatively', 'long_shots'].includes(normalizedTactic(tactic));
+  const key = getTacticKey(tactic);
+  return key === 'counter_attacks' || key === 'play_creatively' || key === 'long_shots';
 }
 
-function tacticRatingPoints(tactic: string, tacticSkill: number | null | undefined): number {
+function tacticRatingPoints(tactic: TacticKey | null, tacticSkill: number | null | undefined): number {
+  if (!tactic) return 0;
   const indicator = getTacticIndicatorScore(tactic);
   if (indicator === 1) {
     const level = typeof tacticSkill === 'number' && Number.isFinite(tacticSkill) ? tacticSkill : 0;
@@ -241,9 +240,8 @@ export function calculateMatch120mSpecialtyThreatPenalty(
 export function calculateMatch120mRating(performance: MatchSidePerformance | null | undefined): Match120mRating | null {
   if (!performance) return null;
   const formation = performance.formation?.trim() || '';
-  const tactic = performance.tacticType === 0 ? 'Normal'
-    : performance.tacticType === 1 ? 'Pressing' : performance.tacticName;
-  if (getFormationIndicatorScore(formation) === null || getTacticIndicatorScore(tactic) === null) return null;
+  const tacticKey = resolveTacticKey(performance.tacticType, performance.tacticName);
+  if (getFormationIndicatorScore(formation) === null || getTacticIndicatorScore(tacticKey) === null) return null;
   const raw = performance.ratings;
   const rawRatings = [raw?.leftDefence, raw?.centralDefence, raw?.rightDefence,
     raw?.leftAttack, raw?.centralAttack, raw?.rightAttack, raw?.midfield];
@@ -258,9 +256,9 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
   const midfieldAttackLoad = midfield + attack;
   const defenceCoverRatio = defence / midfieldAttackLoad;
   const midfieldPoints = interpolate(defenceCoverRatio, [[0.5, 0], [1, 100]]);
-  const tacticPoints = tacticRatingPoints(tactic, performance.tacticSkill) * 4;
+  const tacticPoints = tacticRatingPoints(tacticKey, performance.tacticSkill) * 4;
   const formationScore = getFormationIndicatorScore(formation);
-  const tacticScore = getTacticIndicatorScore(tactic);
+  const tacticScore = getTacticIndicatorScore(tacticKey);
   const formationValue = formationPoints[formation] ?? incompleteFormationPoints[formationScore!];
   const skill = performance.setPiecesTaker?.skill;
   const hasSetPiecesSkill = typeof skill === 'number' && Number.isFinite(skill) && skill >= 1;
@@ -289,7 +287,7 @@ export function calculateMatch120mRating(performance: MatchSidePerformance | nul
     + midfieldPoints * 0.20 + setPiecesPoints;
   const score = Math.round(Math.max(0, Math.min(100,
     Math.min(100, positiveScore) - seThreatPenalty - attackPenalty - additionalRatingPenalty
-      - (hasAdditionalTacticPenalty(tactic) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0),
+      - (hasAdditionalTacticPenalty(tacticKey) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0),
   )));
   return { score, grade: gradeFor(score), formula_version: MATCH_120M_FORMULA_VERSION,
     has_set_pieces_skill: hasSetPiecesSkill, has_specialties: Array.isArray(specialties) };
@@ -415,17 +413,16 @@ export function analyzeMatch120mCoaching(
   }
 
   const formationScore = getFormationIndicatorScore(performance?.formation);
-  const tacticName = performance?.tacticType === 0 ? 'Normal'
-    : performance?.tacticType === 1 ? 'Pressing' : performance?.tacticName;
-  const powerfulPressingRoles = tacticName?.trim().toLowerCase() === 'pressing'
+  const tacticKey = resolveTacticKey(performance?.tacticType, performance?.tacticName);
+  const powerfulPressingRoles = tacticKey === 'pressing'
     ? specialties?.find((entry) => entry.specialtyId === 3)?.roleIds
       .filter((role) => role >= 101 && role <= 105) ?? []
     : [];
-  const tacticScore = getTacticIndicatorScore(tacticName);
+  const tacticScore = getTacticIndicatorScore(tacticKey);
   const skill = performance?.setPiecesTaker?.skill;
   const setPiecesScore = getSetPieceIndicatorScore(skill);
   const mindsetScore = getMatchMindsetIndicator(performance?.styleOfPlay)?.score ?? null;
-  const tacticPoints = tacticRatingPoints(tacticName ?? '', performance?.tacticSkill) * 4;
+  const tacticPoints = tacticRatingPoints(tacticKey, performance?.tacticSkill) * 4;
   const setPiecesPoints = setPiecesRatingPoints(skill);
   const formationValue = performance?.formation
     ? formationPoints[performance.formation.trim()] ?? incompleteFormationPoints[formationScore ?? -1]
@@ -464,11 +461,11 @@ export function analyzeMatch120mCoaching(
     recommendationImpacts.reduceSEThreat = seThreatPenalty + seThreatRatingSurcharge(seThreatPenalty);
   }
   if (recommendations.includes('choosePressing')) recommendationImpacts.choosePressing = (100 - tacticPoints) * 0.25
-    + (hasAdditionalTacticPenalty(tacticName) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0);
+    + (tacticKey && hasAdditionalTacticPenalty(tacticKey) ? MATCH_120M_ATTACKING_TACTIC_PENALTY : 0);
   if (recommendations.includes('improvePressingSkill')) {
     recommendationImpacts.improvePressingSkill = Math.max(
       0,
-      25 - tacticRatingPoints(tacticName ?? '', performance?.tacticSkill),
+      25 - tacticRatingPoints(tacticKey, performance?.tacticSkill),
     );
   }
   if (recommendations.includes('improveSetPieces')) {

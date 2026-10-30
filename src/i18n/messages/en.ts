@@ -1064,7 +1064,7 @@ const messages = {
       aimPressing: "Switch to Pressing to aim for a higher 120m score.",
       defensiveStyle: "100% Defensive mindset is a good choice for a 120m setup.",
       setPiecesBrilliant: "Great for 120m: this low-skill SP taker earns the most set-pieces rating points.",
-      setPiecesNotSet: "Use a disastrous to poor SP taker. If not set, coach can choose a much stronger one.",
+      setPiecesNotSet: "Use a disastrous to poor SP taker! A strong SP taker is a high risk for conceding goals before extra time from free kicks, penalties or corners. If you leave it to coach, they will choose the strongest one.",
       setPiecesGood: "A good low-skill SP taker for 120m. A weaker one can earn more rating points if you already have one available.",
       aimSetPieces: "Your SP taker is above the recommended range. A Disastrous-to-Poor taker earns more 120m points.",
       ratingAdvice: "This 120m setup has a lot of room to improve.",

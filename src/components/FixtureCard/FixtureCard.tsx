@@ -9,6 +9,7 @@ import { skillDisplay } from '../../utils/hattrick-skill';
 import { getMatchMindsetIndicator } from '../../utils/rating-indicators';
 import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
+import { getTacticDisplayName, getTacticKey } from '../../../shared/tactics';
 import {
   analyzeMatch120mCoaching,
   calculateMatch120mSpecialtyThreatBreakdown,
@@ -269,11 +270,13 @@ function TacticValue({
   score: RatingIndicatorScore | null;
   tip: string;
 }) {
+  const tacticKey = getTacticKey(tactic);
+  const displayTactic = getTacticDisplayName(tactic) ?? tactic;
   const showSkill =
-    tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
+    tacticKey !== 'normal' && tactic && typeof skill === 'number' && Number.isFinite(skill);
   const displayScore =
     score === 1 &&
-    tactic?.trim().toLowerCase() === 'pressing' &&
+    tacticKey === 'pressing' &&
     typeof skill === 'number' &&
     Number.isFinite(skill) &&
     skill < 8
@@ -281,7 +284,7 @@ function TacticValue({
       : score;
   return (
     <IndicatorTip score={displayScore} content={tip}>
-      {tactic || '—'}
+      {displayTactic || '—'}
       {showSkill ? ` (${skill})` : ''}
     </IndicatorTip>
   );

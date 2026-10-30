@@ -12,6 +12,7 @@ import type {
   MatchSidePerformance,
 } from '../../../../shared/match-events.js';
 import { CARD_EVENT_TYPES, MISSED_CHANCE_EVENT_TYPES, getCanonicalEventDescription } from '../../../../shared/match-events.js';
+import { getTacticDisplayNameFromType } from '../../../../shared/tactics.js';
 export { getCanonicalEventDescription } from '../../../../shared/match-events.js';
 
 const REGULAR_GOAL_EVENT_TYPES = new Set([
@@ -198,16 +199,6 @@ function getScorers(xml: string): ParsedScorer[] {
   }));
 }
 
-const TACTIC_NAMES: Record<number, string> = {
-  0: 'Normal',
-  1: 'Pressing',
-  2: 'Counter-attacks',
-  3: 'Attack in the middle',
-  4: 'Attack on wings',
-  7: 'Play creatively',
-  8: 'Long shots',
-};
-
 function getTeamBlock(xml: string, side: 'Home' | 'Away') {
   return xml.match(new RegExp(`<${side}Team>[\\s\\S]*?<\\/${side}Team>`, 'i'))?.[0] || '';
 }
@@ -223,7 +214,7 @@ function sidePerformance(
   return {
     formation: readText(team, 'Formation'),
     tacticType,
-    tacticName: tacticType === null ? null : TACTIC_NAMES[tacticType] || null,
+    tacticName: getTacticDisplayNameFromType(tacticType),
     tacticSkill: readNumber(team, 'TacticSkill'),
     setPiecesTaker,
     possessionFirstHalf: readNumber(xml, `PossessionFirstHalf${possessionSide}`),

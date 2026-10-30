@@ -1,3 +1,5 @@
+import { getTacticKey, type TacticKey } from '../../shared/tactics.js';
+
 export type RatingIndicatorScore = 0 | 1 | 2 | 3 | 4;
 
 export function getMatchMindsetIndicator(styleOfPlay: number | null | undefined): {
@@ -21,11 +23,11 @@ const canonicalFormationScores: Record<string, RatingIndicatorScore> = {
   '2-5-3': 4,
 };
 
-const tacticScores: Record<string, RatingIndicatorScore> = {
+const tacticScores: Record<TacticKey, RatingIndicatorScore> = {
   pressing: 1,
   normal: 3,
   attack_on_wings: 4,
-  attack_in_middle: 4,
+  attack_in_the_middle: 4,
   long_shots: 4,
   play_creatively: 4,
   counter_attacks: 4,
@@ -51,13 +53,8 @@ export function getFormationIndicatorScore(formation: string | null | undefined)
 
 export function getTacticIndicatorScore(tactic: string | null | undefined): RatingIndicatorScore | null {
   if (!tactic) return null;
-  const normalized = tactic
-    .trim()
-    .toLowerCase()
-    .replace(/[ -]+/g, '_')
-    .replace(/^attack_in_the_middle$/, 'attack_in_middle')
-    .replace(/^attack_in_wings$/, 'attack_on_wings');
-  return Object.hasOwn(tacticScores, normalized) ? tacticScores[normalized] : null;
+  const key = getTacticKey(tactic);
+  return key ? tacticScores[key] : null;
 }
 
 export function getSetPieceIndicatorScore(skill: number | null | undefined): RatingIndicatorScore | null {
