@@ -4,6 +4,7 @@ import { getMatchDateForRound } from './match-schedule';
 interface FocusMatch {
   completed?: boolean;
   status?: string | null;
+  schedule_resolution?: string | null;
   scheduled_for?: string | null;
   chpp_match_date?: string | null;
   ht_match_id?: number | null;
@@ -51,7 +52,9 @@ export function getFocusedFixtureRoundIndex<T extends FocusRound>(
     const currentWeek = getHattrickWeekDetails(now);
     const currentWeekRoundIndex = materializedRoundIndices
       .find((index) =>
-        rounds[index].matches.some((match) => !match.completed) &&
+        rounds[index].matches.some((match) =>
+          !match.completed && match.status !== 'misarranged' && match.schedule_resolution !== 'finalized_unplayed',
+        ) &&
         hasFixtureInCurrentWeek(rounds[index], currentWeek),
       );
 

@@ -325,6 +325,7 @@ export interface MatchWithTeams {
   home_match_kit_url?: string | null;
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  schedule_resolution?: 'pending' | 'played' | 'finalized_unplayed' | null;
   ht_match_id: number | null;
   rating_share_statuses?: FixtureRatingShareStatus[];
   match_type: number | null;
@@ -2205,7 +2206,9 @@ export const TournamentView: React.FC<{
     }
   }, [tournament, teams]);
 
-  const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
+  const upcomingRoundIndex = rounds.findIndex((round) => round.matches.some((match) =>
+    !match.completed && match.status !== 'misarranged' && match.schedule_resolution !== 'finalized_unplayed',
+  ));
   const focusedRoundIndex =
     renderTimestamp === 0
       ? upcomingRoundIndex
