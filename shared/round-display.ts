@@ -5,17 +5,27 @@ export interface DisplayRound {
   phase?: string | null;
   reserved_slot_kind?: string | null;
   reserved_slot_date?: string | null;
+  matches?: Array<{ scheduled_for?: string | null; chpp_match_date?: string | null }> | null;
+}
+
+export function getRoundCalendarDate(round: DisplayRound): number {
+  const reserved = Date.parse(round.reserved_slot_date || '');
+  if (Number.isFinite(reserved)) return reserved;
+  const dates = (round.matches || [])
+    .map(match => Date.parse(match.scheduled_for || match.chpp_match_date || ''))
+    .filter(Number.isFinite);
+  return dates.length ? Math.min(...dates) : NaN;
 }
 
 /** Extra rounds keep their stored number; this is their calendar position in the season. */
 export function getRoundDisplayParts(round: DisplayRound, rounds: DisplayRound[]) {
   if (round.round_source !== 'organizer') return { number: round.round_number, suffix: '' };
-  const date = Date.parse(round.reserved_slot_date || '');
+  const date = getRoundCalendarDate(round);
   const preceding = Number.isFinite(date) ? rounds
     .filter(candidate => candidate.round_source !== 'organizer' && candidate.phase !== 'postseason'
-      && Number.isFinite(Date.parse(candidate.reserved_slot_date || ''))
-      && Date.parse(candidate.reserved_slot_date!) < date)
-    .sort((a, b) => Date.parse(b.reserved_slot_date!) - Date.parse(a.reserved_slot_date!))[0] : undefined;
+      && Number.isFinite(getRoundCalendarDate(candidate))
+      && getRoundCalendarDate(candidate) < date)
+    .sort((a, b) => getRoundCalendarDate(b) - getRoundCalendarDate(a))[0] : undefined;
   if (!preceding) return { number: round.round_number, suffix: ' Extra' };
   const slot = round.reserved_slot_kind === 'weekend_friendly' ? 'Weekend' : 'Mid-week';
   return { number: preceding.round_number, suffix: ` .5 ${slot} Extra` };

@@ -84,7 +84,7 @@ import {
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
-import { getFocusedFixtureRoundIndex } from '../../utils/fixture-round-focus';
+import { getFocusedFixtureRoundIndex, getUpcomingFixtureRoundIndex, isResolvedFixture } from '../../utils/fixture-round-focus';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import {
   canViewerJoinAnotherTeam,
@@ -325,6 +325,7 @@ export interface MatchWithTeams {
   home_match_kit_url?: string | null;
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  schedule_resolution?: 'pending' | 'played' | 'finalized_unplayed' | null;
   ht_match_id: number | null;
   rating_share_statuses?: FixtureRatingShareStatus[];
   match_type: number | null;
@@ -1504,15 +1505,26 @@ export const TournamentView: React.FC<{
   // UI state
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
-  const expandedRoundsReadyRef = useRef(false);
+  const expandedRoundsReadySlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isHydrationReady) return;
 
     const timer = window.setTimeout(() => {
-      const saved = readLocalStorage(`expanded_rounds_${slug}`);
-      expandedRoundsReadyRef.current = true;
-      if (!saved) return;
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (!key) continue;
+        if (!key.startsWith('expanded_rounds_')) continue;
+        if (sessionStorage.getItem(key) === null) sessionStorage.setItem(key, localStorage.getItem(key) || '{}');
+        localStorage.removeItem(key);
+      }
+
+      const saved = readSessionStorage(`expanded_rounds_${slug}`);
+      expandedRoundsReadySlugRef.current = slug;
+      if (!saved) {
+        setExpandedRounds({});
+        return;
+      }
 
       try {
         setExpandedRounds(JSON.parse(saved) as Record<string, boolean>);
@@ -1525,8 +1537,8 @@ export const TournamentView: React.FC<{
   }, [isHydrationReady, slug]);
 
   useEffect(() => {
-    if (!isHydrationReady || !expandedRoundsReadyRef.current) return;
-    localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(expandedRounds));
+    if (!isHydrationReady || expandedRoundsReadySlugRef.current !== slug) return;
+    sessionStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(expandedRounds));
   }, [expandedRounds, isHydrationReady, slug]);
 
   const toggleRound = useCallback((roundId: string) => {
@@ -2207,7 +2219,10 @@ export const TournamentView: React.FC<{
     }
   }, [tournament, teams]);
 
-  const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
+  const upcomingRoundIndex = getUpcomingFixtureRoundIndex(
+    rounds,
+    renderTimestamp === 0 ? undefined : new Date(renderTimestamp),
+  );
   const focusedRoundIndex =
     renderTimestamp === 0
       ? upcomingRoundIndex
@@ -5825,7 +5840,7 @@ export const TournamentView: React.FC<{
   const publicUrlDisplay = isMobile ? `...${slug}` : publicUrl;
 
   // Find the first round that is not fully completed
-  const currentRoundIdForResults = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
+  const currentRoundIdForResults = upcomingRoundIndex >= 0 ? rounds[upcomingRoundIndex]?.id : undefined;
   const currentSeasonNumber = currentSeasonNumberForSelection;
   const previousSeasons = seasons.filter((season) => season.season_number < currentSeasonNumber);
   const currentSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
@@ -5996,6 +6011,7 @@ export const TournamentView: React.FC<{
       tournament,
       teams,
       rounds,
+      focusedRoundId: currentRoundId,
       seasonSlots,
       seasonSlotAssignments,
       fixtureWarningTeamIds: new Set(

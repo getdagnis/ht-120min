@@ -4,11 +4,29 @@ import { getMatchDateForRound } from './match-schedule';
 interface FocusMatch {
   completed?: boolean;
   status?: string | null;
+  schedule_resolution?: string | null;
   scheduled_for?: string | null;
   chpp_match_date?: string | null;
   ht_match_id?: number | null;
   schedule_slot_type?: string | null;
   home_team?: { country_name?: string | null } | null;
+}
+
+export function isResolvedFixture(match: FocusMatch): boolean {
+  return Boolean(match.completed) || match.status === 'misarranged' || match.status === 'finished'
+    || match.schedule_resolution === 'finalized_unplayed';
+}
+
+export function getUpcomingFixtureRoundIndex<T extends FocusRound>(rounds: T[], now?: Date): number {
+  const latestCompletedDate = Math.max(...rounds.flatMap(round => round.matches
+    .filter(match => match.completed)
+    .map(match => getMatchDateForRound(round, match, match.home_team?.country_name).getTime())
+    .filter(Number.isFinite)), -Infinity);
+  const earliestAllowed = (now?.getTime() ?? latestCompletedDate) - 4 * 60 * 60 * 1000;
+  return rounds.findIndex(round => round.matches.some(match =>
+    !isResolvedFixture(match) &&
+    getMatchDateForRound(round, match, match.home_team?.country_name).getTime() >= earliestAllowed,
+  ));
 }
 
 interface FocusRound {
@@ -51,7 +69,7 @@ export function getFocusedFixtureRoundIndex<T extends FocusRound>(
     const currentWeek = getHattrickWeekDetails(now);
     const currentWeekRoundIndex = materializedRoundIndices
       .find((index) =>
-        rounds[index].matches.some((match) => !match.completed) &&
+        rounds[index].matches.some((match) => !isResolvedFixture(match)) &&
         hasFixtureInCurrentWeek(rounds[index], currentWeek),
       );
 

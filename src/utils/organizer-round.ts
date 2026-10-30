@@ -1,5 +1,6 @@
 import { generateBalancedRound, type LengthSchedulePairing, type PairingHistory } from './length-schedule.js';
 import { getScheduledDateForSlot, type CalendarSlot } from './hattrick-calendar.js';
+import { getRoundCalendarDate } from '../../shared/round-display.js';
 
 export type RoundParticipation = 'round_only' | 'admit';
 export interface OrganizerRoundTeam {
@@ -71,11 +72,11 @@ export function serializeOrganizerPairings(slot: CalendarSlot, pairs: LengthSche
 
 // Reserved round numbers belong to the frozen pairing plan. Display extra rounds
 // by calendar date without renumbering that plan or existing fixture identities.
-export function orderFixtureRounds<T extends { round_number: number; round_source?: string; reserved_slot_date?: string | null }>(rounds: T[]): T[] {
+export function orderFixtureRounds<T extends { round_number: number; round_source?: string; reserved_slot_date?: string | null; matches?: Array<{ scheduled_for?: string | null; chpp_match_date?: string | null }> | null }>(rounds: T[]): T[] {
   if (!rounds.some(round => round.round_source === 'organizer')) return rounds;
   return [...rounds].sort((a, b) => {
-    const first = a.reserved_slot_date ? new Date(a.reserved_slot_date).getTime() : NaN;
-    const second = b.reserved_slot_date ? new Date(b.reserved_slot_date).getTime() : NaN;
+    const first = getRoundCalendarDate(a);
+    const second = getRoundCalendarDate(b);
     return Number.isFinite(first) && Number.isFinite(second) ? first - second || a.round_number - b.round_number : a.round_number - b.round_number;
   });
 }

@@ -16,12 +16,17 @@ import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
 import { isFixtureMisarranged } from '../../utils/fixture-status';
 import { compareFixtures } from '../../utils/fixture-sorting';
+import { isResolvedFixture } from '../../utils/fixture-round-focus';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import { usesMatch120mRatings, type Match120mGrade } from '../../../shared/match-120m-rating';
 import type { LiveMatchClock } from '../../../shared/live-match';
-import { fixtureRatingNotice, type FixtureRatingShareStatus, type SharedFixtureRatings } from '../../types/fixture-ratings';
+import {
+  fixtureRatingNotice,
+  type FixtureRatingShareStatus,
+  type SharedFixtureRatings,
+} from '../../types/fixture-ratings';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -43,10 +48,17 @@ export interface FixtureMatch {
   away_red_cards?: number;
   away_injuries?: number;
   match_event_details?: MatchEventDetails | null;
-  match_120m_ratings?: { side: 'home' | 'away'; team_id: string; score: number; grade: Match120mGrade; formula_version: number }[];
+  match_120m_ratings?: {
+    side: 'home' | 'away';
+    team_id: string;
+    score: number;
+    grade: Match120mGrade;
+    formula_version: number;
+  }[];
   home_match_kit_url?: string | null;
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  schedule_resolution?: 'pending' | 'played' | 'finalized_unplayed' | null;
   ht_match_id: number | null;
   rating_share_statuses?: FixtureRatingShareStatus[];
   match_type: number | null;
@@ -95,10 +107,16 @@ function fixtureDisplayStatus(
   if (match.completed) return 'finished';
   if (liveStatus && !isHistorical) return liveStatus;
   const kickoffMs = match.match_date ? new Date(match.match_date).getTime() : null;
-  if (!isHistorical && match.status === 'arranged' &&
+  if (
+    !isHistorical &&
+    match.status === 'arranged' &&
     (match.kickoff_confirmed || match.chpp_match_date) &&
-    kickoffMs !== null && Number.isFinite(kickoffMs) && nowMs >= kickoffMs && nowMs < kickoffMs + 4 * 60 * 60 * 1000
-  ) return 'ongoing';
+    kickoffMs !== null &&
+    Number.isFinite(kickoffMs) &&
+    nowMs >= kickoffMs &&
+    nowMs < kickoffMs + 4 * 60 * 60 * 1000
+  )
+    return 'ongoing';
   return match.status || 'not_arranged';
 }
 
@@ -184,11 +202,7 @@ interface FixturesViewProps {
 const FIXTURE_CHALLENGE_PREVIEW_MATCH_ID = 'fixture-challenge-preview-match';
 const HATTRICK_CHALLENGES_URL = 'https://www.hattrick.org/goto.ashx?path=/Club/Challenges/';
 const fixtureChallengePreviewMode =
-  process.env.NODE_ENV !== 'production' &&
-  (process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === '1' ||
-    process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === '2')
-    ? process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW
-    : null;
+  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === 'true';
 
 function ratingsDisplay(row: SharedFixtureRatings | undefined) {
   if (!row) return null;
@@ -354,7 +368,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [autoArrangeLoading, setAutoArrangeLoading] = React.useState(false);
   const [autoArrangeSavingTeamId, setAutoArrangeSavingTeamId] = React.useState<string | null>(null);
   const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
-  const [ratingPreferences, setRatingPreferences] = React.useState<Array<{ teamId: string; teamName: string; enabled: boolean }>>([]);
+  const [ratingPreferences, setRatingPreferences] = React.useState<
+    Array<{ teamId: string; teamName: string; enabled: boolean }>
+  >([]);
   const [ratingPreferencesLoading, setRatingPreferencesLoading] = React.useState(false);
   const [ratingPreferenceSaving, setRatingPreferenceSaving] = React.useState<string | null>(null);
   const [ratingPreferenceError, setRatingPreferenceError] = React.useState<'load' | 'save' | null>(null);
@@ -433,7 +449,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       try {
         const params = new URLSearchParams({ route: 'rating-sharing-preferences', tournamentId: tournament.id });
         const response = await fetch(`/api/app?${params}`, { credentials: 'include', cache: 'no-store' });
-        const payload = await response.json() as { preferences?: typeof ratingPreferences };
+        const payload = (await response.json()) as { preferences?: typeof ratingPreferences };
         if (!response.ok || !Array.isArray(payload.preferences)) throw new Error('Preference load failed');
         if (!cancelled) setRatingPreferences(payload.preferences);
       } catch {
@@ -442,27 +458,42 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         if (!cancelled) setRatingPreferencesLoading(false);
       }
     }, 0);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [currentHtUserId, isHistorical, season, tournament?.id]);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const focusedRound = !isHistorical && focusedRoundIndex >= 0 ? (rounds[focusedRoundIndex] ?? null) : null;
   const tournamentId = tournament?.id;
-  const isOwnedMatch = React.useCallback((match: FixtureMatch) => Boolean(currentHtUserId) && (
-    Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
-    Number(match.away_team?.hattrick_user_id) === currentHtUserId
-  ), [currentHtUserId]);
+  const isOwnedMatch = React.useCallback(
+    (match: FixtureMatch) =>
+      Boolean(currentHtUserId) &&
+      (Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+        Number(match.away_team?.hattrick_user_id) === currentHtUserId),
+    [currentHtUserId],
+  );
   const hasMyTeam = rounds.some((round) => round.matches.some(isOwnedMatch));
-  const ownedTeamIds = new Set(rounds.flatMap((round) => round.matches.flatMap((match) => [
-    ...(currentHtUserId && Number(match.home_team?.hattrick_user_id) === currentHtUserId && match.home_team
-      ? [match.home_team.ht_team_id] : []),
-    ...(currentHtUserId && Number(match.away_team?.hattrick_user_id) === currentHtUserId && match.away_team
-      ? [match.away_team.ht_team_id] : []),
-  ])));
-  const nextOwnedRound = !isHistorical ? orderFixtureRounds(rounds).find((round) => round.matches.some(
-    (match) => isOwnedMatch(match) && !match.completed && match.status !== 'misarranged',
-  )) : null;
+  const ownedTeamIds = new Set(
+    rounds.flatMap((round) =>
+      round.matches.flatMap((match) => [
+        ...(currentHtUserId && Number(match.home_team?.hattrick_user_id) === currentHtUserId && match.home_team
+          ? [match.home_team.ht_team_id]
+          : []),
+        ...(currentHtUserId && Number(match.away_team?.hattrick_user_id) === currentHtUserId && match.away_team
+          ? [match.away_team.ht_team_id]
+          : []),
+      ]),
+    ),
+  );
+  const nextOwnedRound = !isHistorical
+    ? orderFixtureRounds(rounds).find((round) =>
+        round.matches.some((match) => isOwnedMatch(match) && !isResolvedFixture(match)),
+      )
+    : null;
   const viewContext = `${tournamentId}:${season}:${currentHtUserId ?? 'visitor'}`;
-  const fixtureView = viewChoice?.context === viewContext ? viewChoice.view : initialView ?? (hasMyTeam ? 'mine' : 'all');
+  const fixtureView =
+    viewChoice?.context === viewContext ? viewChoice.view : (initialView ?? (hasMyTeam ? 'mine' : 'all'));
   const selectView = (view: 'mine' | 'all') => {
     setViewChoice({ context: viewContext, view });
     setManualVisibleRoundsCount(null);
@@ -495,7 +526,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
     for (const round of rounds) {
       if (round.phase_status === 'pending' || round.matches.length === 0) continue;
-      const isFinished = round.matches.every((match) => match.completed || match.status === 'misarranged');
+      const isFinished = round.matches.every(isResolvedFixture);
       if (isFinished) latestFinishedRoundNumber = round.round_number;
     }
 
@@ -504,13 +535,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   const challengeCandidateMatches = React.useMemo(
     () =>
-      rounds.filter(round => round.phase_status === 'materialized' || round.id === currentRound?.id).flatMap(round => round.matches).filter((match) => {
-        if (match.completed || (match.status && match.status !== 'not_arranged') || !currentHtUserId) return false;
-        return (
-          Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
-          Number(match.away_team?.hattrick_user_id) === currentHtUserId
-        );
-      }) || [],
+      rounds
+        .filter((round) => round.phase_status === 'materialized' || round.id === currentRound?.id)
+        .flatMap((round) => round.matches)
+        .filter((match) => {
+          if (isResolvedFixture(match) || (match.status && match.status !== 'not_arranged') || !currentHtUserId) return false;
+          return (
+            Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+            Number(match.away_team?.hattrick_user_id) === currentHtUserId
+          );
+        }) || [],
     [currentHtUserId, currentRound, rounds],
   );
   const challengeCandidateKey = challengeCandidateMatches.map((match) => match.id).join(',');
@@ -707,9 +741,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   // Background refresh may publish the first prediction or withdraw a notice.
   // Reload private values only when the narrow public sharing status changes.
-  const ratingsShareKey = rounds.flatMap((round) => round.matches.flatMap((match) =>
-    (match.rating_share_statuses || []).map((share) => `${share.fixture_id}:${share.team_id}:${share.ht_match_id}:${share.shared}`),
-  )).sort().join(',');
+  const ratingsShareKey = rounds
+    .flatMap((round) =>
+      round.matches.flatMap((match) =>
+        (match.rating_share_statuses || []).map(
+          (share) => `${share.fixture_id}:${share.team_id}:${share.ht_match_id}:${share.shared}`,
+        ),
+      ),
+    )
+    .sort()
+    .join(',');
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -729,13 +770,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     try {
       for (const { teamId } of ratingPreferences) {
         const response = await fetch('/api/app?route=rating-sharing-preferences', {
-          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tournamentId, teamId, enabled }),
         });
-        const payload = await response.json() as { teamId?: string; enabled?: boolean };
-        if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') throw new Error('Preference save failed');
-        setRatingPreferences((current) => current.map((preference) =>
-          preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference));
+        const payload = (await response.json()) as { teamId?: string; enabled?: boolean };
+        if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean')
+          throw new Error('Preference save failed');
+        setRatingPreferences((current) =>
+          current.map((preference) =>
+            preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
+          ),
+        );
         saved = true;
         // Discard withdrawn values immediately, even if the subsequent reload fails.
         if (!enabled) {
@@ -801,30 +848,59 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     });
   }, [nowMs, resolveMatchDate, rounds, warnings]);
   const filteredRounds = React.useMemo(() => {
-    const result = rounds.map((round) => ({
-      ...round,
-      matches: round.matches.map((match) => {
-        const hasWarnings = visibleWarnings.some((warning) => warning.round_id === round.id && (
-          (warning.team_id === match.home_team_id && !(match.reserve_replaces_team_id === match.home_team_id && match.home_team?.reserve_active === true)) ||
-          (warning.team_id === match.away_team_id && !(match.reserve_replaces_team_id === match.away_team_id && match.away_team?.reserve_active === true))
-        ));
-        const liveStatus = match.ht_match_id ? liveData[match.ht_match_id.toString()]?.status : undefined;
-        return { ...match, status: fixtureDisplayStatus(match, hasWarnings, liveStatus, nowMs, isHistorical) };
-      }).sort(compareFixtures).filter((match) =>
-        (showMisarrangedMatches || match.status !== 'misarranged') &&
-        (fixtureView === 'mine'
-          ? isOwnedMatch(match)
-          : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
-      ),
-    })).filter((round) => round.matches.length > 0 || (fixtureView === 'all' && !selectedTeamId));
+    const result = rounds
+      .map((round) => ({
+        ...round,
+        matches: round.matches
+          .map((match) => {
+            const hasWarnings = visibleWarnings.some(
+              (warning) =>
+                warning.round_id === round.id &&
+                ((warning.team_id === match.home_team_id &&
+                  !(
+                    match.reserve_replaces_team_id === match.home_team_id && match.home_team?.reserve_active === true
+                  )) ||
+                  (warning.team_id === match.away_team_id &&
+                    !(
+                      match.reserve_replaces_team_id === match.away_team_id && match.away_team?.reserve_active === true
+                    ))),
+            );
+            const liveStatus = match.ht_match_id ? liveData[match.ht_match_id.toString()]?.status : undefined;
+            return { ...match, status: fixtureDisplayStatus(match, hasWarnings, liveStatus, nowMs, isHistorical) };
+          })
+          .sort(compareFixtures)
+          .filter(
+            (match) =>
+              (showMisarrangedMatches || match.status !== 'misarranged') &&
+              (fixtureView === 'mine'
+                ? isOwnedMatch(match)
+                : !selectedTeamId || match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId),
+          ),
+      }))
+      .filter((round) => round.matches.length > 0 || (fixtureView === 'all' && !selectedTeamId));
     if (fixtureView === 'mine') {
-      const finished = (round: typeof result[number]) => round.matches.every((match) => match.completed || match.status === 'misarranged');
+      const finished = (round: (typeof result)[number]) =>
+        round.matches.every(isResolvedFixture);
       const chronological = orderFixtureRounds(result);
       const position = new Map(chronological.map((round, index) => [round.id, index]));
-      result.sort((a, b) => Number(finished(a)) - Number(finished(b)) || (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!));
+      result.sort(
+        (a, b) =>
+          Number(finished(a)) - Number(finished(b)) ||
+          (finished(a) ? position.get(b.id)! - position.get(a.id)! : position.get(a.id)! - position.get(b.id)!),
+      );
     }
     return result;
-  }, [rounds, fixtureView, selectedTeamId, showMisarrangedMatches, isOwnedMatch, visibleWarnings, liveData, nowMs, isHistorical]);
+  }, [
+    rounds,
+    fixtureView,
+    selectedTeamId,
+    showMisarrangedMatches,
+    isOwnedMatch,
+    visibleWarnings,
+    liveData,
+    nowMs,
+    isHistorical,
+  ]);
   const showRatingsAuthPrompt =
     !isHistorical &&
     Boolean(currentHtUserId) &&
@@ -889,11 +965,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     onChange={(enabled) => void saveAutoArrangePreference(enabled)}
                     disabled={autoArrangeLoading || autoArrangeSavingTeamId !== null}
                     size="sm"
-                    label={fixtureText(autoArrangePreferences.some((preference) => preference.enabled)
-                      ? 'autoArrangeMyFixtures' : 'autoArrangeMyFixturesDisabled')}
+                    label={fixtureText(
+                      autoArrangePreferences.some((preference) => preference.enabled)
+                        ? 'autoArrangeMyFixtures'
+                        : 'autoArrangeMyFixturesDisabled',
+                    )}
                   />
                   <Tooltip id="auto-arrange-my-teams" content={fixtureText('autoArrangeTooltip')}>
-                    <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoArrangeTooltip')}>
+                    <span
+                      className={styles.autoArrangeInfo}
+                      tabIndex={0}
+                      aria-label={fixtureText('autoArrangeTooltip')}
+                    >
                       <Question size={16} weight="bold" aria-hidden="true" />
                     </span>
                   </Tooltip>
@@ -909,7 +992,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     label={fixtureText('autoShareMyRatings')}
                   />
                   <Tooltip id="auto-share-my-teams" content={fixtureText('autoShareRatingsTooltip')}>
-                    <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoShareRatingsTooltip')}>
+                    <span
+                      className={styles.autoArrangeInfo}
+                      tabIndex={0}
+                      aria-label={fixtureText('autoShareRatingsTooltip')}
+                    >
                       <Question size={16} weight="bold" aria-hidden="true" />
                     </span>
                   </Tooltip>
@@ -924,7 +1011,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           )}
           {ratingPreferenceError && !isHistorical && (
             <p className={styles.autoArrangeError} role="status">
-              {fixtureText(ratingPreferenceError === 'load' ? 'autoShareRatingsLoadError' : 'autoShareRatingsSaveError')}
+              {fixtureText(
+                ratingPreferenceError === 'load' ? 'autoShareRatingsLoadError' : 'autoShareRatingsSaveError',
+              )}
             </p>
           )}
         </div>
@@ -1047,8 +1136,23 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
       {rounds.length > 0 && (
         <div className={styles.fixturesHeaderControls} role="group" aria-label={uiText('matchView')}>
-          <Button size="sm" variant={fixtureView === 'mine' ? 'primary' : 'secondaryAction'} disabled={!currentHtUserId} aria-pressed={fixtureView === 'mine'} onClick={() => selectView('mine')}>{uiText('myMatches')}</Button>
-          <Button size="sm" variant={fixtureView === 'all' ? 'primary' : 'secondaryAction'} aria-pressed={fixtureView === 'all'} onClick={() => selectView('all')}>{uiText('allMatches')}</Button>
+          <Button
+            size="sm"
+            variant={fixtureView === 'mine' ? 'primary' : 'secondaryAction'}
+            disabled={!currentHtUserId}
+            aria-pressed={fixtureView === 'mine'}
+            onClick={() => selectView('mine')}
+          >
+            {uiText('myMatches')}
+          </Button>
+          <Button
+            size="sm"
+            variant={fixtureView === 'all' ? 'primary' : 'secondaryAction'}
+            aria-pressed={fixtureView === 'all'}
+            onClick={() => selectView('all')}
+          >
+            {uiText('allMatches')}
+          </Button>
         </div>
       )}
       {rounds.length > 0 && filteredRounds.length === 0 && <p role="status">{uiText('noPersonalMatches')}</p>}
@@ -1057,19 +1161,23 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const isFocusedRound = round.id === focusedRound?.id;
         const isPendingRound = round.phase_status === 'pending';
 
-        const isExpanded = expandedRounds[round.id] ?? (fixtureView === 'all'
-          ? isFocusedRound
-          : isHistorical || round.matches.some(match => !match.completed && match.status !== 'misarranged') || round.round_number === lastFinishedRoundNumber);
+        const isExpanded =
+          expandedRounds[round.id] ??
+          (fixtureView === 'all'
+            ? isFocusedRound
+            : isHistorical ||
+              round.matches.some((match) => !isResolvedFixture(match)) ||
+              round.round_number === lastFinishedRoundNumber);
 
         const allFinished =
           !isPendingRound &&
           round.matches.length > 0 &&
-          round.matches.every((m) => m.completed || m.status === 'misarranged');
-        const startsPreviousMatches = fixtureView === 'mine' && allFinished && (
-          roundIndex === 0 || filteredRounds[roundIndex - 1].matches.some(
-            (match) => !match.completed && match.status !== 'misarranged',
-          )
-        );
+          round.matches.every(isResolvedFixture);
+        const startsPreviousMatches =
+          fixtureView === 'mine' &&
+          allFinished &&
+          (roundIndex === 0 ||
+            filteredRounds[roundIndex - 1].matches.some((match) => !isResolvedFixture(match)));
 
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
@@ -1088,13 +1196,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           currentRoundStartsAt.setUTCDate(currentRoundStartsAt.getUTCDate() - daysSinceMonday + 1);
           currentRoundStartsAt.setUTCHours(6, 0, 0, 0);
         }
-        const isCurrentRound = nowMs > 0 && currentRoundStartsAt !== null &&
+        const isCurrentRound =
+          nowMs > 0 &&
+          currentRoundStartsAt !== null &&
           getStockholmWallClock(new Date(nowMs)).getTime() >= currentRoundStartsAt.getTime();
-        const roundTitleKey = !isHistorical && isFocusedRound && !allFinished
-          ? isCurrentRound ? 'currentRoundNumber' : 'nextRoundNumber'
-          : !isHistorical && allFinished && round.round_number === lastFinishedRoundNumber
-            ? 'lastRoundNumber'
-            : 'roundNumber';
+        const roundTitleKey =
+          !isHistorical && isFocusedRound && !allFinished
+            ? isCurrentRound
+              ? 'currentRoundNumber'
+              : 'nextRoundNumber'
+            : !isHistorical && allFinished && round.round_number === lastFinishedRoundNumber
+              ? 'lastRoundNumber'
+              : 'roundNumber';
         const displayRound = getRoundDisplayParts(round, rounds);
 
         const formatMatch = (m: FixtureMatch, isNext: boolean) => {
@@ -1138,10 +1251,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         };
 
         return (
-          <div key={round.id} data-round-id={round.id} className={startsPreviousMatches ? styles.previousMatches : undefined}>
-            {startsPreviousMatches && (
-              <h3 className={styles.personalMatchTitle}>{uiText('yourPreviousMatches')}</h3>
-            )}
+          <div
+            key={round.id}
+            data-round-id={round.id}
+            className={startsPreviousMatches ? styles.previousMatches : undefined}
+          >
+            {startsPreviousMatches && <h3 className={styles.personalMatchTitle}>{uiText('yourPreviousMatches')}</h3>}
             <SectionCard
               highlighted={isFocusedRound}
               collapsible
@@ -1151,7 +1266,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 <div className={styles.roundHeader}>
                   <>
                     <span>
-                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}{round.is_unscored === true && ' · Unscored'}
+                      {uiText(roundTitleKey, { round: `${displayRound.number}${displayRound.suffix}` })}
+                      {round.is_unscored === true && ' · Unscored'}
                       {round.phase === 'postseason'
                         ? uiText(
                             rounds.filter(
@@ -1189,8 +1305,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
                     {allFinished || tournament?.status === 'finished' ? (
                       <>
-                        {tournament?.status !== 'finished' && tournament?.schedule_mode === 'length' &&
-                          rounds.some((next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending') && (
+                        {tournament?.status !== 'finished' &&
+                          tournament?.schedule_mode === 'length' &&
+                          rounds.some(
+                            (next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending',
+                          ) && (
                             <button
                               type="button"
                               className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
@@ -1371,6 +1490,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     const availableChallenge = challengeAvailability[match.id];
                     const fixtureChallengeAction =
                       !isHistorical &&
+                      !isResolvedFixture(match) &&
                       status === 'not_arranged' &&
                       availableChallenge?.available &&
                       !availableChallenge.sent
@@ -1397,10 +1517,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         row.team_id === match.away_team_id && Number(row.ht_match_id) === Number(match.ht_match_id),
                     );
                     const homeShared = Boolean(
-                      match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id && row.shared !== false),
+                      match.rating_share_statuses?.some(
+                        (row) => row.team_id === match.home_team_id && row.shared !== false,
+                      ),
                     );
                     const awayShared = Boolean(
-                      match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id && row.shared !== false),
+                      match.rating_share_statuses?.some(
+                        (row) => row.team_id === match.away_team_id && row.shared !== false,
+                      ),
                     );
                     const ownHome =
                       ratingsEligible &&
@@ -1428,8 +1552,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         ratingsSharedStatus={
                           ratingsEligible && (!homeRatings || !awayRatings)
                             ? {
-                                home: homeRatings ? null : fixtureRatingNotice(match.rating_share_statuses?.find((row) => row.team_id === match.home_team_id), nowMs),
-                                away: awayRatings ? null : fixtureRatingNotice(match.rating_share_statuses?.find((row) => row.team_id === match.away_team_id), nowMs),
+                                home: homeRatings
+                                  ? null
+                                  : fixtureRatingNotice(
+                                      match.rating_share_statuses?.find((row) => row.team_id === match.home_team_id),
+                                      nowMs,
+                                    ),
+                                away: awayRatings
+                                  ? null
+                                  : fixtureRatingNotice(
+                                      match.rating_share_statuses?.find((row) => row.team_id === match.away_team_id),
+                                      nowMs,
+                                    ),
                               }
                             : undefined
                         }
@@ -1451,7 +1585,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         score={currentScore}
                         penaltyShootout={penaltyShootout}
                         matchType={match.match_type || undefined}
-                        is120minMode={tournament?.scoring_mode === '120min' || tournament?.scoring_mode === 'average120'}
+                        is120minMode={
+                          tournament?.scoring_mode === '120min' || tournament?.scoring_mode === 'average120'
+                        }
                         went_120={match.went_120}
                         completed={match.completed}
                         totalMinutes={match.total_minutes}
@@ -1468,10 +1604,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
-                          ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? homeFinalRating?.grade : undefined,
-                          ratingScore: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? homeFinalRating?.score : undefined,
+                          ratingGrade:
+                            !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                              ? homeFinalRating?.grade
+                              : undefined,
+                          ratingScore:
+                            !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                              ? homeFinalRating?.score
+                              : undefined,
                           reserveReplacingName: homeIsBye ? undefined : match.home_team?.reserve_replacing_name,
                           isBye: homeIsBye,
                         }}
@@ -1486,10 +1626,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,
-                          ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? awayFinalRating?.grade : undefined,
-                          ratingScore: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
-                            ? awayFinalRating?.score : undefined,
+                          ratingGrade:
+                            !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                              ? awayFinalRating?.grade
+                              : undefined,
+                          ratingScore:
+                            !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                              ? awayFinalRating?.score
+                              : undefined,
                           reserveReplacingName: awayIsBye ? undefined : match.away_team?.reserve_replacing_name,
                           isBye: awayIsBye,
                         }}

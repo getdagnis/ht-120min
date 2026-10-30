@@ -64,6 +64,17 @@ test('extra rounds display by date without renumbering frozen regular or playoff
   assert.deepEqual(rounds.map(round => round.round_number), [1, 2, 3]);
 });
 
+test('legacy match dates place and label a weekend extra between scheduled rounds', () => {
+  const rounds = [
+    { round_number: 6, matches: [{ scheduled_for: '2026-10-28T03:15:00Z' }] },
+    { round_number: 7, matches: [{ scheduled_for: '2026-11-04T03:15:00Z' }] },
+    { round_number: 9, round_source: 'organizer', reserved_slot_kind: 'weekend_friendly',
+      is_unscored: true, matches: [{ scheduled_for: '2026-11-01T03:10:00Z' }] },
+  ];
+  assert.deepEqual(orderFixtureRounds(rounds).map(round => round.round_number), [6, 9, 7]);
+  assert.equal(getRoundDisplayLabel(rounds[2], rounds), 'Round 6 .5 Weekend Extra · Unscored');
+});
+
 test('counted Lobby and Past participants retain their own table results without becoming Active', () => {
   const members = ['active', 'lobby', 'past', 'unselected'].map((id, index) => ({ id, name: id, ht_team_id: index + 1, hattrick_user_id: index + 1, active: id === 'active', reserve_active: id === 'lobby', replacement_for_team_id: null }));
   const results = [
