@@ -824,9 +824,6 @@ export const TournamentView: React.FC<{
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
-  const activeTab = ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
-    ? (activeTabParam as any)
-    : 'standings';
 
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
   const [fixtureRefreshError, setFixtureRefreshError] = useState<string | null>(null);
@@ -1047,6 +1044,20 @@ export const TournamentView: React.FC<{
   const storedHtUserId = useHydratedLocalStorage('my_ht_user_id');
   const storedHtManagerName = useHydratedLocalStorage('my_ht_manager_name');
   const currentHtUserId = Number(storedHtUserId || '0') || null;
+  type TournamentTab = 'standings' | 'fixtures' | 'my-matches' | 'history' | 'guestbook' | 'admin' | 'news';
+  const activeTab: TournamentTab = activeTabParam === 'my-matches'
+    ? (currentHtUserId ? 'my-matches' : 'fixtures')
+    : ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
+      ? activeTabParam as Exclude<TournamentTab, 'my-matches'>
+      : 'standings';
+  const isFixturesTab = activeTab === 'fixtures' || activeTab === 'my-matches';
+
+  useEffect(() => {
+    if (!isHydrationReady || activeTabParam !== 'my-matches' || currentHtUserId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', 'fixtures');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [activeTabParam, currentHtUserId, isHydrationReady]);
 
   useEffect(() => {
     if (!tournament?.id || !currentHtUserId) {
@@ -2186,7 +2197,7 @@ export const TournamentView: React.FC<{
     () => {
       void fetchFixturesOnly();
     },
-    tournament?.status !== 'finished' && (activeTab === 'fixtures' || activeTab === 'standings' || isAppg120ScoringMode(tournament?.scoring_mode)),
+    tournament?.status !== 'finished' && (isFixturesTab || activeTab === 'standings' || isAppg120ScoringMode(tournament?.scoring_mode)),
     isAppg120ScoringMode(tournament?.scoring_mode),
   );
 
@@ -3046,7 +3057,7 @@ export const TournamentView: React.FC<{
 
   useEffect(() => {
     if (
-      activeTab !== 'fixtures' ||
+      !isFixturesTab ||
       !tournament ||
       tournament.status === 'finished' ||
       selectedSeasonNumber !== currentSeasonNumberForSelection
@@ -3080,6 +3091,7 @@ export const TournamentView: React.FC<{
     };
   }, [
     activeTab,
+    isFixturesTab,
     currentSeasonNumberForSelection,
     selectedSeasonNumber,
     tournament,
@@ -3089,7 +3101,7 @@ export const TournamentView: React.FC<{
     handleRefreshFixtures,
   ]);
 
-  const handleTabChange = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
+  const handleTabChange = (tab: TournamentTab) => {
     if (tab !== activeTab) {
       if (tab === 'history' && latestPublishedHistorySeason) {
         const latestCount = historySeasonCommentCounts[latestPublishedHistorySeason.id];
@@ -3106,12 +3118,11 @@ export const TournamentView: React.FC<{
     }
   };
 
-  const getTabHref = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin', fixtureView?: 'all') => {
+  const getTabHref = (tab: TournamentTab) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('tab', tab);
     nextParams.delete('season');
     nextParams.delete('fixturesView');
-    if (tab === 'fixtures' && fixtureView === 'all') nextParams.set('fixturesView', 'all');
     const query = nextParams.toString();
     return `${pathname}${query ? `?${query}` : ''}`;
   };
@@ -6683,8 +6694,22 @@ export const TournamentView: React.FC<{
           className={activeTab === 'fixtures' ? styles.active : ''}
           onClick={() => handleTabChange('fixtures')}
         >
-          {uiText('fixturesAndResults')}
+          {uiText('fixtures')}
         </Link>
+        {currentHtUserId && (
+          <Link
+            href={getTabHref('my-matches')}
+            prefetch={false}
+            onNavigate={(event) => {
+              event.preventDefault();
+              window.history.pushState(null, '', getTabHref('my-matches'));
+            }}
+            className={activeTab === 'my-matches' ? styles.active : ''}
+            onClick={() => handleTabChange('my-matches')}
+          >
+            {uiText('myMatches')}
+          </Link>
+        )}
         <Link
           href={getTabHref('news')}
           prefetch={false}
@@ -6783,7 +6808,7 @@ export const TournamentView: React.FC<{
         </div>
       </Modal>
 
-      {waitingForHistory && ['history', 'fixtures', 'standings'].includes(activeTab) && (
+      {waitingForHistory && ['history', 'fixtures', 'my-matches', 'standings'].includes(activeTab) && (
         <div className={styles.loading} role={historyLoadError === requestedHistorySeason?.season_number ? 'alert' : 'status'}>
           {historyLoadError === requestedHistorySeason?.season_number ? <Button variant="primary" onClick={() => setHistoryRetry((value) => value + 1)}>{uiText('tryAgain')}</Button> : t('loading')}
         </div>
@@ -6820,7 +6845,7 @@ export const TournamentView: React.FC<{
         </div>
       )}
 
-      {activeTab === 'fixtures' && !waitingForHistory && (
+      {isFixturesTab && !waitingForHistory && (
         <div className={styles.fixturesContainer}>
           {fixtureRefreshError && (
             <div className={styles.refreshError} role="alert">
@@ -6846,7 +6871,7 @@ export const TournamentView: React.FC<{
             setCopied={setCopied}
             warnings={warnings}
             liveData={liveData}
-            initialView={searchParams.get('fixturesView') === 'all' ? 'all' : undefined}
+            view={activeTab === 'my-matches' ? 'mine' : 'all'}
             canJoinTournament={!isViewingHistoricalSeason && canJoinTournament}
             canJoinAnotherTeam={isViewingHistoricalSeason ? false : canJoinAnotherTeamBeforeFixtures}
             isConnecting={isConnecting}
@@ -6959,7 +6984,7 @@ export const TournamentView: React.FC<{
               ongoingMatchCount={ongoingMatchCount}
               onFollowLive={() => {
                 handleTabChange('fixtures');
-                window.history.pushState(null, '', getTabHref('fixtures', 'all'));
+                window.history.pushState(null, '', getTabHref('fixtures'));
               }}
               onCommentsLoaded={handleHistoryCommentsLoaded}
               onCommentSubmitted={handleHistoryCommentSubmitted}

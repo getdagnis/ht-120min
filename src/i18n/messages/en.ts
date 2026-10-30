@@ -474,7 +474,6 @@ const messages = {
       oneOffMatch: "One-off match",
     },
     TournamentView: {
-      fixturesAndResults: "Fixtures & Results",
       alreadyActiveIn: "Already active in:",
       tryAgain: "Try again",
       pleaseReportIssueToSiteAuthor: "Report issue to site author",
@@ -543,7 +542,8 @@ const messages = {
       pleaseLoginWithHattrickCHPPToRefreshYourCredentials: "Please login with Hattrick CHPP to refresh your credentials and to get access to new feature updates",
       loginWithCHPP: "Login with CHPP",
       standings: "Standings",
-      fixtures: "Fixtures",
+      fixtures: "Fixtures & Schedule",
+      myMatches: "My Matches",
       news: "News",
       history: "History",
       newSeasonHistoryActivity: "New season history activity",
@@ -1188,9 +1188,6 @@ const messages = {
       nextRoundNumber: 'Next round (Round {round})',
       currentRoundNumber: 'Current round (Round {round})',
       lastRoundNumber: 'Last round (Round {round})',
-      myMatches: "My Matches",
-      allMatches: "All Matches",
-      matchView: "Match view",
       noPersonalMatches: "No matches for your teams in this season.",
 
       seasonFixtures: 'Season {season} Fixtures',

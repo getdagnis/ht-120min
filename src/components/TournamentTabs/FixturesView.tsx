@@ -185,7 +185,7 @@ interface FixturesViewProps {
       away_match_kit_url?: string | null;
     } & Partial<LiveMatchClock>
   >;
-  initialView?: 'all';
+  view: 'mine' | 'all';
   canJoinTournament: boolean;
   canJoinAnotherTeam?: boolean;
   isConnecting: boolean;
@@ -253,7 +253,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   setCopied,
   warnings,
   liveData,
-  initialView,
+  view,
   canJoinTournament,
   canJoinAnotherTeam = canJoinTournament,
   isConnecting,
@@ -321,7 +321,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [showMisarrangedMatches, setShowMisarrangedMatches] = React.useState(false);
-  const [viewChoice, setViewChoice] = React.useState<{ context: string; view: 'mine' | 'all' } | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
   const teamFilterRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
@@ -473,7 +472,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         Number(match.away_team?.hattrick_user_id) === currentHtUserId),
     [currentHtUserId],
   );
-  const hasMyTeam = rounds.some((round) => round.matches.some(isOwnedMatch));
   const ownedTeamIds = new Set(
     rounds.flatMap((round) =>
       round.matches.flatMap((match) => [
@@ -491,22 +489,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         round.matches.some((match) => isOwnedMatch(match) && !isResolvedFixture(match)),
       )
     : null;
-  const viewContext = `${tournamentId}:${season}:${currentHtUserId ?? 'visitor'}`;
-  const fixtureView =
-    viewChoice?.context === viewContext ? viewChoice.view : (initialView ?? (hasMyTeam ? 'mine' : 'all'));
-  const selectView = (view: 'mine' | 'all') => {
-    setViewChoice({ context: viewContext, view });
-    setManualVisibleRoundsCount(null);
-    setSelectedTeamId(null);
-    setIsTeamFilterOpen(false);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('fixturesView')) {
-        url.searchParams.delete('fixturesView');
-        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-      }
-    }
-  };
+  const fixtureView = view;
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
   const fixtureTeams = React.useMemo(() => {
     const byId = new Map<string, { id: string; name: string }>();
@@ -1134,27 +1117,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         </SectionCard>
       )}
 
-      {rounds.length > 0 && (
-        <div className={styles.fixturesHeaderControls} role="group" aria-label={uiText('matchView')}>
-          <Button
-            size="sm"
-            variant={fixtureView === 'mine' ? 'primary' : 'secondaryAction'}
-            disabled={!currentHtUserId}
-            aria-pressed={fixtureView === 'mine'}
-            onClick={() => selectView('mine')}
-          >
-            {uiText('myMatches')}
-          </Button>
-          <Button
-            size="sm"
-            variant={fixtureView === 'all' ? 'primary' : 'secondaryAction'}
-            aria-pressed={fixtureView === 'all'}
-            onClick={() => selectView('all')}
-          >
-            {uiText('allMatches')}
-          </Button>
-        </div>
-      )}
       {rounds.length > 0 && filteredRounds.length === 0 && <p role="status">{uiText('noPersonalMatches')}</p>}
       {filteredRounds.slice(0, visibleRoundsCount).map((round, roundIndex) => {
         const isNextRound = round.id === currentRound?.id;

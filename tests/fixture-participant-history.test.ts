@@ -17,7 +17,15 @@ registerHooks({
 });
 const { FixturesView } = await import('../src/components/TournamentTabs/FixturesView.js');
 
-function renderFixture(active: boolean, side: 'home' | 'away', bye = false, isHistorical = false, mixedField = false, viewer: number | null = 99) {
+function renderFixture(
+  active: boolean,
+  side: 'home' | 'away',
+  bye = false,
+  isHistorical = false,
+  mixedField = false,
+  viewer: number | null = 99,
+  view: 'mine' | 'all' = viewer ? 'mine' : 'all',
+) {
   const participant = { name: 'Former participant', active, ht_team_id: 12345, hattrick_user_id: 99, manager_name: 'Original manager' };
   const opponent = { name: 'Original opponent', active: true, ht_team_id: 67890 };
   const match = {
@@ -35,7 +43,7 @@ function renderFixture(active: boolean, side: 'home' | 'away', bye = false, isHi
       { ...match, id: 'second-owned-team', home_team: { ...participant, name: 'My other club', ht_team_id: 555 }, home_team_id: 'second-club' },
       ...Array.from({ length: 78 }, (_, index) => ({ ...match, id: `other-${index}`, home_team: { ...opponent, name: `Unrelated club ${index}` }, away_team: opponent })),
     ] : [match] }],
-    season: 1, upcomingRoundIndex: 0, focusedRoundIndex: 0, defaultVisibleRoundsCount: 1,
+    season: 1, upcomingRoundIndex: 0, focusedRoundIndex: 0, defaultVisibleRoundsCount: 1, view,
     expandedRounds: { 'round-1': true }, toggleRound() {}, onExpandAllRounds() {}, onCollapseAllRounds() {},
     tournament: { id: 'cup', name: 'Cup', slug: 'cup', created_at: '2026-10-01T00:00:00Z', last_fixtures_refresh: null },
     isRefreshingFixtures: false, async handleRefreshFixtures() {}, async onRatingsChanged() {},
@@ -62,21 +70,25 @@ test('leaving keeps the actual finished fixture rendering identical on either si
 });
 
 test('a genuinely empty fixture side still renders BYE', () => {
-  assert.match(renderFixture(false, 'away', true), />BYE</);
+  assert.match(renderFixture(false, 'away', true, false, false, 99, 'all'), />BYE</);
 });
 
 
-test('My Matches defaults to every owned team in a large mixed field, including departed teams', () => {
+test('My Matches view includes every owned team in a large mixed field, including departed teams', () => {
   const html = renderFixture(false, 'home', false, false, true);
-  assert.match(html, /My Matches/);
   assert.match(html, /Former participant/);
   assert.match(html, /My other club/);
   assert.doesNotMatch(html, /Unrelated club/);
-  assert.doesNotMatch(html, /Show details/);
 });
 
-test('anonymous visitors see the complete tournament field', () => {
+test('Fixtures view shows the complete tournament field even when the visitor owns a team', () => {
+  const html = renderFixture(false, 'home', false, false, true, 99, 'all');
+  assert.match(html, /Unrelated club 77/);
+  assert.doesNotMatch(html, /My Matches|All Matches/);
+});
+
+test('Fixtures view shows the complete tournament field to anonymous visitors', () => {
   const html = renderFixture(false, 'home', false, false, true, null);
   assert.match(html, /Unrelated club 77/);
-  assert.match(html, /All Matches/);
+  assert.doesNotMatch(html, /My Matches|All Matches/);
 });

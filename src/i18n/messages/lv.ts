@@ -459,7 +459,6 @@ const messages = {
       oneOffMatch: "",
     },
     TournamentView: {
-      fixturesAndResults: "",
       alreadyActiveIn: "",
       tryAgain: "",
       pleaseReportIssueToSiteAuthor: "Padod ziņu vietnes autoram",
@@ -528,7 +527,8 @@ const messages = {
       pleaseLoginWithHattrickCHPPToRefreshYourCredentials: "",
       loginWithCHPP: "",
       standings: "",
-      fixtures: "",
+      fixtures: "Spēļu kalendārs",
+      myMatches: "Spēles",
       news: "",
       history: "",
       newSeasonHistoryActivity: "",
@@ -1173,9 +1173,6 @@ const messages = {
       nextRoundNumber: 'Nākamā kārta (Kārta {round})',
       currentRoundNumber: 'Pašreizējā kārta (Kārta {round})',
       lastRoundNumber: 'Iepriekšējā kārta (Kārta {round})',
-      myMatches: "Manas spēles",
-      allMatches: "Visas spēles",
-      matchView: "Spēļu skats",
       noPersonalMatches: "Šajā sezonā tavām komandām nav spēļu.",
 
       seasonFixtures: '',
