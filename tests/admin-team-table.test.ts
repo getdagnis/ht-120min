@@ -27,6 +27,7 @@ test('risk uses distinct misarranged rounds in the last four eligible rounds', (
   const rounds = [1, 2, 3, 4].map((number) => round(number, 'finished'));
   const critical = getAdminTeamTableStats(team, rounds, [warning(1), warning(1), warning(2), warning(3)], []);
   assert.equal(critical.risk, 'critical');
+  assert.equal(critical.misarranged, 3);
   assert.match(critical.riskReason, /3 misarranged rounds in the last 4 eligible rounds \(R1, R2, R3\)/);
   assert.equal(getAdminTeamTableStats(team, rounds, [warning(1), warning(4)], []).risk, 'high');
   assert.equal(getAdminTeamTableStats(team, rounds, [warning(1), warning(2)], []).risk, 'medium');
@@ -37,8 +38,12 @@ test('risk uses distinct misarranged rounds in the last four eligible rounds', (
 test('an active current-round warning affects risk while a withdrawn warning does not', () => {
   const rounds = [round(1, 'finished'), round(2, 'finished'), round(3, 'finished'),
     round(4, 'misarranged', { phaseStatus: 'materialized' })];
-  assert.equal(getAdminTeamTableStats(team, rounds, [warning(1), warning(2), { ...warning(4), active: true }], []).risk, 'critical');
-  assert.equal(getAdminTeamTableStats(team, rounds, [{ ...warning(4), active: false }], []).risk, 'none');
+  const active = getAdminTeamTableStats(team, rounds, [warning(1), warning(2), { ...warning(4), active: true }], []);
+  assert.equal(active.risk, 'critical');
+  assert.equal(active.misarranged, 3);
+  const withdrawn = getAdminTeamTableStats(team, rounds, [{ ...warning(4), active: false }], []);
+  assert.equal(withdrawn.risk, 'none');
+  assert.equal(withdrawn.misarranged, 0);
 });
 
 test('recorded incidents remain visible in legacy rounds awaiting other fixtures', () => {
@@ -52,39 +57,43 @@ test('recorded incidents remain visible in legacy rounds awaiting other fixtures
   assert.equal(getAdminTeamTableStats(team, rounds, [warning(1), warning(2), warning(3)], []).risk, 'critical');
 });
 
+test('misarranged count is unavailable when warning history has not loaded', () => {
+  const stats = getAdminTeamTableStats(team, [round(1, 'misarranged')], null, []);
+  assert.equal(stats.misarranged, null);
+  assert.equal(stats.risk, 'unknown');
+});
+
+test('a misarranged fixture does not blame the team without its own warning', () => {
+  const stats = getAdminTeamTableStats(team, [round(1, 'misarranged')], [
+    { team_id: 'other', round_id: 'round-1', reason: 'misarranged', active: false },
+  ], []);
+  assert.equal(stats.misarranged, 0);
+  assert.equal(stats.risk, 'none');
+});
+
 test('BYEs are separate from no fixture and pending rounds do not count', () => {
   const rounds = [round(1, 'finished', { bye: true }), round(2, 'finished', { missing: true }),
     round(3, 'not_arranged', { missing: true, phaseStatus: 'pending' })];
   const assignments = [{ team_id: team.id, assigned_at: '2026-01-01T00:00:00Z', released_at: null }];
   const stats = getAdminTeamTableStats(team, rounds, [], assignments);
-  assert.equal(stats.noFixture, 1);
-  assert.equal(stats.noFixtureUncertain, false);
+  assert.equal(stats.fixture, false);
   assert.equal(stats.played, 0);
   assert.equal(stats.risk, 'none');
 });
 
 test('unknown past membership does not become a zero no-fixture count', () => {
   const stats = getAdminTeamTableStats(team, [round(1, 'finished', { missing: true })], [], []);
-  assert.equal(stats.noFixture, null);
-  assert.equal(stats.noFixtureUncertain, true);
+  assert.equal(stats.fixture, null);
 });
 
 test('late joins and released slot assignments do not create false no-fixture counts', () => {
   const lateTeam = { ...team, created_at: '2026-01-03T00:00:00Z' };
   const beforeJoin = getAdminTeamTableStats(lateTeam, [round(1, 'finished', { missing: true })], [], []);
-  assert.equal(beforeJoin.noFixture, 0);
-  assert.equal(beforeJoin.noFixtureUncertain, false);
+  assert.equal(beforeJoin.fixture, true);
   const replaced = getAdminTeamTableStats(team, [round(2, 'finished', { missing: true })], [], [
     { team_id: team.id, assigned_at: '2026-01-01T00:00:00Z', released_at: '2026-01-01T20:00:00Z' },
   ]);
-  assert.equal(replaced.noFixture, 0);
-});
-
-test('GM includes misarranged fixtures but not pending unbooked games', () => {
-  const rounds = [round(1, 'misarranged'), round(2, 'not_arranged'), round(3, 'not_arranged', { phaseStatus: 'materialized' })];
-  const stats = getAdminTeamTableStats(team, rounds, [warning(1)], []);
-  assert.equal(stats.missed, 2);
-  assert.equal(stats.now, 'unbooked');
+  assert.equal(replaced.fixture, true);
 });
 
 test('joined age uses compact week.day labels through week three', () => {

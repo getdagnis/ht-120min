@@ -1978,10 +1978,10 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             rounds={rounds}
                             assignments={seasonSlotAssignments}
                             leavingTeamIds={new Set(departureNotices.map((notice) => notice.teamId))}
-                            renderTeamMarkers={(team, tooltipId) => <>
-                              {teamPlanningStatuses[team.id]?.inCup === true && <span data-tooltip-id={tooltipId} data-tooltip-content="In cup">[cup]</span>}
-                              {teamPlanningStatuses[team.id]?.bookedOutsideTournament && <span data-tooltip-id={tooltipId} data-tooltip-content="Booked outside tournament">[booked]</span>}
-                              {isStoppedTournament && team.ht_team_id && playingElsewhereTeamIds.has(team.ht_team_id) && <span data-tooltip-id={tooltipId} data-tooltip-content="Playing elsewhere">[elsewhere]</span>}
+                            renderTeamMarkers={(team) => <>
+                              {teamPlanningStatuses[team.id]?.inCup === true && <span>[cup]</span>}
+                              {teamPlanningStatuses[team.id]?.bookedOutsideTournament && <span>[booked]</span>}
+                              {isStoppedTournament && team.ht_team_id && playingElsewhereTeamIds.has(team.ht_team_id) && <span>[elsewhere]</span>}
                             </>}
                             renderActions={(team) => (
                                   <div>

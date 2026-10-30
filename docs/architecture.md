@@ -43,8 +43,9 @@ admin presentation and admin-only draft state in the Admin component and hook; a
 authorization decisions, or cross-tab mutations there.
 
 The Admin Manage Teams table uses current-season materialized regular fixtures and recorded per-team
-`fixture_warnings` for organizer review. GP counts played games; GM counts assigned games that were
-not played, including misarranged fixtures. Risk examines each team's last four eligible resolved
+`fixture_warnings` for organizer review. Played counts completed games; Misarranged counts
+distinct recorded warning rounds attributed to the team; Fixture is false when at least one
+round had no assigned opponent and true otherwise. Risk examines each team's last four eligible resolved
 or warned rounds: three or more recorded misarrangements are
 Critical; two are High if the latest eligible round was misarranged and Medium otherwise; one is
 Low; zero is None. Historical inactive warning rows count, but a fixture's

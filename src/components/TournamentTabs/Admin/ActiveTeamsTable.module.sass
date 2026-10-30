@@ -32,11 +32,12 @@
 
 .count, .legend, .notice
   color: var(--text60)
-  font-size: 0.75rem
+  font-size: 1rem
+  font-family: var(--heading)
 
 .count
   margin-left: auto
-  font-weight: 600
+  font-size: 1.1rem
 
 .scroll
   max-width: 100%
@@ -48,7 +49,10 @@
   border-collapse: collapse
   table-layout: auto
   text-align: center
-  font-size: 0.84rem
+  font-size: 0.9rem
+
+  td
+    font-family: var(--sans)
 
   th, td
     padding: 0.62rem 0.45rem
@@ -56,13 +60,10 @@
     text-align: center
     border-bottom: 1px solid var(--borderWeak)
 
-  thead
-    background: var(--lighter-less)
-
   th
     color: var(--text60)
-    font-size: 0.72rem
-    font-weight: 600
+    font-size: 0.7rem
+    font-weight: 500
     letter-spacing: 0.02em
     white-space: nowrap
     text-transform: uppercase
@@ -97,9 +98,6 @@
   th:last-child, td:last-child
     padding-right: 0.65rem
     text-align: right
-
-  tbody tr:hover
-    background: var(--lighter-less)
 
 .teamCell
   min-width: 17rem
@@ -171,15 +169,15 @@
 .teamId
   white-space: nowrap
 
-.risk
+.risk, .fixtureBadge
   display: inline-flex
   align-items: center
-  padding: 0.18rem 0.44rem
-  border-radius: 1rem
+  padding: 0.15rem 0.3rem
+  border-radius: var(--radius-xs)
   background: color-mix(in srgb, var(--risk-color) 12%, transparent)
   color: var(--text-h)
   font-size: 0.72rem
-  font-weight: 700
+  font-weight: 600
   line-height: 1.1
   white-space: nowrap
 
@@ -202,11 +200,12 @@
 .low
   --risk-color: var(--rating-b)
   background: color-mix(in srgb, var(--risk-color) 8%, transparent)
+  color: var(--rating-c)
 
 .none
-  --risk-color: var(--rating-a)
-  background: transparent
-  color: var(--rating-a)
+  --risk-color: var(--accent-2)
+  background: color-mix(in srgb, var(--risk-color) 8%, transparent)
+  color: var(--risk-color)
 
 .unknown
   --risk-color: var(--text60)
@@ -249,20 +248,25 @@
   color: var(--text60)
   cursor: pointer
 
-  &:hover, &[aria-expanded="true"]
-    background: var(--lighter-more)
-    color: var(--text-h)
-
   &:focus-visible
     outline: 2px solid var(--accent)
 
 .actionMenu
   position: fixed
   z-index: 1000
+  padding: 0.25rem 0
   visibility: hidden
   max-width: calc(100vw - 1rem)
+  font-weight: 600
   overflow-y: auto
   background: var(--bg-color)
+
+  div
+    padding: 0.1rem 0.5rem
+    background: transparent
+
+  div > div:hover
+    background: var(--lighter)
 
   button:focus-visible
     outline: 2px solid var(--accent)

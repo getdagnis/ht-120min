@@ -16,7 +16,7 @@ import {
 import type { RoundWithMatches, Team } from '../../../legacy-pages/Public/TournamentView';
 import styles from './ActiveTeamsTable.module.sass';
 
-type SortKey = 'team' | 'played' | 'missed' | 'noFixture' | 'risk' | 'now' | 'joined';
+type SortKey = 'team' | 'played' | 'misarranged' | 'fixture' | 'risk' | 'now' | 'joined';
 type Filter = 'all' | 'high-risk' | 'conflict' | 'no-games' | 'leaving';
 interface WarningRow {
   team_id: string;
@@ -42,31 +42,21 @@ const nowRank: Record<TeamTableStats['now'], number> = {
   none: 0,
 };
 const nowLabel: Record<TeamTableStats['now'], string> = {
-  conflict: 'Miss.',
+  conflict: 'Misr.',
   'no-fixture': 'No fixture',
   unbooked: 'Unbooked',
   unknown: 'Unknown',
   bye: 'BYE',
-  booked: 'Arranged',
+  booked: 'Arngd.',
   played: 'Played',
   none: '—',
 };
-const nowDescription: Record<TeamTableStats['now'], string> = {
-  conflict: 'Misarranged fixture. This status does not assign fault; Risk uses recorded team warnings.',
-  'no-fixture': 'No opponent was assigned for this round.',
-  unbooked: 'A fixture exists, but the friendly has not been arranged.',
-  unknown: 'Current fixture status could not be verified.',
-  bye: 'Intentional BYE this round.',
-  booked: 'The current friendly is arranged.',
-  played: 'The current friendly was played.',
-  none: 'No current fixture status.',
-};
 const riskLabel: Record<TeamRisk, string> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-  none: 'None',
+  critical: 'severe',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  none: '✓',
   unknown: '—',
 };
 interface Props {
@@ -75,7 +65,7 @@ interface Props {
   rounds: RoundWithMatches[];
   assignments: AssignmentRow[];
   leavingTeamIds: ReadonlySet<string>;
-  renderTeamMarkers?: (team: Team, tooltipId: string) => React.ReactNode;
+  renderTeamMarkers?: (team: Team) => React.ReactNode;
   renderActions: (team: Team) => React.ReactNode;
 }
 
@@ -178,10 +168,10 @@ export function ActiveTeamsTable({
                 return row.team.name.toLocaleLowerCase();
               case 'played':
                 return row.stats.played;
-              case 'missed':
-                return row.stats.missed;
-              case 'noFixture':
-                return row.stats.noFixture;
+              case 'misarranged':
+                return row.stats.misarranged;
+              case 'fixture':
+                return row.stats.fixture === null ? null : Number(row.stats.fixture);
               case 'risk':
                 return riskRank[row.stats.risk];
               case 'now':
@@ -274,15 +264,14 @@ export function ActiveTeamsTable({
     }
   };
   const headers: Array<{ key: SortKey; label: string; title: string }> = [
-    { key: 'team', label: 'Team', title: 'Team and manager' },
+    { key: 'team', label: '', title: 'Team and manager' },
     { key: 'played', label: 'Played', title: 'Games played' },
-    { key: 'missed', label: 'Missed', title: 'Games missed, including misarranged fixtures' },
-    { key: 'noFixture', label: 'Fixture', title: 'No fixture; excludes BYEs' },
+    { key: 'misarranged', label: 'Misr.', title: 'Recorded misarranged games attributed to this team' },
+    { key: 'fixture', label: 'Fixture', title: 'No rounds without an assigned opponent; BYEs excluded' },
     {
       key: 'risk',
       label: 'Risk',
-      title:
-        'Based on recorded team misarrangements in the last four eligible rounds. Hover a rating for its exact history.',
+      title: 'Recorded team misarrangements in the last four eligible rounds',
     },
     { key: 'now', label: 'Next', title: 'Current round fixture status. Miss. means the fixture was misarranged.' },
     {
@@ -341,12 +330,7 @@ export function ActiveTeamsTable({
                   scope="col"
                   aria-sort={sortKey === key ? (ascending ? 'ascending' : 'descending') : 'none'}
                 >
-                  <button
-                    type="button"
-                    data-tooltip-id={tooltipId}
-                    data-tooltip-content={title}
-                    onClick={() => setSort(key)}
-                  >
+                  <button type="button" aria-label={title} onClick={() => setSort(key)}>
                     {label}
                     <span aria-hidden="true">{sortKey === key ? (ascending ? ' ↑' : ' ↓') : ''}</span>
                   </button>
@@ -378,13 +362,7 @@ export function ActiveTeamsTable({
                       <span className={styles.identities}>
                         <span className={styles.identityLine}>
                           {teamFlag && (
-                            <img
-                              className={styles.flag}
-                              src={teamFlag}
-                              alt={team.country_name || 'Team country'}
-                              data-tooltip-id={tooltipId}
-                              data-tooltip-content={team.country_name || 'Team country'}
-                            />
+                            <img className={styles.flag} src={teamFlag} alt={team.country_name || 'Team country'} />
                           )}
                           {team.ht_team_id ? (
                             <a
@@ -397,7 +375,7 @@ export function ActiveTeamsTable({
                           ) : (
                             <strong>{team.name || 'Open slot'}</strong>
                           )}
-                          {renderTeamMarkers?.(team, tooltipId)}
+                          {renderTeamMarkers?.(team)}
                         </span>
                         <span className={styles.identityLine}>
                           <span className={styles.teamId}>
@@ -409,8 +387,6 @@ export function ActiveTeamsTable({
                               className={styles.flag}
                               src={managerFlag}
                               alt={team.manager_country_name || 'Manager country'}
-                              data-tooltip-id={tooltipId}
-                              data-tooltip-content={team.manager_country_name || 'Manager country'}
                             />
                           )}
                           {team.manager_name ? (
@@ -430,32 +406,27 @@ export function ActiveTeamsTable({
                       </span>
                     </div>
                   </td>
-                  <td data-tooltip-id={tooltipId} data-tooltip-content={`${stats.played} games played`}>
-                    {stats.played}
-                  </td>
-                  <td
-                    data-tooltip-id={tooltipId}
-                    data-tooltip-content={`${stats.missed} games missed, including misarranged fixtures`}
-                  >
-                    {stats.missed}
-                  </td>
-                  <td
-                    data-tooltip-id={tooltipId}
-                    data-tooltip-content={
-                      stats.noFixtureUncertain
-                        ? 'At least this many; some past participation could not be verified. Intentional BYEs excluded.'
-                        : 'No fixture: no opponent assigned. Intentional BYEs excluded.'
-                    }
-                  >
-                    {stats.noFixture === null ? '—' : `${stats.noFixture}${stats.noFixtureUncertain ? '+' : ''}`}
+                  <td>{stats.played}</td>
+                  <td>{stats.misarranged ?? '—'}</td>
+                  <td>
+                    {stats.fixture === null ? (
+                      '—'
+                    ) : (
+                      <span className={`${styles.fixtureBadge} ${styles[stats.fixture ? 'none' : 'high']}`}>
+                        {String(stats.fixture)}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <span
                       className={`${styles.risk} ${styles[stats.risk]}`}
-                      data-tooltip-id={tooltipId}
-                      data-tooltip-content={`${riskLabel[stats.risk]}: ${stats.riskReason}${stats.history ? `\n${stats.history}` : ''}`}
-                      aria-label={`${riskLabel[stats.risk]}. ${stats.riskReason}`}
-                      tabIndex={stats.risk === 'none' ? undefined : 0}
+                      data-tooltip-id={stats.risk !== 'none' && stats.risk !== 'unknown' ? tooltipId : undefined}
+                      data-tooltip-content={
+                        stats.risk !== 'none' && stats.risk !== 'unknown'
+                          ? `${riskLabel[stats.risk]}: ${stats.riskReason}`
+                          : undefined
+                      }
+                      tabIndex={stats.risk !== 'none' && stats.risk !== 'unknown' ? 0 : undefined}
                     >
                       {riskLabel[stats.risk]}
                     </span>
@@ -464,19 +435,12 @@ export function ActiveTeamsTable({
                     className={
                       stats.now === 'conflict' ? styles.conflict : stats.now === 'booked' ? styles.arranged : ''
                     }
-                    data-tooltip-id={tooltipId}
-                    data-tooltip-content={nowDescription[stats.now]}
                     aria-label={stats.now === 'conflict' ? 'Misarranged fixture' : undefined}
                   >
                     {stats.now === 'conflict' && <img src="/warn-red.png" alt="" className={styles.missIcon} />}
                     {nowLabel[stats.now]}
                   </td>
-                  <td
-                    data-tooltip-id={tooltipId}
-                    data-tooltip-content={`Joined ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Riga' }).format(new Date(team.created_at))}`}
-                  >
-                    {formatTeamJoinedAge(team.created_at, now)}
-                  </td>
+                  <td>{formatTeamJoinedAge(team.created_at, now)}</td>
                   <td>
                     <button
                       type="button"
@@ -486,8 +450,6 @@ export function ActiveTeamsTable({
                       aria-expanded={actionsOpen}
                       aria-controls={actionsOpen ? `admin-team-menu-${team.id}` : undefined}
                       aria-haspopup="dialog"
-                      data-tooltip-id={tooltipId}
-                      data-tooltip-content={`Actions for ${team.name}`}
                       onClick={() => setOpenActionsId(actionsOpen ? null : team.id)}
                     >
                       <DotsThreeVertical size={20} weight="bold" aria-hidden="true" />
@@ -501,7 +463,7 @@ export function ActiveTeamsTable({
         {visibleRows.length === 0 && <p className={styles.empty}>No teams match this search or filter.</p>}
       </div>
       <p className={styles.legend}>
-        GP played · GM missed, including misarranged games · NF no fixture (BYEs excluded). Risk is for review only.
+        Fixture is false if any round had no assigned opponent; BYEs are excluded. Risk is for review only.
       </p>
       <Tooltip id={tooltipId} />
       {openTeam &&

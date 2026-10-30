@@ -18,13 +18,11 @@ export function formatTeamJoinedAge(joinedAt: string, now: number) {
 
 export interface TeamTableStats {
   played: number;
-  missed: number;
-  noFixture: number | null;
-  noFixtureUncertain: boolean;
+  misarranged: number | null;
+  fixture: boolean | null;
   risk: TeamRisk;
   now: TeamNow;
   latestMisarrangedRound: number;
-  history: string;
   riskReason: string;
 }
 
@@ -69,18 +67,17 @@ export function getAdminTeamTableStats(
   assignments: AssignmentRow[],
 ): TeamTableStats {
   const regular = rounds.filter(isRegularRound).sort((a, b) => a.round_number - b.round_number);
+  const regularRoundIds = new Set(regular.map((round) => round.id));
   const currentRoundIds = new Set(regular.filter((round) => round.phase_status === 'materialized').map((round) => round.id));
   const warningRoundIds = warnings === null ? null : new Set(warnings
-    .filter((warning) => warning.team_id === team.id && warning.reason === 'misarranged' &&
+    .filter((warning) => regularRoundIds.has(warning.round_id) && warning.team_id === team.id && warning.reason === 'misarranged' &&
       (!currentRoundIds.has(warning.round_id) || warning.active !== false))
     .map((warning) => warning.round_id));
   let played = 0;
-  let missed = 0;
-  let noFixture = 0;
+  let noFixture = false;
   let noFixtureKnown = true;
   let latestMisarrangedRound = 0;
   const eligible: Array<{ round: number; misarranged: boolean }> = [];
-  const history: string[] = [];
 
   for (const round of regular) {
     if (round.phase_status === 'pending') continue;
@@ -91,24 +88,18 @@ export function getAdminTeamTableStats(
     if (!match) {
       const expectation = isExpected(team, round, assignments);
       if (expectation === true) {
-        noFixture += 1;
-        history.push(`R${round.round_number}: no fixture`);
+        noFixture = true;
       } else if (expectation === null) {
         noFixtureKnown = false;
       }
       continue;
     }
     const bye = !match.home_team_id || !match.away_team_id;
-    if (bye) {
-      history.push(`R${round.round_number}: BYE`);
-      continue;
-    }
+    if (bye) continue;
     if (match.completed) played += 1;
     if (isResolvedRound(round) || warned) {
       eligible.push({ round: round.round_number, misarranged: warned });
     }
-    if (!match.completed && (isResolvedRound(round) || match.status === 'misarranged')) missed += 1;
-    history.push(`R${round.round_number}: ${warned ? 'misarranged' : match.completed ? 'played' : isResolvedRound(round) ? 'missed' : match.status}`);
   }
 
   const latestFour = eligible.slice(-4);
@@ -142,13 +133,11 @@ export function getAdminTeamTableStats(
   }
   return {
     played,
-    missed,
-    noFixture: noFixtureKnown || noFixture > 0 ? noFixture : null,
-    noFixtureUncertain: !noFixtureKnown,
+    misarranged: warningRoundIds?.size ?? null,
+    fixture: noFixtureKnown || noFixture ? !noFixture : null,
     risk,
     now,
     latestMisarrangedRound,
-    history: history.join(' · '),
     riskReason,
   };
 }
