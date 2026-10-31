@@ -2179,7 +2179,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               <p className={adminStyles.smallNote}>
                                 Ready to join teams enter automatically when possible. Other Lobby statuses do not request admission.
                               </p>
-                              <label>Status <select value={lobbyFilter} onChange={event => setLobbyFilter(event.target.value)}>
+                              <label className={adminStyles.lobbyFilter}>Status <select value={lobbyFilter} onChange={event => setLobbyFilter(event.target.value)}>
                                 <option value="all">All Lobby teams</option>
                                 {LOBBY_STATUSES.map(status => <option key={status} value={status}>{status === 'ready_to_join' ? 'Ready to join' : status === 'open_to_invitations' ? 'Open to invitations' : 'Hanging around'}</option>)}
                               </select></label>
@@ -2260,6 +2260,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           )}
                                         </div>
                                         {contextFor(team)}
+                                        {lobbyReasons[team.id] && (
+                                          <p className={adminStyles.waitingReason}>{lobbyReasons[team.id]}</p>
+                                        )}
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
@@ -2288,9 +2291,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         >
                                           Remove
                                         </Button>
-                                        {lobbyReasons[team.id] && (
-                                          <p className={adminStyles.waitingReason}>{lobbyReasons[team.id]}</p>
-                                        )}
                                       </div>
                                     )}
                                   </li>

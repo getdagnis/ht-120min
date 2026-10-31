@@ -585,12 +585,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           .join('\n')}\n[/table]`;
       }
       if (show120minScoring) {
-        return `[table]\n${forumHeader(['#', 'Team', '120m', 'Pts*', '120m%', 'Mins', 'Dif', 'Goals*'])}\n${rows
+        return `[table]\n${forumHeader(['#', 'Team', '120m', 'GP', 'Pts*', '120m%', 'Mins', 'Dif', 'Goals*'])}\n${rows
           .map((standing, index) =>
             forumRow([
               index + 1,
               forumTeamName(standing),
               standing.achievements120min,
+              standing.played,
               standing.pts,
               `${percentage120min(standing).toFixed(0)}%`,
               standing.totalMinutes,
@@ -849,6 +850,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       styles.center120,
                       uiText('matches120Tooltip'),
                     )}
+                    {sortableHeader('GP', 'played', styles.center, uiText('gamesTooltip'))}
                     {sortableHeader(
                       uiText('tieBreakPointsColumn'),
                       'pts',
@@ -942,6 +944,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   ) : show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
                       <td className={styles.center}>0</td>
                       <td className={styles.center}>0</td>
                       <td className={styles.center}>0</td>
@@ -1090,6 +1095,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       ) : show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                          <td className={styles.center}>{s.played}</td>
                           <td className={styles.center}>{s.pts}</td>
                           <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                           <td className={styles.center}>{s.totalMinutes}</td>
