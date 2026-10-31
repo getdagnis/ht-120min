@@ -875,6 +875,7 @@ const messages = {
       avgPointsRegularLossNoGoals: "{count}x bez vārtiem parastā zaudētā spēlē (2 p.)",
       avgPointsZeroPoint: "{count}x cita spēle (0 p.)",
       percentage120Tooltip: "Ieskaitīto spēļu daļa, kas sasniedza 120 minūtes",
+      percentage120RoundsTooltip: "120 minūšu spēles dalītas ar notikušo regulārās sezonas kārtu skaitu",
       avgMinutesTooltip: "Nospēlētās minūtes uz ieskaitītu pabeigtu spēli",
       avgDifferenceTooltip: "120 minūšu vārtu starpība uz ieskaitītu pabeigtu spēli",
       avgGoalsTooltip: "120 minūšu spēlēs gūtie vārti uz ieskaitītu pabeigtu spēli",

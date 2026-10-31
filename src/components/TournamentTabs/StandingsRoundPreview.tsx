@@ -22,6 +22,8 @@ export interface StandingsPreviewMatch {
 export interface StandingsPreviewRound {
   id: string;
   round_number: number;
+  phase?: 'regular' | 'postseason' | null;
+  phase_status?: 'pending' | 'materialized' | 'completed';
   is_unscored?: boolean;
   matches: StandingsPreviewMatch[];
 }

@@ -253,6 +253,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
   const percentage120min = (standing: TeamStanding) =>
     standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
+  const regularRoundCount = rounds.filter((round) =>
+    round.phase !== 'postseason' &&
+    !round.is_unscored &&
+    (round.phase_status === 'completed' || round.matches.some((match) =>
+      match.completed || ['finished', 'misarranged', 'ongoing'].includes(match.status),
+    )),
+  ).length;
+  const percentage120minOfRounds = (standing: TeamStanding) =>
+    regularRoundCount > 0 ? (standing.achievements120min / regularRoundCount) * 100 : 0;
   const averageMatchQuota = useMemo(() => {
     return showAppgScoring || showAverage120Scoring ? getAppgStandingsQuota(standings) : 0;
   }, [showAppgScoring, showAverage120Scoring, standings]);
@@ -315,7 +324,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           : sortKey === 'appg'
             ? averagePointsPerGame(a)
             : sortKey === 'achievements120minPercent'
-              ? percentage120min(a)
+              ? show120minScoring ? percentage120minOfRounds(a) : percentage120min(a)
               : sortKey === 'teamRank'
                 ? (a.teamRank ?? 0)
                 : sortKey === 'powerRating'
@@ -327,7 +336,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           : sortKey === 'appg'
             ? averagePointsPerGame(b)
             : sortKey === 'achievements120minPercent'
-              ? percentage120min(b)
+              ? show120minScoring ? percentage120minOfRounds(b) : percentage120min(b)
               : sortKey === 'teamRank'
                 ? (b.teamRank ?? 0)
                 : sortKey === 'powerRating'
@@ -593,7 +602,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               standing.achievements120min,
               standing.played,
               standing.pts,
-              `${percentage120min(standing).toFixed(0)}%`,
+              `${percentage120minOfRounds(standing).toFixed(0)}%`,
               standing.totalMinutes,
               signedGoalDifference(standing.gd),
               standing.gf,
@@ -861,7 +870,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       uiText('percentage120Column'),
                       'achievements120minPercent',
                       styles.center,
-                      'Percentage of matches that reached 120 minutes',
+                      uiText('percentage120RoundsTooltip'),
                     )}
                     {sortableHeader(uiText('minutesColumn'), 'totalMinutes', styles.center, 'Total minutes played')}
                     {sortableHeader(
@@ -1097,7 +1106,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
                           <td className={styles.center}>{s.played}</td>
                           <td className={styles.center}>{s.pts}</td>
-                          <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
+                          <td className={styles.center}>{percentage120minOfRounds(s).toFixed(0)}%</td>
                           <td className={styles.center}>{s.totalMinutes}</td>
                           <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                           <td className={styles.center}>{s.gf}</td>

@@ -890,6 +890,7 @@ const messages = {
       avgPointsRegularLossNoGoals: "{count}x no goals in a lost regular match (2 pts)",
       avgPointsZeroPoint: "{count}x other match (0 pts)",
       percentage120Tooltip: "Percentage of counted completed matches reaching 120 minutes",
+      percentage120RoundsTooltip: "120-minute matches divided by regular season rounds that have happened",
       avgMinutesTooltip: "Minutes played per counted completed match",
       avgDifferenceTooltip: "120-minute goal difference per counted completed match",
       avgGoalsTooltip: "Goals scored in 120-minute matches per counted completed match",
