@@ -838,6 +838,9 @@ export const TournamentView: React.FC<{
   const [seasons, setSeasons] = useState<TournamentSeason[]>(
     () => (initialData?.seasons as unknown as TournamentSeason[] | undefined) || [],
   );
+  const historySeasons = seasons
+    .filter((season) => season.status === 'finished' || season.snapshot_json)
+    .sort((a, b) => b.season_number - a.season_number);
   const currentSeasonNumberForSelection = tournament?.season || 1;
   const availableSeasonNumbers = [
     ...new Set([currentSeasonNumberForSelection, ...seasons.map((season) => season.season_number)]),
@@ -1044,12 +1047,23 @@ export const TournamentView: React.FC<{
   const storedHtUserId = useHydratedLocalStorage('my_ht_user_id');
   const storedHtManagerName = useHydratedLocalStorage('my_ht_manager_name');
   const currentHtUserId = Number(storedHtUserId || '0') || null;
+  const hasMyMatches = Boolean(
+    currentHtUserId && rounds.some((round) =>
+      round.matches.some((match) =>
+        Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+        Number(match.away_team?.hattrick_user_id) === currentHtUserId,
+      ),
+    ),
+  );
+  const hasHistory = historySeasons.length > 0;
   type TournamentTab = 'standings' | 'fixtures' | 'my-matches' | 'history' | 'guestbook' | 'admin' | 'news';
   const activeTab: TournamentTab = activeTabParam === 'my-matches'
-    ? (currentHtUserId ? 'my-matches' : 'fixtures')
-    : ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
-      ? activeTabParam as Exclude<TournamentTab, 'my-matches'>
-      : 'standings';
+    ? (currentHtUserId && hasMyMatches ? 'my-matches' : 'fixtures')
+    : activeTabParam === 'history' && !hasHistory
+      ? 'standings'
+      : ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
+        ? activeTabParam as Exclude<TournamentTab, 'my-matches'>
+        : 'standings';
   const isFixturesTab = activeTab === 'fixtures' || activeTab === 'my-matches';
 
   useEffect(() => {
@@ -1574,6 +1588,19 @@ export const TournamentView: React.FC<{
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const hasLoadedTournamentRef = useRef(Boolean(initialData));
   const initialLoadAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isHydrationReady || loading || activeTabParam !== 'my-matches' || !currentHtUserId || hasMyMatches) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', 'fixtures');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [activeTabParam, currentHtUserId, hasMyMatches, isHydrationReady, loading]);
+  useEffect(() => {
+    if (!isHydrationReady || loading || activeTabParam !== 'history' || hasHistory) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('tab', 'standings');
+    setSearchParams(nextParams, { replace: true });
+  }, [activeTabParam, hasHistory, isHydrationReady, loading, searchParams, setSearchParams]);
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
@@ -5953,9 +5980,6 @@ export const TournamentView: React.FC<{
           logoUrl: team.logo_url ?? null,
         }))
     : [];
-  const historySeasons = seasons
-    .filter((season) => season.status === 'finished' || season.snapshot_json)
-    .sort((a, b) => b.season_number - a.season_number);
   const selectedHistorySeasonNumber =
     Number(searchParams.get('historySeason')) || historySeasons[0]?.season_number || null;
   const requestedHistorySeason = activeTab === 'history' ? seasons.find((season) => season.season_number === selectedHistorySeasonNumber) : isViewingHistoricalSeason ? selectedSeason : null;
@@ -6726,7 +6750,7 @@ export const TournamentView: React.FC<{
         >
           {uiText('fixtures')}
         </Link>
-        {currentHtUserId && (
+        {currentHtUserId && hasMyMatches && (
           <Link
             href={getTabHref('my-matches')}
             prefetch={false}
@@ -6752,7 +6776,7 @@ export const TournamentView: React.FC<{
         >
           {uiText('news')}
         </Link>
-        <Link
+        {hasHistory && <Link
           href={getTabHref('history')}
           prefetch={false}
           onNavigate={(event) => {
@@ -6768,7 +6792,7 @@ export const TournamentView: React.FC<{
               {historyTabBadgeCount}
             </span>
           )}
-        </Link>
+        </Link>}
         <Link
           href={getTabHref('admin')}
           prefetch={false}

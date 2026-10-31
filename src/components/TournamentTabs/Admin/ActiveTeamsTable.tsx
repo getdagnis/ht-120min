@@ -62,11 +62,12 @@ const nowDetail: Record<TeamTableStats['now'], string> = {
   played: 'Played',
   none: 'No upcoming fixture',
 };
-const misarrangedTooltip = (stats: TeamTableStats) => stats.misarrangedRounds === null
-  ? 'Warning history unavailable.'
-  : stats.misarrangedRounds.length
-    ? `Misarranged by this team:\n${stats.misarrangedRounds.join('\n')}`
-    : 'No misarrangements attributed to this team.';
+const misarrangedTooltip = (stats: TeamTableStats) =>
+  stats.misarrangedRounds === null
+    ? 'Warning history unavailable.'
+    : stats.misarrangedRounds.length
+      ? `Misarranged by this team:\n${stats.misarrangedRounds.join('\n')}`
+      : 'No misarrangements attributed to this team.';
 const nextTooltip = (stats: TeamTableStats) => {
   if (!stats.nextRoundLabel) return 'No upcoming fixture in the open rounds.';
   return [
@@ -76,7 +77,9 @@ const nextTooltip = (stats: TeamTableStats) => {
     stats.now === 'conflict'
       ? `Counted in Misr.: ${stats.nextOwnWarning === null ? 'warning history unavailable' : stats.nextOwnWarning ? 'yes' : 'no'}`
       : null,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 };
 const riskLabel: Record<TeamRisk, string> = {
   critical: 'critical',
@@ -121,10 +124,7 @@ export function ActiveTeamsTable({
   const now = useClientNow(60 * 60 * 1000);
 
   const roundIds = useMemo(
-    () =>
-      rounds
-        .filter((round) => round.phase !== 'postseason' && round.is_unscored !== true)
-        .map((round) => round.id),
+    () => rounds.filter((round) => round.phase !== 'postseason' && round.is_unscored !== true).map((round) => round.id),
     [rounds],
   );
   const roundIdsKey = roundIds.join(',');
@@ -368,7 +368,9 @@ export function ActiveTeamsTable({
               </th>
               <th
                 scope="col"
-                aria-sort={sortKey === 'team' || sortKey === 'manager' ? (ascending ? 'ascending' : 'descending') : 'none'}
+                aria-sort={
+                  sortKey === 'team' || sortKey === 'manager' ? (ascending ? 'ascending' : 'descending') : 'none'
+                }
               >
                 <button type="button" aria-label="Sort by team name" onClick={() => setSort('team')}>
                   Teams{sortKey === 'team' && <span aria-hidden="true">{ascending ? ' ↑' : ' ↓'}</span>}
@@ -434,7 +436,7 @@ export function ActiveTeamsTable({
                         </span>
                         <span className={styles.identityLine}>
                           <span className={styles.teamId}>
-                            ID {team.ht_team_id || '—'}
+                            {team.ht_team_id || '—'}
                             {team.manager_name ? ' ·' : ''}
                           </span>
                           {managerFlag && (
@@ -463,25 +465,23 @@ export function ActiveTeamsTable({
                   </td>
                   <td>{stats.played}</td>
                   <td>
-                    <span
-                      data-tooltip-id={tooltipId}
-                      data-tooltip-content={misarrangedTooltip(stats)}
-                      tabIndex={0}
-                    >
+                    <span data-tooltip-id={tooltipId} data-tooltip-content={misarrangedTooltip(stats)} tabIndex={0}>
                       {stats.misarranged ?? '—'}
                     </span>
                   </td>
                   <td>
                     <span className={styles.fixtureBadges}>
-                      {stats.fixtureRounds.length ? stats.fixtureRounds.map(({ roundId, label, status }) => (
-                        <span
-                          key={roundId}
-                          className={`${styles.fixtureBadge} ${styles[status === 'yes' ? 'none' : status === 'no' ? 'high' : 'unknown']}`}
-                          aria-label={`${label}: ${status === 'yes' ? 'fixture' : status === 'no' ? 'no fixture' : status === 'bye' ? 'BYE' : 'not selected'}`}
-                        >
-                          {status === 'yes' ? '✓' : status === 'no' ? '𝖷' : status === 'bye' ? 'BYE' : '—'}
-                        </span>
-                      )) : '—'}
+                      {stats.fixtureRounds.length
+                        ? stats.fixtureRounds.map(({ roundId, label, status }) => (
+                            <span
+                              key={roundId}
+                              className={`${styles.fixtureBadge} ${styles[status === 'yes' ? 'none' : status === 'no' ? 'high' : 'unknown']}`}
+                              aria-label={`${label}: ${status === 'yes' ? 'fixture' : status === 'no' ? 'no fixture' : status === 'bye' ? 'BYE' : 'not selected'}`}
+                            >
+                              {status === 'yes' ? '✓' : status === 'no' ? '𝖷' : status === 'bye' ? 'BYE' : '—'}
+                            </span>
+                          ))
+                        : '—'}
                     </span>
                   </td>
                   <td>
@@ -503,11 +503,7 @@ export function ActiveTeamsTable({
                       stats.now === 'conflict' ? styles.conflict : stats.now === 'booked' ? styles.arranged : ''
                     }
                   >
-                    <span
-                      data-tooltip-id={tooltipId}
-                      data-tooltip-content={nextTooltip(stats)}
-                      tabIndex={0}
-                    >
+                    <span data-tooltip-id={tooltipId} data-tooltip-content={nextTooltip(stats)} tabIndex={0}>
                       {stats.now === 'conflict' && <img src="/warn-red.png" alt="" className={styles.missIcon} />}
                       {nowLabel[stats.now]}
                     </span>
