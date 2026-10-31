@@ -7,7 +7,7 @@ import { invalidatePublicTournament } from './tournament-cache.js';
 import type { getServiceSupabase } from './supabase.js';
 import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../../types/fixture-ratings.js';
 import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../shared/player-specialties.js';
-import { getTacticDisplayNameFromType } from '../../../../shared/tactics.js';
+import { getTacticCanonicalNameFromType } from '../../../../shared/tactics.js';
 
 // Local development only: explicitly opt in to viewing both teams' shared ratings.
 const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = process.env.NEXT_PUBLIC_ADMIN_SHOW_ALL_RATINGS === 'true';
@@ -146,7 +146,7 @@ export function parseSubmittedOrders(xml: string, matchId: number, teamId: numbe
   }
   if (!roles.has(100) || roles.size < 2) throw new FixtureRatingsError(409, 'No submitted starting lineup is available for this match.');
   const tacticId = requiredInteger(data, 'TacticType', 0, 8);
-  const tactic = getTacticDisplayNameFromType(tacticId);
+  const tactic = getTacticCanonicalNameFromType(tacticId);
   if (!tactic) throw new FixtureRatingsError(502, 'Hattrick returned an unknown tactic.');
   const coachModifier = optionalIntegerTag(data, 'CoachModifier', -10, 10);
   const takerId = Number(readChppTag(block(block(data, 'Lineup'), 'SetPieces'), 'PlayerID')) || null;

@@ -12,7 +12,7 @@ import type {
   MatchSidePerformance,
 } from '../../../../shared/match-events.js';
 import { CARD_EVENT_TYPES, MISSED_CHANCE_EVENT_TYPES, getCanonicalEventDescription } from '../../../../shared/match-events.js';
-import { getTacticDisplayNameFromType } from '../../../../shared/tactics.js';
+import { getTacticCanonicalNameFromType } from '../../../../shared/tactics.js';
 export { getCanonicalEventDescription } from '../../../../shared/match-events.js';
 
 const REGULAR_GOAL_EVENT_TYPES = new Set([
@@ -214,7 +214,7 @@ function sidePerformance(
   return {
     formation: readText(team, 'Formation'),
     tacticType,
-    tacticName: getTacticDisplayNameFromType(tacticType),
+    tacticName: getTacticCanonicalNameFromType(tacticType),
     tacticSkill: readNumber(team, 'TacticSkill'),
     setPiecesTaker,
     possessionFirstHalf: readNumber(xml, `PossessionFirstHalf${possessionSide}`),
