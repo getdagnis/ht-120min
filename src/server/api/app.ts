@@ -752,10 +752,10 @@ async function handleTournamentTeamDeparture(req: VercelRequest, res: VercelResp
         !match.completed && (match.ht_match_id != null || ['arranged', 'ongoing', 'finished'].includes(match.status || '') ||
           match.finished_at != null || match.home_goals != null || match.away_goals != null ||
           match.match_event_details != null || match.scheduled_for == null || Date.parse(match.scheduled_for) <= Date.now()));
-      if (!team.active && !bookedFutureRegular) return [];
+      // A completed manager departure remains relevant while the team is Past.
       return [{ teamId: team.id, teamName: team.name,
         needsReview: team.active && roundById.get(request.after_round_id)?.phase_status === 'completed',
-        bookedFutureRegular }];
+        bookedFutureRegular, departed: !team.active }];
     }) });
   }
 
@@ -1115,13 +1115,14 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
   }
 
   const addPlaceholder = req.body?.action === 'add-placeholder';
+  const addParticipant = req.body?.action === 'add-participant';
   if (addPlaceholder && !actor.access.isImplicitSuperadmin) {
     return res.status(403).json({ error: 'This action is unavailable.' });
   }
   const supabase = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception, status, is_archived')
+    .select('id, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception, status, is_archived, schedule_generated_at')
     .eq('id', tournamentId)
     .maybeSingle();
   if (tournamentError) throw tournamentError;
@@ -1167,6 +1168,14 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     if (roundError) throw roundError;
     if (round) return res.status(409).json({ error: 'Use the reserve or replacement flow after a schedule has been generated.' });
   }
+  if (addParticipant) {
+    if (tournament.schedule_generated_at) return res.status(409).json({ error: 'Use Lobby after a schedule has been generated.' });
+    if (existingTeam) return res.status(409).json({ error: 'This team is already listed in the tournament.' });
+    const supplied = req.body?.teamDetails;
+    if (!supplied || Number(supplied.teamId) !== teamId || typeof supplied.teamName !== 'string' || !supplied.teamName.trim()) {
+      return res.status(400).json({ error: 'The checked team details are missing. Check the team ID again.' });
+    }
+  }
   if (existingTeam?.active) return res.status(409).json({ error: 'This team is already a tournament participant.' });
   if (existingTeam && !existingTeam.reserve_active) return res.status(409).json({ error: 'An inactive row already exists. Resolve it before adding a reserve.' });
 
@@ -1179,10 +1188,10 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     }
   }
 
-  const owner = addPlaceholder
+  const owner = addPlaceholder || addParticipant
     ? { credentials: null, team: null, managerName: null }
     : await findVerifiedReserveOwner(supabase, teamId);
-  const { data: gateway, error: gatewayError } = await supabase
+  const { data: gateway, error: gatewayError } = addParticipant ? { data: null, error: null } : await supabase
     .from('teams')
     .select('oauth_token, oauth_token_secret')
     .not('oauth_token', 'is', null)
@@ -1190,21 +1199,35 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     .limit(1)
     .maybeSingle();
   if (gatewayError) throw gatewayError;
-  if (!owner.credentials && (!gateway?.oauth_token || !gateway.oauth_token_secret)) {
+  if (!addParticipant && !owner.credentials && (!gateway?.oauth_token || !gateway.oauth_token_secret)) {
     return res.status(503).json({ error: 'No CHPP gateway is available. Link a team first.' });
   }
 
-  const consumerKey = process.env.CHPP_CONSUMER_KEY;
-  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
-  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
-
-  const details = await fetchTeamDetailsFromChpp(
-    consumerKey,
-    consumerSecret,
-    owner.credentials || { oauth_token: gateway!.oauth_token, oauth_token_secret: gateway!.oauth_token_secret },
-    teamId,
-  );
-  const teamName = details.teamName?.trim();
+  let details: {
+    teamName: string; logoUrl?: string; countryId?: number; countryName?: string; leagueId?: number;
+    genderId?: number; leagueLevel?: number; teamRank?: number; powerRating?: number;
+    powerGlobalRank?: number; powerLeagueRank?: number; powerRegionRank?: number;
+  };
+  if (addParticipant) {
+    const supplied = req.body.teamDetails;
+    details = {
+      teamName: supplied.teamName.trim(), logoUrl: supplied.logoUrl,
+      countryId: supplied.countryId, countryName: supplied.countryName, leagueId: supplied.leagueId,
+      genderId: supplied.genderId, leagueLevel: supplied.leagueLevel, teamRank: supplied.teamRank,
+      powerRating: supplied.powerRating, powerGlobalRank: supplied.powerGlobalRank,
+      powerLeagueRank: supplied.powerLeagueRank, powerRegionRank: supplied.powerRegionRank,
+    };
+  } else {
+    const consumerKey = process.env.CHPP_CONSUMER_KEY;
+    const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+    if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
+    details = await fetchTeamDetailsFromChpp(
+      consumerKey, consumerSecret,
+      owner.credentials || { oauth_token: gateway!.oauth_token, oauth_token_secret: gateway!.oauth_token_secret },
+      teamId,
+    );
+  }
+  const teamName = details.teamName.trim();
   if (!teamName) return res.status(404).json({ error: `Team ID ${teamId} was not found.` });
 
   const teamDetails = {
@@ -1238,8 +1261,8 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
   }
 
-  if (addPlaceholder) {
-    const { data: id, error: registrationError } = await supabase.rpc('add_tournament_team_as_site_admin', {
+  if (addParticipant) {
+    const { data: id, error } = await supabase.rpc('save_admin_tournament_registration', {
       p_values: {
         tournament_id: tournamentId, ht_team_id: teamId, name: teamName,
         active: true, reserve_active: false, joined_via_oauth: false,
@@ -1251,6 +1274,30 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
         power_rating: details.powerRating ?? null, power_global_rank: details.powerGlobalRank ?? null,
         power_league_rank: details.powerLeagueRank ?? null, power_region_rank: details.powerRegionRank ?? null,
       },
+      p_existing_id: null, p_skip_membership: actor.access.isImplicitSuperadmin,
+      p_actor_id: actor.userId, p_placeholder: false,
+    });
+    if (error) return res.status(409).json({ error: error.message });
+    return res.status(200).json({ team: { id } });
+  }
+
+  if (addPlaceholder) {
+    const { data: id, error: registrationError } = await supabase.rpc('save_admin_tournament_registration', {
+      p_values: {
+        tournament_id: tournamentId, ht_team_id: teamId, name: teamName,
+        active: true, reserve_active: false, joined_via_oauth: false,
+        manager_name: 'Bot team', logo_url: details.logoUrl ?? null,
+        join_story: buildAdminAddedJoinStory(teamName, teamId),
+        country_id: details.countryId ?? null, country_name: details.countryName ?? null,
+        league_id: details.leagueId ?? null, gender_id: details.genderId ?? null,
+        league_level: details.leagueLevel ?? null, team_rank: details.teamRank ?? null,
+        power_rating: details.powerRating ?? null, power_global_rank: details.powerGlobalRank ?? null,
+        power_league_rank: details.powerLeagueRank ?? null, power_region_rank: details.powerRegionRank ?? null,
+      },
+      p_existing_id: null,
+      p_skip_membership: true,
+      p_actor_id: actor.userId,
+      p_placeholder: true,
     });
     if (registrationError) throw registrationError;
     if (!id) throw new Error('The placeholder could not be added.');
@@ -1267,6 +1314,7 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
       powerLeagueRank: details.powerLeagueRank, powerRegionRank: details.powerRegionRank,
       reserveOrigin: 'organizer_added',
       skipMembershipCheck: actor.access.isImplicitSuperadmin,
+      adminActorId: actor.userId,
     });
     return res.status(200).json({ team: { id }, validated: true });
   }
@@ -1297,8 +1345,9 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     reserve_joined_at: new Date().toISOString(),
     actively_waiting: false,
   };
-  const { data: id, error } = await supabase.rpc('save_verified_tournament_registration', {
+  const { data: id, error } = await supabase.rpc('save_admin_tournament_registration', {
     p_values: reserveValues, p_existing_id: null, p_skip_membership: actor.access.isImplicitSuperadmin,
+    p_actor_id: actor.userId, p_placeholder: false,
   });
   if (error) throw error;
   if (!id) throw new Error('The team could not be added to Waiting.');
@@ -2900,13 +2949,44 @@ async function handleTeamMembership(req: VercelRequest, res: VercelResponse) {
       ? 'Check Actively waiting for admission at a regular-round transition, or use the existing paired scheduling operation.'
       : 'Use Leave after this round for a scheduled participant.' });
   }
-  const { data, error } = await supabase.rpc('change_tournament_team_membership', {
+  const reason = readString(req.body?.reason) || 'admin_move';
+  const note = readString(req.body?.note);
+  if (!['admin_move', 'warnings', 'critical', 'other'].includes(reason) || note.length > 500 ||
+      (reason === 'critical' && (!actor.access.isImplicitSuperadmin || !note))) {
+    return res.status(400).json({ error: 'Invalid move reason or note.' });
+  }
+  const { data, error } = await supabase.rpc('change_tournament_team_membership_with_context', {
     p_tournament_id: tournamentId, p_team_id: teamId, p_action: action,
     p_ready: action === 'ready' ? req.body.ready : null,
     p_override: actor.access.isImplicitSuperadmin,
+    p_actor_id: actor.userId,
+    p_reason: reason,
+    p_note: note || null,
   });
   if (error) return res.status(409).json({ error: error.message });
   return res.status(200).json(data);
+}
+
+async function handleTeamAdminContext(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.query.tournamentId);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tournamentId)) {
+    return res.status(400).json({ error: 'Invalid tournament.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) return res.status(403).json({ error: 'You cannot view team notes.' });
+  const rows = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await getServiceSupabase().from('tournament_team_admin_context')
+      .select('team_id,added_by_ht_user_id,added_at,last_moved_by_ht_user_id,last_moved_at,last_move_action,last_move_reason,last_move_note')
+      .eq('tournament_id', tournamentId).order('team_id').range(offset, offset + 499);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < 500) break;
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({ teams: rows });
 }
 
 async function handleNextRoundJoin(req: VercelRequest, res: VercelResponse) {
@@ -4157,6 +4237,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleLobbyStatus(req, res);
       case 'team-membership':
         return await handleTeamMembership(req, res);
+      case 'team-admin-context':
+        return await handleTeamAdminContext(req, res);
       case 'next-round-join':
         return await handleNextRoundJoin(req, res);
       case 'activity':

@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-28
+Last updated: 2026-10-31
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -33,6 +33,8 @@ The owner reports migrations **134–136 applied**; their contents and markers r
 Existing migration 126–133 slot-safe replacement and paired-admission operations remain compatibility paths for fixed schedules and explicit current-round scheduling. Their fixture/history protections remain; immediate generated-roster promotion/demotion and eligibility/capacity overrides stay scoped to verified site-admin access. The revised 137 normal membership path replaces the old reserve/pending/origin controls without rewriting those applied migration files. See [season-slot compatibility](docs/season-slot-compatibility.md#current-season-removal-and-reset).
 
 Manager-requested departure after the current round uses the existing private request from migration `125_deferred_team_departures.sql`. Prepared migration `158_honor_deferred_departures_with_booked_fixtures.sql` makes completion of that round the departure cutoff while preserving booked later fixtures and keeping the request as an opt-out marker until explicit return or reactivation. New regular and organizer-added pairings exclude opted-out teams; an already booked future regular fixture receives an admin notice. Disposable PostgreSQL regression passed locally; migration 158 is not applied or live-verified. Legacy schedules without staged round completion still require organizer handling. See [season-slot compatibility](docs/season-slot-compatibility.md#manager-requested-departure-after-a-round).
+
+Admin team context is implemented locally in prepared migration `164_admin_team_context.sql`: private admin-add origin and latest actual explicit move reason/note, plus a separate private first critical-removal record keyed by Hattrick manager ID. Critical removal is a manual site-admin decision requiring a note; it records no automatic sanction or cross-tournament badge. The existing manager leave request supplies the temporary Asked to leave label. Focused API, TypeScript, and disposable PostgreSQL tests passed; the production build was blocked by unavailable Google Fonts, and live Supabase, browser, migration application, and deployment remain unverified. See [team membership](docs/database-and-deployment.md#team-membership-phase-1).
 
 Round repair now has a local, unapplied vacancy-aware update: unbooked fixtures with vacated season slots can be re-paired while booked rows remain protected, and large fields use bounded pairing candidates. Migration `124_repair_vacant_round_fixtures.sql` is prepared locally to clear fully empty future fixture rows atomically. No lint, tests, build, disposable database run, live Supabase verification, or deployment has been performed for this change. Apply and verify migration `124` with matching server code before using Repair Round for removals. See [scheduling](docs/scheduling.md).
 

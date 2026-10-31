@@ -492,7 +492,17 @@ const readStoredSessionBoolean = (key: string, fallback: boolean) => {
   }
 };
 
-type DepartureNotice = { teamId: string; teamName: string; needsReview: boolean; bookedFutureRegular?: boolean };
+type DepartureNotice = { teamId: string; teamName: string; needsReview: boolean; bookedFutureRegular?: boolean; departed?: boolean };
+type AdminTeamContext = {
+  team_id: string;
+  added_by_ht_user_id: number | null;
+  added_at: string | null;
+  last_moved_by_ht_user_id: number | null;
+  last_moved_at: string | null;
+  last_move_action: string | null;
+  last_move_reason: string | null;
+  last_move_note: string | null;
+};
 
 function DepartureNotices({ tournamentId, tournamentSlug, onChange }: { tournamentId: string; tournamentSlug: string; onChange: React.Dispatch<React.SetStateAction<DepartureNotice[]>> }) {
   const [notices, setNotices] = useState<DepartureNotice[]>([]);
@@ -535,7 +545,7 @@ function DepartureNotices({ tournamentId, tournamentSlug, onChange }: { tourname
     };
   }, [tournamentId, tournamentSlug, onChange]);
 
-  return notices.map((departure) => (
+  return notices.filter((departure) => !departure.departed || departure.bookedFutureRegular).map((departure) => (
     <div key={departure.teamId} className={adminStyles.departureNotice}>
       {departure.bookedFutureRegular
         ? `${departure.teamName} has left, but a booked future regular fixture needs organizer review.`
@@ -815,6 +825,42 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
   const [isReturningPastTeams, setIsReturningPastTeams] = useState(false);
   const [lobbyReasons, setLobbyReasons] = useState<Record<string, string>>({});
+  const [teamContext, setTeamContext] = useState<Record<string, AdminTeamContext> | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ team: Team; action: 'promote' | 'to_waiting' | 'remove' | 'return' } | null>(null);
+  const [moveReason, setMoveReason] = useState('admin_move');
+  const [moveNote, setMoveNote] = useState('');
+  const [moveError, setMoveError] = useState('');
+  useEffect(() => {
+    if (!canManageOperationalAdmin) return;
+    let cancelled = false;
+    void fetch(`/api/app?route=team-admin-context&tournamentId=${encodeURIComponent(tournament.id)}`, {
+      credentials: 'same-origin', cache: 'no-store',
+    }).then(async (response) => {
+      const result = await response.json() as { teams?: AdminTeamContext[] };
+      if (!response.ok) throw new Error('Could not load team notes.');
+      if (!cancelled) setTeamContext(Object.fromEntries((result.teams || []).map((row) => [row.team_id, row])));
+    }).catch(() => { if (!cancelled) setTeamContext(null); });
+    return () => { cancelled = true; };
+  }, [canManageOperationalAdmin, tournament.id, teams]);
+  const contextFor = (team: Team) => {
+    const record = teamContext?.[team.id];
+    const requestedLeave = departureNotices.some((notice) => notice.teamId === team.id);
+    if (!teamContext && !requestedLeave) return null;
+    const reason = record?.last_move_reason;
+    const reasonLabel = reason === 'critical' ? 'Critical removal'
+      : reason === 'warnings' ? 'Removed: warnings'
+        : reason === 'other' ? 'Other reason'
+          : record?.last_move_action === 'return' ? 'Returned by admin'
+            : record?.last_move_action === 'to_waiting' ? 'Moved by admin'
+              : record?.last_move_action === 'remove' ? 'Removed by admin' : null;
+    return <div className={adminStyles.teamContext}>
+      {record?.added_by_ht_user_id && <span>Admin added</span>}
+      {requestedLeave && <span>Asked to leave</span>}
+      {reasonLabel && <span>{reasonLabel}</span>}
+      {teamContext && !record?.added_by_ht_user_id && <span>Origin unknown</span>}
+      {record?.last_move_note && <span className={adminStyles.teamContextNote}>Note: {record.last_move_note}</span>}
+    </div>;
+  };
   useEffect(() => {
     if (canManageOperationalAdmin) void loadTeamPlanningStatuses();
   }, [canManageOperationalAdmin, loadTeamPlanningStatuses, rounds]);
@@ -845,42 +891,40 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     teamId: string,
     action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
     ready?: boolean,
+    reason = 'admin_move',
+    note = '',
   ) => {
     const response = await fetch('/api/app?route=team-membership', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tournamentId: tournament.id, teamId, action, ready }),
+      body: JSON.stringify({ tournamentId: tournament.id, teamId, action, ready, reason, note }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Membership could not be changed.');
   };
-  const changeMembership = async (
+  const changeMembership = (
     team: Team,
     action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
-    ready?: boolean,
   ) => {
     if (isReturningPastTeams) return;
-    const description =
-      action === 'promote'
-        ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
-        : action === 'to_waiting'
-          ? `Move ${team.name} to Lobby, unchecked?`
-          : action === 'return'
-            ? `Return ${team.name} to Lobby, checked to join when possible?`
-            : `Remove ${team.name} to Past? Its match history will be kept.`;
-    const overrideWarning =
-      isSiteAdmin && action === 'promote'
-        ? `\n\n${lobbyReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.`
-        : '';
-    if (action !== 'ready' && !window.confirm(description + overrideWarning)) return;
+    if (action === 'ready') return;
+    setPendingMove({ team, action });
+    setMoveReason('admin_move');
+    setMoveNote('');
+    setMoveError('');
+  };
+  const submitMembershipChange = async () => {
+    if (!pendingMove) return;
+    const { team, action } = pendingMove;
     setChangingReserveId(team.id);
     try {
-      await sendMembershipChange(team.id, action, ready);
+      await sendMembershipChange(team.id, action, undefined, moveReason, moveNote);
       setAdmissionSelection((ids) => ids.filter((id) => id !== team.id));
       await onReservesChanged();
+      setPendingMove(null);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Membership could not be changed.');
+      setMoveError(error instanceof Error ? error.message : 'Membership could not be changed.');
     } finally {
       setChangingReserveId(null);
     }
@@ -1982,6 +2026,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             assignments={seasonSlotAssignments}
                             leavingTeamIds={new Set(departureNotices.map((notice) => notice.teamId))}
                             renderTeamMarkers={(team) => <>
+                              {departureNotices.some((notice) => notice.teamId === team.id) && <span>Asked to leave</span>}
                               {teamPlanningStatuses[team.id]?.inCup === true && <span>[cup]</span>}
                               {teamPlanningStatuses[team.id]?.bookedOutsideTournament && <span>[booked]</span>}
                               {isStoppedTournament && team.ht_team_id && playingElsewhereTeamIds.has(team.ht_team_id) && <span>[elsewhere]</span>}
@@ -2193,6 +2238,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </>
                                           )}
                                         </div>
+                                        {contextFor(team)}
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
@@ -2318,6 +2364,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             : 'Unknown'}
                                           {team.ht_team_id ? ` · ID: ${team.ht_team_id}` : null}
                                         </div>
+                                        {contextFor(team)}
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
@@ -2956,6 +3003,45 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
           )}
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(pendingMove)}
+        onClose={() => { if (!changingReserveId) setPendingMove(null); }}
+        title={pendingMove ? `${pendingMove.action === 'remove' ? 'Move to Past' : pendingMove.action === 'promote' ? 'Promote to Active' : 'Move to Lobby'}: ${pendingMove.team.name}` : undefined}
+        appearance="plain"
+        maxWidth="520px"
+      >
+        <form className={adminStyles.moveForm} onSubmit={(event) => { event.preventDefault(); void submitMembershipChange(); }}>
+          <p>{pendingMove?.action === 'remove'
+            ? 'The team and its match history will remain in this tournament.'
+            : pendingMove?.action === 'promote'
+              ? `The team will enter normal schedule planning.${isSiteAdmin && lobbyReasons[pendingMove.team.id] ? ` ${lobbyReasons[pendingMove.team.id]}` : ''}`
+              : pendingMove?.action === 'return'
+                ? 'The team will return to Lobby, ready to join when possible.'
+                : 'The team will move to Lobby without requesting automatic admission.'}</p>
+          <label>Reason
+            <select value={moveReason} onChange={(event) => setMoveReason(event.target.value)}>
+              <option value="admin_move">Admin decision</option>
+              {pendingMove?.action === 'remove' && <option value="warnings">Warnings</option>}
+              {pendingMove?.action === 'remove' && isSiteAdmin && pendingMove.team.hattrick_user_id &&
+                <option value="critical">Critical removal</option>}
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Note {moveReason === 'critical' ? '(required)' : '(optional)'}
+            <textarea value={moveNote} onChange={(event) => setMoveNote(event.target.value)}
+              maxLength={500} required={moveReason === 'critical'} rows={3} />
+          </label>
+          {moveReason === 'critical' && <p>This also records a private critical removal for this manager.</p>}
+          {moveError && <p role="alert">{moveError}</p>}
+          <div className={styles.modalFooter}>
+            <Button type="button" variant="secondary" onClick={() => setPendingMove(null)} disabled={Boolean(changingReserveId)}>Cancel</Button>
+            <Button type="submit" variant="primary" disabled={Boolean(changingReserveId)}>
+              {changingReserveId ? 'Saving…' : 'Confirm'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         isOpen={isScheduleConfirmationOpen}

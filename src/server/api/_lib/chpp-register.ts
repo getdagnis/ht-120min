@@ -297,6 +297,7 @@ export async function registerReserveTeam(
     powerRegionRank?: number | null;
     reserveOrigin: 'manager_joined' | 'organizer_added';
     skipMembershipCheck?: boolean;
+    adminActorId?: number;
   },
 ) {
   if (!input.skipMembershipCheck) {
@@ -370,10 +371,12 @@ export async function registerReserveTeam(
     actively_waiting: input.reserveOrigin === 'manager_joined',
   };
 
-  const { data: id, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
+  const { data: id, error } = await getServiceSupabase().rpc(
+    input.adminActorId ? 'save_admin_tournament_registration' : 'save_verified_tournament_registration', {
     p_values: existing ? values : { tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values },
     p_existing_id: existing?.id ?? null,
     p_skip_membership: input.skipMembershipCheck === true,
+    ...(input.adminActorId ? { p_actor_id: input.adminActorId, p_placeholder: false } : {}),
   });
   if (error) throw new Error(error.message);
   if (!id) throw new Error(`Could not add ${input.team.teamName} to Waiting.`);

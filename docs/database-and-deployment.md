@@ -12,6 +12,8 @@ Important tables used by current code:
 - `flag_quiz_questions` and `flag_quiz_answers` (142: global 12-hour quiz and manager guesses; service-only access. Owner marker is present but live schema is not independently verified. Migration 143 adds leaderboard avatar/country/profile fields; prepared only. See [flag quiz](flag-quiz.md))
 - `tournament_collections` and `tournament_collection_memberships` (097 owner-marked applied; public collection identity and persistent tournament membership, live state not independently verified)
 - `teams`
+- `tournament_team_admin_context` (164 prepared: private admin-add origin and latest explicit membership move)
+- `manager_critical_removals` (164 prepared: one private first critical-removal record per Hattrick manager ID; no cross-tournament UI or enforcement)
 - `rounds`
 - `tournament_team_planning_statuses` (144 prepared: manually refreshed Hattrick cup and outside-booking snapshots keyed by tournament, season, round, and team; service-only access. Separate from misarranged fixture warnings.)
 - `tournament_slot_checks` (150 prepared: private latest selected-slot observations and proposal-bound final-verification receipts; browser state owns pairing drafts. See [organizer pairing assistant](organizer-pairing-assistant.md). Not applied or live-verified.)
@@ -49,7 +51,7 @@ Team planning checks are tournament-owned snapshots in `tournament_team_planning
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migrations are `161_tournament_season_auto_booking_settings.sql` and `162_forge_booking_worker_runs.sql`; both are prepared locally, and 162 is required before using the manual worker endpoint. The worker is not scheduled or deployed. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
+- The latest active migrations are `163_extend_generated_round_with_verified_pairs.sql` and `164_admin_team_context.sql`; 164 is prepared locally and required before deploying its admin UI and API. Migration 162 remains required before using the manual booking worker endpoint. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -182,6 +184,8 @@ Database changes should also include a clear manual or automated verification pa
 - `docs/schedule-rpc-smoke-test.sql`
 
 ## Team membership (Phase 1)
+
+Migration 164 adds private context for explicit admin actions without changing membership state or scheduling. The existing membership RPC still owns all transition checks; a service-only wrapper saves the latest actual admin move and optional note in the same transaction. The normal Admin add form now uses the authorized server registration path so its actor and origin are saved in that transaction; manager joins and sandbox seeding are separate flows. Old entries without a recorded origin remain unknown. The current private manager departure request is shown while it explains an Active or Past entry and is cleared on return or rejoining. An explicit site-admin Critical removal requires a known manager ID and note, and atomically stores the first private manager-level critical-removal record; ordinary warning removal stays tournament-local. The manager record is keyed to `hattrick_user_id`, independent of tournament-owned `teams` rows, to avoid binding the future manager model to legacy team identities. Migration 164 is prepared locally, not applied or deployed; verify its prerequisite RPCs and apply it before deploying the matching API/UI.
 
 The existing tournament-owned `teams` row is the source of truth. No extra
 membership table, reserve-origin status, or newcomer state is introduced.

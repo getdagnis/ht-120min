@@ -1,4 +1,8 @@
 -- Admit Lobby teams and replace only future unbooked fixtures in one transaction.
+-- The migration is required only for the new Add fixtures to an existing generated round workflow. Without it, the UI can offer that operation, but the final database save fails.
+-- It does not replace the original schedule generator. 
+-- Commit: https://github.com/getdagnis/ht-120min/commit/0682759b86b954633b4ba1f023923f1df48b356e?utm_source=chatgpt.com
+
 BEGIN;
 CREATE FUNCTION public.extend_generated_round_with_verified_pairs(
  p_tournament_id uuid, p_season_number integer, p_round_id uuid, p_request_id uuid,
@@ -97,3 +101,6 @@ END $$;
 REVOKE ALL ON FUNCTION public.extend_generated_round_with_verified_pairs(uuid,integer,uuid,uuid,uuid[],jsonb,jsonb,text,uuid,text,bigint,boolean,boolean) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.extend_generated_round_with_verified_pairs(uuid,integer,uuid,uuid,uuid[],jsonb,jsonb,text,uuid,text,bigint,boolean,boolean) TO service_role;
 COMMIT;
+
+
+-- applied!

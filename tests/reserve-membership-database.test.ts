@@ -21,6 +21,8 @@ const json = (data: unknown) => `'${JSON.stringify(data).replaceAll("'", "''")}'
 const write = (statement: string) => sql(`BEGIN; SET LOCAL ht120.membership_write='true'; ${statement} COMMIT;`);
 const change = (team: number, action: string, ready: boolean | null = null, override = false) =>
   `SELECT change_tournament_team_membership('${id(10)}','${id(team)}','${action}',${ready ?? 'NULL'},${override});`;
+const changeWithContext = (team: number, action: string, reason = 'admin_move', note: string | null = null, override = false) =>
+  `SELECT change_tournament_team_membership_with_context('${id(10)}','${id(team)}','${action}',NULL,${override},9999,'${reason}',${note === null ? 'NULL' : `'${note.replaceAll("'", "''")}'`});`;
 const state = (team = 3) => sql(`SELECT active,reserve_active,actively_waiting,pending_entry_round_id IS NULL FROM teams WHERE id='${id(team)}';`);
 const plan = () => JSON.parse(sql(`SELECT get_waiting_admission_plan('${id(10)}',1,true);`)) as { teamIds: string[]; activeTeamIds: string[]; departingTeamIds: string[]; rosterVersion: string; rejected: Array<{ teamId: string; reason: string }> };
 const transition = (p = plan()) => {
@@ -105,6 +107,42 @@ function setup(oldPending = false) {
   migration('151_organizer_saved_round_repair.sql');
   migration('158_honor_deferred_departures_with_booked_fixtures.sql');
 }
+
+test('admin context is committed only for real membership changes', { skip: !enabled }, () => {
+  setup();
+  migration('164_admin_team_context.sql');
+  sql(changeWithContext(3, 'remove', 'warnings', 'Two misarrangements'));
+  assert.equal(sql(`SELECT last_move_reason,last_move_note FROM tournament_team_admin_context WHERE team_id='${id(3)}';`),
+    'warnings|Two misarrangements');
+  sql(changeWithContext(3, 'remove', 'other', 'Should not replace the first reason'));
+  assert.equal(sql(`SELECT last_move_reason,last_move_note FROM tournament_team_admin_context WHERE team_id='${id(3)}';`),
+    'warnings|Two misarrangements');
+  assert.throws(() => sql(changeWithContext(3, 'to_waiting', 'warnings')), /requires removal to Past/);
+  assert.equal(sql(`SELECT count(*) FROM manager_critical_removals;`), '0');
+  sql(changeWithContext(3, 'return'));
+  sql(changeWithContext(3, 'remove', 'critical', 'Repeated misarrangements', true));
+  assert.equal(sql(`SELECT hattrick_user_id,note,recorded_by_ht_user_id FROM manager_critical_removals;`),
+    '100|Repeated misarrangements|9999');
+  assert.equal(sql(`SELECT last_move_reason FROM tournament_team_admin_context WHERE team_id='${id(3)}';`), 'critical');
+  sql(changeWithContext(1, 'remove', 'critical', 'Another team, same manager', true));
+  assert.equal(sql('SELECT count(*) FROM manager_critical_removals;'), '1');
+  assert.equal(sql('SELECT note FROM manager_critical_removals;'), 'Repeated misarrangements');
+  assert.throws(() => sql(changeWithContext(3, 'return', 'critical', 'Invalid', true)), /requires removal to Past/);
+  assert.equal(state(), 'f|f|f|t');
+
+  setup();
+  migration('164_admin_team_context.sql');
+  const addedId = sql(`SELECT save_admin_tournament_registration(${json({
+    tournament_id: id(10), ht_team_id: 4, name: 'Admin addition', active: false, reserve_active: true,
+    joined_via_oauth: false,
+  })},NULL,true,9999,false);`);
+  assert.equal(sql(`SELECT added_by_ht_user_id,last_move_action IS NULL FROM tournament_team_admin_context WHERE team_id='${addedId}';`),
+    '9999|t');
+  sql(`UPDATE teams SET hattrick_user_id=NULL WHERE id='${id(3)}';`);
+  assert.throws(() => sql(changeWithContext(3, 'remove', 'critical', 'Unknown manager', true)), /Verify the manager/);
+  assert.equal(state(), 'f|t|f|t');
+  assert.equal(sql('SELECT count(*) FROM manager_critical_removals;'), '0');
+});
 
 test('phase 1 membership over applied 134, 135 and 136', { skip: !enabled }, async (t) => {
   await t.test('old reserve and pending representations normalize to unchecked Waiting', () => {

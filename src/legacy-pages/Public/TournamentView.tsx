@@ -4704,6 +4704,33 @@ export const TournamentView: React.FC<{
         return;
       }
 
+      if (!isJoin) {
+        const response = await fetch('/api/app?route=admin-add-reserve-team', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId: tournament?.id,
+            teamId: htIdInt,
+            action: 'add-participant',
+            teamDetails: newTeamData,
+          }),
+        });
+        const result = (await response.json()) as { error?: string; team?: { id: string } };
+        if (!response.ok) throw new Error(result.error || 'The team could not be added.');
+        setNewTeamId('');
+        setNewTeamName('');
+        setNewTeamData(null);
+        void trackActivity('team_added_by_admin', {
+          route: `/t/${slug}`,
+          tournamentId: tournament?.id,
+          teamId: result.team?.id,
+          metadata: { isJoin: false },
+        });
+        await fetchData();
+        return;
+      }
+
       let finalTeamId: string | null = null;
 
       // 1. Insert new team

@@ -74,6 +74,9 @@ test('three-list membership uses verified roles and cannot accept a client overr
       return Response.json(url.pathname.endsWith('get_waiting_admission_plan') ? { teamIds: [], rejected: [] } : { ok: true });
     }
     if (url.pathname.endsWith('/tournaments')) return Response.json({ organizer_id: allowed ? 7 : 8, organizer_name: 'Organizer', season: 1, schedule_generated_at: generated ? '2026-10-21' : null });
+    if (url.pathname.endsWith('/tournament_team_admin_context')) return Response.json([{
+      team_id: teamId, added_by_ht_user_id: 7, last_move_reason: 'warnings', last_move_note: 'Repeated misarrangements',
+    }]);
     if (url.pathname.endsWith('/profiles')) return Response.json({ manager_name: 'Manager' });
     assert.ok(url.pathname.endsWith('/tournament_roles'));
     return Response.json(null);
@@ -88,15 +91,29 @@ test('three-list membership uses verified roles and cannot accept a client overr
   };
   try {
     assert.equal((await invoke('promote', null)).status, 401);
+    const readContext = async (userId: number | null) => {
+      let status = 200, body: unknown;
+      const response = { status(value: number) { status = value; return this; }, json(value: unknown) { body = value; return this; }, setHeader() {} };
+      await app({ method: 'GET', query: { route: 'team-admin-context', tournamentId },
+        headers: { cookie: userId ? buildAppSessionCookie(userId, 'membership-test-secret', false) : undefined },
+      } as never, response as never);
+      return { status, body };
+    };
+    assert.equal((await readContext(null)).status, 401);
     allowed = false; assert.equal((await invoke('remove')).status, 403); allowed = true;
+    allowed = false; assert.equal((await readContext(7)).status, 403); allowed = true;
+    assert.deepEqual(await readContext(7), { status: 200, body: { teams: [{
+      team_id: teamId, added_by_ht_user_id: 7, last_move_reason: 'warnings', last_move_note: 'Repeated misarrangements',
+    }] } });
     assert.equal((await invoke('ready')).status, 400);
     assert.equal((await invoke('delete')).status, 400);
     assert.equal((await invoke('return', 7, { teamId: 'bad' })).status, 400);
     assert.equal(calls.length, 0);
     for (const action of ['promote', 'to_waiting', 'remove', 'return', 'ready']) {
       assert.equal((await invoke(action, 7, { ready: true, p_override: true, hattrick_user_id: 9999, oauth_token: 'untrusted' })).status, 200);
-      assert.deepEqual(calls.pop(), { name: 'change_tournament_team_membership', values: {
+      assert.deepEqual(calls.pop(), { name: 'change_tournament_team_membership_with_context', values: {
         p_tournament_id: tournamentId, p_team_id: teamId, p_action: action, p_ready: action === 'ready' ? true : null, p_override: false,
+        p_actor_id: 7, p_reason: 'admin_move', p_note: null,
       } });
     }
     generated = true;
@@ -105,6 +122,10 @@ test('three-list membership uses verified roles and cannot accept a client overr
     assert.equal(calls.length, 0);
     assert.equal((await invoke('promote', 9999)).status, 200);
     assert.equal((calls.pop()!.values as { p_override: boolean }).p_override, true);
+    assert.equal((await invoke('remove', 7, { reason: 'critical', note: 'Repeated failures' })).status, 400);
+    assert.equal((await invoke('remove', 9999, { reason: 'critical' })).status, 400);
+    assert.equal((await invoke('remove', 9999, { reason: 'critical', note: 'Repeated failures' })).status, 200);
+    assert.equal((calls.pop()!.values as { p_reason: string }).p_reason, 'critical');
     assert.equal((await invoke('', 7, {}, 'GET')).status, 200);
     assert.deepEqual(calls.pop(), { name: 'get_waiting_admission_plan', values: { p_tournament_id: tournamentId, p_season_number: 1 } });
     generated = false; rpcError = true;
