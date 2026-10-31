@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatTeamJoinedAge, getAdminTeamTableStats } from '../src/utils/admin-team-table.js';
+import { formatTeamJoinedAge, getAdminTeamTableStats, getHighRiskManagerTeamIds } from '../src/utils/admin-team-table.js';
 import type { RoundWithMatches, Team } from '../src/legacy-pages/Public/TournamentView.js';
 
 const team = { id: 'team-a', tournament_id: 't', name: 'A', ht_team_id: 1, active: true,
@@ -22,6 +22,21 @@ function round(number: number, status: RoundWithMatches['matches'][number]['stat
 }
 
 const warning = (number: number) => ({ team_id: team.id, round_id: `round-${number}`, reason: 'misarranged', active: false });
+
+test('high risk managers include all their teams without combining team ratings', () => {
+  const managerTeam = (id: string, managerId?: number) => ({
+    ...team, id, hattrick_user_id: managerId, manager_name: managerId ? 'Shared manager' : 'Name only',
+  });
+  const ids = getHighRiskManagerTeamIds([
+    { team: managerTeam('high', 42), risk: 'high' },
+    { team: managerTeam('same-manager', 42), risk: 'none' },
+    { team: managerTeam('critical', 99), risk: 'critical' },
+    { team: managerTeam('medium', 7), risk: 'medium' },
+    { team: managerTeam('name-high'), risk: 'high' },
+    { team: { ...managerTeam('name-low'), manager_name: '  NAME ONLY  ' }, risk: 'low' },
+  ]);
+  assert.deepEqual([...ids].sort(), ['critical', 'high', 'name-high', 'name-low', 'same-manager']);
+});
 
 test('risk uses distinct attributed warnings in the last five eligible rounds', () => {
   const rounds = [1, 2, 3, 4].map((number) => round(number, 'finished'));

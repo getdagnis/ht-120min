@@ -4,6 +4,19 @@ import { getRoundDisplayLabel } from '../../shared/round-display';
 export type TeamRisk = 'critical' | 'high' | 'medium' | 'low' | 'none' | 'unknown';
 export type TeamNow = 'played' | 'booked' | 'unbooked' | 'conflict' | 'bye' | 'no-fixture' | 'unknown' | 'none';
 
+const managerKey = (team: Pick<Team, 'id' | 'hattrick_user_id' | 'manager_name'>) =>
+  team.hattrick_user_id ? `id:${team.hattrick_user_id}`
+    : team.manager_name?.trim() ? `name:${team.manager_name.trim().toLocaleLowerCase()}` : `team:${team.id}`;
+
+export function getHighRiskManagerTeamIds(rows: Array<{ team: Team; risk: TeamRisk }>): Set<string> {
+  const managerKeys = new Set(rows
+    .filter(({ risk }) => risk === 'high' || risk === 'critical')
+    .map(({ team }) => managerKey(team)));
+  return new Set(rows
+    .filter(({ team }) => managerKeys.has(managerKey(team)))
+    .map(({ team }) => team.id));
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function formatTeamJoinedAge(joinedAt: string, now: number) {

@@ -10,14 +10,15 @@ import { Tooltip } from '../../Tooltip/Tooltip';
 import {
   formatTeamJoinedAge,
   getAdminTeamTableStats,
+  getHighRiskManagerTeamIds,
   type TeamRisk,
   type TeamTableStats,
 } from '../../../utils/admin-team-table';
 import type { RoundWithMatches, Team } from '../../../legacy-pages/Public/TournamentView';
 import styles from './ActiveTeamsTable.module.sass';
 
-type SortKey = 'team' | 'played' | 'misarranged' | 'fixture' | 'risk' | 'now' | 'joined';
-type Filter = 'all' | 'high-risk' | 'conflict' | 'no-games' | 'leaving';
+type SortKey = 'team' | 'manager' | 'played' | 'misarranged' | 'fixture' | 'risk' | 'now' | 'joined';
+type Filter = 'all' | 'high-risk' | 'high-risk-managers' | 'conflict' | 'no-games' | 'leaving';
 interface WarningRow {
   team_id: string;
   round_id: string;
@@ -171,6 +172,10 @@ export function ActiveTeamsTable({
       })),
     [teams, rounds, warnings, assignments, focusedRoundId],
   );
+  const highRiskManagerTeamIds = useMemo(
+    () => getHighRiskManagerTeamIds(rows.map(({ team, stats }) => ({ team, risk: stats.risk }))),
+    [rows],
+  );
   const visibleRows = useMemo(
     () =>
       rows
@@ -182,6 +187,7 @@ export function ActiveTeamsTable({
           )
             return false;
           if (filter === 'high-risk') return stats.risk === 'critical' || stats.risk === 'high';
+          if (filter === 'high-risk-managers') return highRiskManagerTeamIds.has(team.id);
           if (filter === 'conflict') return stats.now === 'conflict';
           if (filter === 'no-games') return stats.played === 0;
           if (filter === 'leaving') return leavingTeamIds.has(team.id);
@@ -192,6 +198,8 @@ export function ActiveTeamsTable({
             switch (sortKey) {
               case 'team':
                 return row.team.name.toLocaleLowerCase();
+              case 'manager':
+                return row.team.manager_name?.trim().toLocaleLowerCase() || null;
               case 'played':
                 return row.stats.played;
               case 'misarranged':
@@ -220,7 +228,7 @@ export function ActiveTeamsTable({
             a.team.id.localeCompare(b.team.id)
           );
         }),
-    [rows, search, filter, sortKey, ascending, leavingTeamIds],
+    [rows, search, filter, sortKey, ascending, leavingTeamIds, highRiskManagerTeamIds],
   );
   const openTeam = visibleRows.find(({ team }) => team.id === openActionsId)?.team;
 
@@ -286,11 +294,10 @@ export function ActiveTeamsTable({
     if (sortKey === key) setAscending((value) => !value);
     else {
       setSortKey(key);
-      setAscending(key === 'team' || key === 'joined');
+      setAscending(key === 'team' || key === 'manager' || key === 'joined');
     }
   };
   const headers: Array<{ key: SortKey; label: string; title: string }> = [
-    { key: 'team', label: '', title: 'Team and manager' },
     { key: 'played', label: 'Played', title: 'Games played' },
     { key: 'misarranged', label: 'Misr.', title: 'Recorded misarranged games attributed to this team' },
     { key: 'fixture', label: 'Fixture', title: 'Fixture status for each open round, in calendar order' },
@@ -334,6 +341,7 @@ export function ActiveTeamsTable({
         >
           <option value="all">All teams</option>
           <option value="high-risk">High risk</option>
+          <option value="high-risk-managers">High risk managers</option>
           <option value="conflict">Misarranged</option>
           <option value="no-games">No games</option>
           <option value="leaving">Leaving</option>
@@ -356,6 +364,18 @@ export function ActiveTeamsTable({
             <tr>
               <th scope="col">
                 <span className={styles.srOnly}>Row number</span>
+              </th>
+              <th
+                scope="col"
+                aria-sort={sortKey === 'team' || sortKey === 'manager' ? (ascending ? 'ascending' : 'descending') : 'none'}
+              >
+                <button type="button" aria-label="Sort by team name" onClick={() => setSort('team')}>
+                  Teams{sortKey === 'team' && <span aria-hidden="true">{ascending ? ' ↑' : ' ↓'}</span>}
+                </button>
+                {' / '}
+                <button type="button" aria-label="Sort by manager name" onClick={() => setSort('manager')}>
+                  Managers{sortKey === 'manager' && <span aria-hidden="true">{ascending ? ' ↑' : ' ↓'}</span>}
+                </button>
               </th>
               {headers.map(({ key, label, title }) => (
                 <th
