@@ -50,6 +50,37 @@ test('an active current-round warning affects risk while a withdrawn warning doe
   assert.equal(withdrawn.misarranged, 0);
 });
 
+test('an upcoming misarrangement counts only with this team’s active warning', () => {
+  const current = round(1, 'misarranged', { phaseStatus: 'materialized' });
+  const activeRound = { ...current, matches: [...current.matches, {
+    ...current.matches[0], id: 'other-1', home_team_id: 'other', away_team_id: 'third', status: 'not_arranged' as const,
+  }] };
+  const warned = getAdminTeamTableStats(team, [activeRound], [{ ...warning(1), active: true }], []);
+  assert.equal(warned.misarranged, 1);
+  assert.deepEqual(warned.misarrangedRounds, ['Round 1']);
+  assert.equal(warned.now, 'conflict');
+  assert.equal(warned.nextRoundLabel, 'Round 1');
+  assert.equal(warned.nextOwnWarning, true);
+
+  const opponentWarned = getAdminTeamTableStats(team, [activeRound], [
+    { ...warning(1), team_id: 'other', active: true },
+  ], []);
+  assert.equal(opponentWarned.misarranged, 0);
+  assert.deepEqual(opponentWarned.misarrangedRounds, []);
+  assert.equal(opponentWarned.now, 'conflict');
+  assert.equal(opponentWarned.nextOwnWarning, false);
+});
+
+test('risk includes attributed warning rounds even when the old fixture row is missing', () => {
+  const rounds = [round(1, 'misarranged'), round(2, 'finished', { missing: true }),
+    round(3, 'arranged', { phaseStatus: 'materialized' })];
+  const stats = getAdminTeamTableStats(team, rounds, [warning(1), warning(2)], []);
+  assert.equal(stats.played, 0);
+  assert.equal(stats.misarranged, 2);
+  assert.equal(stats.risk, 'high');
+  assert.match(stats.riskReason, /2 misarranged rounds/);
+});
+
 test('recorded incidents remain visible in legacy rounds awaiting other fixtures', () => {
   const rounds = [1, 2, 3].map((number) => {
     const item = round(number, 'misarranged');

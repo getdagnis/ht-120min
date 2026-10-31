@@ -20,10 +20,14 @@ export function formatTeamJoinedAge(joinedAt: string, now: number) {
 export interface TeamTableStats {
   played: number;
   misarranged: number | null;
+  misarrangedRounds: string[] | null;
   fixture: boolean | null;
   fixtureRounds: Array<{ roundId: string; label: string; status: 'yes' | 'no' | 'bye' | 'not-selected' }>;
   risk: TeamRisk;
   now: TeamNow;
+  nextRoundLabel: string | null;
+  nextOpponentName: string | null;
+  nextOwnWarning: boolean | null;
   latestMisarrangedRound: number;
   riskReason: string;
 }
@@ -79,21 +83,23 @@ export function getAdminTeamTableStats(
     .filter((warning) => regularRoundIds.has(warning.round_id) && warning.team_id === team.id && warning.reason === 'misarranged' &&
       (!currentRoundIds.has(warning.round_id) || warning.active !== false))
     .map((warning) => warning.round_id));
+  const misarrangedRounds = warningRoundIds === null ? null : regular
+    .filter((round) => warningRoundIds.has(round.id))
+    .map((round) => getRoundDisplayLabel(round, rounds));
   let played = 0;
   let latestMisarrangedRound = 0;
   const eligible: Array<{ label: string; misarranged: boolean }> = [];
 
   for (const [index, round] of regular.entries()) {
-    if (round.phase_status === 'pending') continue;
-    const match = round.matches.find((item) => effectiveTeamIds(item).includes(team.id));
-    if (!match && Date.parse(team.created_at) > Date.parse(round.reserved_slot_date || round.created_at)) continue;
     const warned = warningRoundIds?.has(round.id) ?? false;
+    if (round.phase_status === 'pending' && !warned) continue;
+    const match = round.matches.find((item) => effectiveTeamIds(item).includes(team.id));
+    if (!match && !warned && Date.parse(team.created_at) > Date.parse(round.reserved_slot_date || round.created_at)) continue;
     if (warned) latestMisarrangedRound = index + 1;
-    if (!match) {
+    if (!match || !match.home_team_id || !match.away_team_id) {
+      if (warned) eligible.push({ label: getRoundDisplayLabel(round, rounds), misarranged: true });
       continue;
     }
-    const bye = !match.home_team_id || !match.away_team_id;
-    if (bye) continue;
     if (match.completed) played += 1;
     if (isResolvedRound(round) || warned) {
       eligible.push({ label: getRoundDisplayLabel(round, rounds), misarranged: warned });
@@ -135,6 +141,11 @@ export function getAdminTeamTableStats(
     openMatches.find(({ round, match }) => !match && isExpected(team, round, assignments) === true);
   const currentRound = next?.round;
   const currentMatch = next?.match;
+  const opponentId = currentMatch && effectiveTeamIds(currentMatch).find((id) => id && id !== team.id);
+  const nextOpponentName = !currentMatch || !opponentId ? null
+    : opponentId === currentMatch.reserve_team_id ? currentMatch.reserve_team?.name || null
+      : opponentId === currentMatch.home_team_id ? currentMatch.home_team?.name || null
+        : currentMatch.away_team?.name || null;
   const fixture = fixtureRounds.some((entry) => entry.status === 'no') ? false
     : fixtureRounds.some((entry) => entry.status === 'yes') ? true : null;
   let now: TeamNow = 'none';
@@ -151,10 +162,14 @@ export function getAdminTeamTableStats(
   return {
     played,
     misarranged: warningRoundIds?.size ?? null,
+    misarrangedRounds,
     fixture,
     fixtureRounds,
     risk,
     now,
+    nextRoundLabel: currentRound ? getRoundDisplayLabel(currentRound, rounds) : null,
+    nextOpponentName,
+    nextOwnWarning: currentRound && warningRoundIds ? warningRoundIds.has(currentRound.id) : null,
     latestMisarrangedRound,
     riskReason,
   };

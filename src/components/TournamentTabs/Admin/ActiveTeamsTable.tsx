@@ -51,6 +51,32 @@ const nowLabel: Record<TeamTableStats['now'], string> = {
   played: 'Played',
   none: '—',
 };
+const nowDetail: Record<TeamTableStats['now'], string> = {
+  conflict: 'Fixture misarranged',
+  'no-fixture': 'No opponent assigned',
+  unbooked: 'Fixture not arranged',
+  unknown: 'Fixture status unknown',
+  bye: 'BYE',
+  booked: 'Arranged',
+  played: 'Played',
+  none: 'No upcoming fixture',
+};
+const misarrangedTooltip = (stats: TeamTableStats) => stats.misarrangedRounds === null
+  ? 'Warning history unavailable.'
+  : stats.misarrangedRounds.length
+    ? `Misarranged by this team:\n${stats.misarrangedRounds.join('\n')}`
+    : 'No misarrangements attributed to this team.';
+const nextTooltip = (stats: TeamTableStats) => {
+  if (!stats.nextRoundLabel) return 'No upcoming fixture in the open rounds.';
+  return [
+    stats.nextRoundLabel,
+    stats.nextOpponentName ? `Opponent: ${stats.nextOpponentName}` : null,
+    nowDetail[stats.now],
+    stats.now === 'conflict'
+      ? `Counted in Misr.: ${stats.nextOwnWarning === null ? 'warning history unavailable' : stats.nextOwnWarning ? 'yes' : 'no'}`
+      : null,
+  ].filter(Boolean).join('\n');
+};
 const riskLabel: Record<TeamRisk, string> = {
   critical: 'critical',
   high: 'high',
@@ -415,7 +441,15 @@ export function ActiveTeamsTable({
                     </div>
                   </td>
                   <td>{stats.played}</td>
-                  <td>{stats.misarranged ?? '—'}</td>
+                  <td>
+                    <span
+                      data-tooltip-id={tooltipId}
+                      data-tooltip-content={misarrangedTooltip(stats)}
+                      tabIndex={0}
+                    >
+                      {stats.misarranged ?? '—'}
+                    </span>
+                  </td>
                   <td>
                     <span className={styles.fixtureBadges}>
                       {stats.fixtureRounds.length ? stats.fixtureRounds.map(({ roundId, label, status }) => (
@@ -447,10 +481,15 @@ export function ActiveTeamsTable({
                     className={
                       stats.now === 'conflict' ? styles.conflict : stats.now === 'booked' ? styles.arranged : ''
                     }
-                    aria-label={stats.now === 'conflict' ? 'Misarranged fixture' : undefined}
                   >
-                    {stats.now === 'conflict' && <img src="/warn-red.png" alt="" className={styles.missIcon} />}
-                    {nowLabel[stats.now]}
+                    <span
+                      data-tooltip-id={tooltipId}
+                      data-tooltip-content={nextTooltip(stats)}
+                      tabIndex={0}
+                    >
+                      {stats.now === 'conflict' && <img src="/warn-red.png" alt="" className={styles.missIcon} />}
+                      {nowLabel[stats.now]}
+                    </span>
                   </td>
                   <td>{formatTeamJoinedAge(team.created_at, now)}</td>
                   <td>
