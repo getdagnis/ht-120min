@@ -3019,7 +3019,8 @@ export const TournamentView: React.FC<{
 
   const updateHfiRanks = useCallback(async () => {
     if (!tournament || isUpdatingHfiRanks) return;
-    const rankingLabel = tournament.league_category === 'hfi' ? 'HFI ranks' : 'Power Rankings';
+    const isHfiTournament = tournament.league_category === 'hfi';
+    const rankingLabel = isHfiTournament ? 'HFI ranks and Power Ratings' : 'Power Ratings';
 
     setIsUpdatingHfiRanks(true);
     setHfiRankNotice(null);
@@ -3041,7 +3042,9 @@ export const TournamentView: React.FC<{
       } | null;
       if (!response.ok) throw new Error(payload?.error || `Could not update ${rankingLabel}.`);
 
-      setHfiRankNotice(`${payload?.updatedCount ?? 0}/${payload?.participantCount ?? 0} ${rankingLabel} updated.`);
+      setHfiRankNotice(
+        `Updated ${rankingLabel} for ${payload?.updatedCount ?? 0}/${payload?.participantCount ?? 0} teams.`,
+      );
       await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error) {
       const message = error instanceof Error ? error.message : `Could not update ${rankingLabel}.`;

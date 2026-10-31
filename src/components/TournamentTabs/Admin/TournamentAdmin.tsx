@@ -1916,8 +1916,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   <div>
                                     <p className={adminStyles.smallNote}>
                                       Refresh current{' '}
-                                      {tournament.league_category === 'hfi' ? 'HFI ranks' : 'Power Rankings'} before
-                                      generating a schedule.
+                                      {tournament.league_category === 'hfi'
+                                        ? 'HFI ranks and Power Ratings'
+                                        : 'Power Ratings'} before generating a schedule.
                                     </p>
                                     {hfiRankNotice && (
                                       <p
@@ -1939,10 +1940,10 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     disabled={isUpdatingHfiRanks}
                                   >
                                     {isUpdatingHfiRanks
-                                      ? 'Updating ranks...'
+                                      ? 'Updating ratings...'
                                       : tournament.league_category === 'hfi'
-                                        ? 'Update HFI ranks'
-                                        : 'Update Power Rankings'}
+                                        ? 'Update HFI + PwrR'
+                                        : 'Update Power Ratings'}
                                   </Button>
                                 </div>
                               )}

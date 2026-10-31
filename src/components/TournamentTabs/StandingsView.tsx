@@ -349,7 +349,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
     return rows;
   }, [averageMatchQuota, scoringMode, showAverage120Scoring, sortDirection, sortKey, standings]);
-  const showHfiRank = tournament?.league_category === 'hfi' && !showAverage120Scoring;
+  const showHfiRank = tournament?.league_category === 'hfi' && !showAverage120Scoring && !show120minScoring;
 
   useEffect(() => {
     const defaultMode: StandingsScoringMode = isAppgSupported
