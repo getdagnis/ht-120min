@@ -94,7 +94,7 @@ interface Props {
   assignments: AssignmentRow[];
   leavingTeamIds: ReadonlySet<string>;
   renderTeamMarkers?: (team: Team) => React.ReactNode;
-  renderActions: (team: Team) => React.ReactNode;
+  renderActions: (team: Team, stats: TeamTableStats) => React.ReactNode;
 }
 
 export function ActiveTeamsTable({
@@ -230,7 +230,8 @@ export function ActiveTeamsTable({
         }),
     [rows, search, filter, sortKey, ascending, leavingTeamIds, highRiskManagerTeamIds],
   );
-  const openTeam = visibleRows.find(({ team }) => team.id === openActionsId)?.team;
+  const openRow = visibleRows.find(({ team }) => team.id === openActionsId);
+  const openTeam = openRow?.team;
 
   useLayoutEffect(() => {
     if (!openTeam) return;
@@ -547,7 +548,7 @@ export function ActiveTeamsTable({
             role="dialog"
             aria-label={`Actions for ${openTeam.name}`}
           >
-            {renderActions(openTeam)}
+            {openRow && renderActions(openTeam, openRow.stats)}
           </div>,
           portalHost,
         )}

@@ -11,6 +11,7 @@ import { Modal } from '../../Modal/Modal';
 import { SectionCard } from '../../Card/SectionCard';
 import { AdminResults, type BulkMatchUpdate } from './AdminResults';
 import { ActiveTeamsTable } from './ActiveTeamsTable';
+import type { TeamTableStats } from '../../../utils/admin-team-table';
 import { AdminAnnouncementComposer } from './AdminAnnouncementComposer';
 import { OrganizerRoundPanel } from './OrganizerRoundPanel';
 import { LobbyStatusSelect } from '../LobbyStatusSelect';
@@ -830,6 +831,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const [moveReason, setMoveReason] = useState('admin_move');
   const [moveNote, setMoveNote] = useState('');
   const [moveError, setMoveError] = useState('');
+  const [removeManagerTeams, setRemoveManagerTeams] = useState(false);
   useEffect(() => {
     if (!canManageOperationalAdmin) return;
     let cancelled = false;
@@ -906,12 +908,19 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const changeMembership = (
     team: Team,
     action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
+    stats?: TeamTableStats,
   ) => {
     if (isReturningPastTeams) return;
     if (action === 'ready') return;
     setPendingMove({ team, action });
     setMoveReason('admin_move');
-    setMoveNote('');
+    setRemoveManagerTeams(false);
+    const leaveRequested = departureNotices.some((notice) => notice.teamId === team.id);
+    const noteParts = stats
+      ? [`${tournament.name}, Season ${tournament.season}: ${stats.played} matches played${stats.misarranged === null ? '' : `, ${stats.misarranged} misarranged fixtures`}`]
+      : [`${tournament.name}, Season ${tournament.season}`];
+    if (leaveRequested) noteParts.push('Manager asked to leave');
+    setMoveNote(noteParts.join('. ') + '.');
     setMoveError('');
   };
   const submitMembershipChange = async () => {
@@ -920,9 +929,21 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setChangingReserveId(team.id);
     try {
       await sendMembershipChange(team.id, action, undefined, moveReason, moveNote);
+      const relatedTeams = moveReason === 'critical' && removeManagerTeams && team.hattrick_user_id
+        ? teams.filter((candidate) => candidate.id !== team.id && candidate.hattrick_user_id === team.hattrick_user_id && !isPastTeam(candidate))
+        : [];
+      const failures: string[] = [];
+      for (const related of relatedTeams) {
+        try {
+          await sendMembershipChange(related.id, 'remove', undefined, 'admin_move', moveNote);
+        } catch (error) {
+          failures.push(`${related.name}: ${error instanceof Error ? error.message : 'Could not move team.'}`);
+        }
+      }
       setAdmissionSelection((ids) => ids.filter((id) => id !== team.id));
       await onReservesChanged();
-      setPendingMove(null);
+      if (failures.length) setMoveError(`Critical removal recorded. Some other teams could not be moved:\n${failures.join('\n')}`);
+      else setPendingMove(null);
     } catch (error) {
       setMoveError(error instanceof Error ? error.message : 'Membership could not be changed.');
     } finally {
@@ -2031,7 +2052,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               {teamPlanningStatuses[team.id]?.bookedOutsideTournament && <span>[booked]</span>}
                               {isStoppedTournament && team.ht_team_id && playingElsewhereTeamIds.has(team.ht_team_id) && <span>[elsewhere]</span>}
                             </>}
-                            renderActions={(team) => (
+                            renderActions={(team, stats) => (
                                   <div>
                                       {canManageOperationalAdmin && !team.joined_via_oauth && team.ht_team_id && (
                                         <div><button type="button" onClick={() => void validateReserve(team)}>Validate team</button></div>
@@ -2137,7 +2158,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         tournamentAllowsTeamActions &&
                                         (!isGenerated || isSiteAdmin) && (
                                           <div><button type="button"
-                                            onClick={() => void changeMembership(team, 'to_waiting')}
+                                            onClick={() => changeMembership(team, 'to_waiting', stats)}
                                             disabled={isSavingTeam}
                                           >Lobby List</button></div>
                                         )}
@@ -2145,7 +2166,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           onClick={() =>
                                             team.is_placeholder || isSandbox
                                               ? void deleteTeam(team.id)
-                                              : void changeMembership(team, 'remove')
+                                              : changeMembership(team, 'remove', stats)
                                           }
                                         >Remove</button></div>
                                   </div>
@@ -3024,7 +3045,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
               <option value="admin_move">Admin decision</option>
               {pendingMove?.action === 'remove' && <option value="warnings">Warnings</option>}
               {pendingMove?.action === 'remove' && isSiteAdmin && pendingMove.team.hattrick_user_id &&
-                <option value="critical">Critical removal</option>}
+                <option value="critical">Critical removal (soft ban)</option>}
               <option value="other">Other</option>
             </select>
           </label>
@@ -3032,7 +3053,19 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
             <textarea value={moveNote} onChange={(event) => setMoveNote(event.target.value)}
               maxLength={500} required={moveReason === 'critical'} rows={3} />
           </label>
-          {moveReason === 'critical' && <p>This also records a private critical removal for this manager.</p>}
+          {moveReason === 'critical' && <>
+            <p>Records a permanent, private warning in this manager&apos;s history for future organizer review. It does not automatically ban the manager or prevent registration.</p>
+            {pendingMove?.team.hattrick_user_id && (() => {
+              const others = teams.filter((candidate) => candidate.id !== pendingMove.team.id &&
+                candidate.hattrick_user_id === pendingMove.team.hattrick_user_id && !isPastTeam(candidate));
+              return others.length > 0 ? <div>
+                <label><input type="checkbox" checked={removeManagerTeams}
+                  onChange={(event) => setRemoveManagerTeams(event.target.checked)} />
+                  Also move this manager&apos;s other teams to Past ({others.length})</label>
+                {removeManagerTeams && <ul>{others.map((candidate) => <li key={candidate.id}>{candidate.name}</li>)}</ul>}
+              </div> : null;
+            })()}
+          </>}
           {moveError && <p role="alert">{moveError}</p>}
           <div className={styles.modalFooter}>
             <Button type="button" variant="secondary" onClick={() => setPendingMove(null)} disabled={Boolean(changingReserveId)}>Cancel</Button>
