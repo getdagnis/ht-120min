@@ -114,7 +114,7 @@ function buildPairingHistory(rounds: StoredRound[]): PairingHistory {
       if (home && away) {
         playedPairs.push([home, away]);
         homeCounts[home] = (homeCounts[home] || 0) + 1;
-      } else if (round.phase_status === 'completed') {
+      } else {
         const teamId = home || away;
         if (teamId) byeCounts[teamId] = (byeCounts[teamId] || 0) + 1;
       }
