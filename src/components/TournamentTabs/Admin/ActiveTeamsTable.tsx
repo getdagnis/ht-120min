@@ -62,6 +62,13 @@ const nowDetail: Record<TeamTableStats['now'], string> = {
   played: 'Played',
   none: 'No upcoming fixture',
 };
+const fixtureBadgeTooltip: Record<TeamTableStats['fixtureRounds'][number]['status'], string> = {
+  booked: 'Has arranged fixture',
+  unbooked: 'Not yet arranged fixture',
+  faulty: 'Has faulty fixture',
+  missing: 'No fixture available',
+  'not-selected': 'No fixture available',
+};
 const misarrangedTooltip = (stats: TeamTableStats) =>
   stats.misarrangedRounds === null
     ? 'Warning history unavailable.'
@@ -465,7 +472,12 @@ export function ActiveTeamsTable({
                   </td>
                   <td>{stats.played}</td>
                   <td>
-                    <span data-tooltip-id={tooltipId} data-tooltip-content={misarrangedTooltip(stats)} tabIndex={0}>
+                    <span
+                      className={stats.misarranged !== null && stats.misarranged > 0 ? styles.misarrangedCount : undefined}
+                      data-tooltip-id={tooltipId}
+                      data-tooltip-content={misarrangedTooltip(stats)}
+                      tabIndex={0}
+                    >
                       {stats.misarranged ?? '—'}
                     </span>
                   </td>
@@ -475,10 +487,19 @@ export function ActiveTeamsTable({
                         ? stats.fixtureRounds.map(({ roundId, label, status }) => (
                             <span
                               key={roundId}
-                              className={`${styles.fixtureBadge} ${styles[status === 'yes' ? 'none' : status === 'no' ? 'high' : 'unknown']}`}
-                              aria-label={`${label}: ${status === 'yes' ? 'fixture' : status === 'no' ? 'no fixture' : status === 'bye' ? 'BYE' : 'not selected'}`}
+                              className={`${styles.fixtureBadge} ${styles[status === 'booked' ? 'none' : status === 'faulty' ? 'high' : 'unknown']}`}
+                              aria-label={`${label}: ${fixtureBadgeTooltip[status]}`}
+                              data-tooltip-id={tooltipId}
+                              data-tooltip-content={`${label}: ${fixtureBadgeTooltip[status]}`}
+                              tabIndex={0}
                             >
-                              {status === 'yes' ? '✓' : status === 'no' ? '𝖷' : status === 'bye' ? 'BYE' : '—'}
+                              {status === 'booked'
+                                ? '✓'
+                                : status === 'unbooked'
+                                  ? '✓'
+                                  : status === 'faulty'
+                                    ? '𝖷'
+                                    : '𝖷'}
                             </span>
                           ))
                         : '—'}
@@ -531,7 +552,7 @@ export function ActiveTeamsTable({
         {visibleRows.length === 0 && <p className={styles.empty}>No teams match this search or filter.</p>}
       </div>
       <p className={styles.legend}>
-        Fixture badges follow the open rounds in calendar order; — means not selected. Risk is for review only.
+        Fixture badges follow the open rounds in calendar order; — means no fixture. Risk is for review only.
       </p>
       <Tooltip id={tooltipId} />
       {openTeam &&

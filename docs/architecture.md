@@ -45,8 +45,10 @@ authorization decisions, or cross-tab mutations there.
 The Admin Manage Teams table uses current-season materialized regular fixtures and recorded per-team
 `fixture_warnings` for organizer review. Played counts completed games; Misarranged counts
 distinct recorded warning rounds attributed to the team, including organizer-added rounds.
-Fixture shows one badge per open round from the page's focused round onward: assigned opponent,
-missing opponent, BYE, or not selected. Next shows the team's earliest open
+Fixture shows one badge per open round from the page's focused round onward: green check for booked,
+grey check for assigned but unbooked, red X for a misarranged or BYE fixture, and grey dash when
+there is no fixture. A misarranged fixture gets a red X for both teams; Misr. still counts only
+the team with a recorded warning. Next shows the team's earliest open
 fixture. Risk examines each team's last five eligible resolved
 or warned rounds: three or more recorded misarrangements are
 Critical; two are High if the latest eligible round was misarranged and Medium otherwise; one is

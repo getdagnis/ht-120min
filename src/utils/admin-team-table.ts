@@ -35,7 +35,7 @@ export interface TeamTableStats {
   misarranged: number | null;
   misarrangedRounds: string[] | null;
   fixture: boolean | null;
-  fixtureRounds: Array<{ roundId: string; label: string; status: 'yes' | 'no' | 'bye' | 'not-selected' }>;
+  fixtureRounds: Array<{ roundId: string; label: string; status: 'booked' | 'unbooked' | 'faulty' | 'missing' | 'not-selected' }>;
   risk: TeamRisk;
   now: TeamNow;
   nextRoundLabel: string | null;
@@ -138,7 +138,7 @@ export function getAdminTeamTableStats(
   const openRounds = (focusedIndex < 0 ? [] : rounds.slice(focusedIndex)).filter((round) =>
     round.phase !== 'postseason' && round.is_unscored !== true &&
     (round.phase_status === 'materialized' || round.phase_status == null) &&
-    round.matches.some((match) => !match.completed && match.status !== 'misarranged'));
+    round.matches.some((match) => !match.completed));
   const openMatches = openRounds.map((round) => ({
     round,
     match: round.matches.find((item) => effectiveTeamIds(item).includes(team.id)),
@@ -147,8 +147,9 @@ export function getAdminTeamTableStats(
     roundId: round.id,
     label: getRoundDisplayLabel(round, rounds),
     status: match
-      ? match.home_team_id && match.away_team_id ? 'yes' : 'bye'
-      : isExpected(team, round, assignments) === true ? 'no' : 'not-selected',
+      ? match.status === 'misarranged' || !match.home_team_id || !match.away_team_id ? 'faulty'
+        : ['arranged', 'ongoing', 'finished'].includes(match.status) ? 'booked' : 'unbooked'
+      : isExpected(team, round, assignments) === true ? 'missing' : 'not-selected',
   }));
   const next = openMatches.find(({ match }) => match && !match.completed) ||
     openMatches.find(({ round, match }) => !match && isExpected(team, round, assignments) === true);
@@ -159,8 +160,8 @@ export function getAdminTeamTableStats(
     : opponentId === currentMatch.reserve_team_id ? currentMatch.reserve_team?.name || null
       : opponentId === currentMatch.home_team_id ? currentMatch.home_team?.name || null
         : currentMatch.away_team?.name || null;
-  const fixture = fixtureRounds.some((entry) => entry.status === 'no') ? false
-    : fixtureRounds.some((entry) => entry.status === 'yes') ? true : null;
+  const fixture = fixtureRounds.some((entry) => entry.status === 'missing') ? false
+    : fixtureRounds.some((entry) => ['booked', 'unbooked', 'faulty'].includes(entry.status)) ? true : null;
   let now: TeamNow = 'none';
   if (currentRound) {
     if (!currentMatch) {

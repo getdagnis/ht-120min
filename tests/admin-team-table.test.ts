@@ -84,6 +84,7 @@ test('an upcoming misarrangement counts only with this team’s active warning',
   assert.deepEqual(opponentWarned.misarrangedRounds, []);
   assert.equal(opponentWarned.now, 'conflict');
   assert.equal(opponentWarned.nextOwnWarning, false);
+  assert.deepEqual(opponentWarned.fixtureRounds.map((entry) => entry.status), ['faulty']);
 });
 
 test('risk includes attributed warning rounds even when the old fixture row is missing', () => {
@@ -151,6 +152,7 @@ test('Fixture describes open rounds, not earlier gaps or pending rounds', () => 
       ...conflicted.matches[0], id: 'other-3', home_team_id: 'other', away_team_id: 'third', status: 'not_arranged',
     }] }], [], assignments);
   assert.equal(misarranged.fixture, true);
+  assert.deepEqual(misarranged.fixtureRounds.map((entry) => entry.status), ['faulty']);
   assert.equal(misarranged.now, 'conflict');
 });
 
@@ -159,6 +161,19 @@ test('open round without an assigned opponent is false only for an expected team
   current.matches[0] = { ...current.matches[0], completed: false };
   const assignments = [{ team_id: team.id, assigned_at: '2026-01-01T00:00:00Z', released_at: null }];
   assert.equal(getAdminTeamTableStats(team, [round(1, 'finished'), current], [], assignments).fixture, false);
+});
+
+test('BYE fixtures use the faulty badge and an assigned unbooked fixture uses the grey check', () => {
+  const bye = round(1, 'not_arranged', { bye: true, phaseStatus: 'materialized' });
+  assert.deepEqual(getAdminTeamTableStats(team, [bye], [], []).fixtureRounds.map((entry) => entry.status), ['faulty']);
+  const unbooked = round(1, 'not_arranged', { phaseStatus: 'materialized' });
+  assert.deepEqual(getAdminTeamTableStats(team, [unbooked], [], []).fixtureRounds.map((entry) => entry.status), ['unbooked']);
+});
+
+test('a focused round with only misarranged fixtures still shows a faulty badge', () => {
+  const conflicted = round(1, 'misarranged', { phaseStatus: 'materialized' });
+  const stats = getAdminTeamTableStats(team, [conflicted], [], [], conflicted.id);
+  assert.deepEqual(stats.fixtureRounds.map((entry) => entry.status), ['faulty']);
 });
 
 test('no current round or unknown current participation does not claim a fixture', () => {
@@ -191,7 +206,7 @@ test('Fixture checks open weekend and scheduled rounds from the focused round on
   const assignments = [{ team_id: team.id, assigned_at: '2026-01-01T00:00:00Z', released_at: null }];
   const withRoundThree = getAdminTeamTableStats(team, [old, weekend, scheduled], [], assignments, weekend.id);
   assert.equal(withRoundThree.fixture, true);
-  assert.deepEqual(withRoundThree.fixtureRounds.map((entry) => entry.status), ['not-selected', 'yes']);
+  assert.deepEqual(withRoundThree.fixtureRounds.map((entry) => entry.status), ['not-selected', 'booked']);
   assert.equal(withRoundThree.now, 'booked');
 
   const weekendMatch = round(2, 'not_arranged', { phaseStatus: 'materialized' });
@@ -199,13 +214,13 @@ test('Fixture checks open weekend and scheduled rounds from the focused round on
     round_participants: [{ team_id: team.id, participation: 'round_only' as const }] };
   const withWeekend = getAdminTeamTableStats(team, [old, selectedWeekend, scheduled], [], assignments, weekend.id);
   assert.equal(withWeekend.fixture, true);
-  assert.deepEqual(withWeekend.fixtureRounds.map((entry) => entry.status), ['yes', 'yes']);
+  assert.deepEqual(withWeekend.fixtureRounds.map((entry) => entry.status), ['unbooked', 'booked']);
   assert.equal(withWeekend.now, 'unbooked');
 
   const missing = { ...scheduled, matches: weekend.matches };
   const noFixture = getAdminTeamTableStats(team, [old, weekend, missing], [], assignments, weekend.id);
   assert.equal(noFixture.fixture, false);
-  assert.deepEqual(noFixture.fixtureRounds.map((entry) => entry.status), ['not-selected', 'no']);
+  assert.deepEqual(noFixture.fixtureRounds.map((entry) => entry.status), ['not-selected', 'missing']);
   assert.equal(noFixture.now, 'no-fixture');
 
   const weekendOnly = getAdminTeamTableStats(team, [old, weekend], [], assignments, weekend.id);

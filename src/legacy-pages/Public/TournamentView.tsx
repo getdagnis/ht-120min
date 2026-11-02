@@ -6354,7 +6354,7 @@ export const TournamentView: React.FC<{
       setReserveTeamId,
       reserveTeamName,
       reserveValidation,
-      onReservesChanged: fetchData,
+      onReservesChanged: () => fetchData({ showLoader: false, invalidate: false, fresh: true }),
       setReserveTeamName,
       teamStatusNotice,
       isRefreshingTeamStatuses,
