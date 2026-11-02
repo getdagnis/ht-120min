@@ -101,6 +101,7 @@ Recent important migrations:
 - `161_tournament_season_auto_booking_settings.sql` (prepared: private per-season opt-in; does not itself execute booking)
 - `162_forge_booking_worker_runs.sql` (prepared: private run outcomes and one-active-run constraint shared by manual and cron worker calls; no cron was activated)
 - `166_remove_empty_future_fixtures.sql` (prepared: service-only guarded cleanup, a before-update guard for stored 120m ratings, and a match-side cleanup trigger for double-empty pending fixtures in materialized regular length rounds; requires tables from 095, 118, 139 and 162, and must be applied before deploying the refresh cleanup call)
+- `167_reviewed_length_round_repair.sql` (prepared: service-only atomic review confirmation for selective round repair and single or multiple Lobby admissions; requires the current season-slot, fixture warning, rating, and Forge audit tables; disposable PostgreSQL checks passed, live application unverified)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

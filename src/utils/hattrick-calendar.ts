@@ -244,6 +244,15 @@ export function getRoundPreparationOpensAt(
   return localDateKeyToInstant(openingDate, 6);
 }
 
+/** Round management ends after Monday 23:59 in Hattrick (Stockholm) time. */
+export function getRoundManagementClosesAt(slotDate: Date | string): Date | null {
+  const date = slotDate instanceof Date ? slotDate : new Date(slotDate);
+  if (!Number.isFinite(date.getTime())) return null;
+  const localDateKey = stockholmDateKey(date);
+  const daysFromMonday = (new Date(localDateKey).getUTCDay() + 6) % 7;
+  return localDateKeyToInstant(addLocalDays(localDateKey, 1 - daysFromMonday));
+}
+
 export function buildCalendarSlots(now = new Date(), weeksAhead = 64, options: BuildCalendarSlotsOptions = {}): CalendarSlot[] {
   const currentWeekIndex = getWeekIndexFromLocalDateKey(stockholmDateKey(now));
   const slots: CalendarSlot[] = [];

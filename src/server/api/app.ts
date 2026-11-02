@@ -100,7 +100,7 @@ import { loadPairingPreferences } from './_lib/pairing-preferences.js';
 import { futureFlagOpening } from './_lib/flag-opening.js';
 import { preferenceOpening } from '../../utils/preference-opening.js';
 import { createHash } from 'node:crypto';
-import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
+import { progressLengthSchedule, recoverLengthRoundOne, inspectLengthRoundRepair, reviewLengthRoundRepair, confirmLengthRoundRepair } from './_lib/length-schedule-service.js';
 import {
   FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings,
   loadRatingSharingPreferences, setRatingSharingPreference,
@@ -451,7 +451,7 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
   const seasonNumber = Number(req.body?.seasonNumber);
   const roundId = readString(req.body?.roundId) || null;
   if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
-    return res.status(400).json({ error: 'Invalid round repair request.' });
+    return res.status(400).json({ error: 'Invalid round management request.' });
   }
   const actor = await requireTournamentRoleSession(req, res, tournamentId);
   if (!actor) return;
@@ -459,13 +459,27 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
     return res.status(403).json({ error: 'You do not have permission to repair this round.' });
   }
   try {
-    const result = await repairLengthRound(getServiceSupabase(), tournamentId, seasonNumber, roundId);
+    const action = readString(req.body?.action);
+    if (!roundId || !['inspect', 'review', 'confirm'].includes(action)) {
+      return res.status(400).json({ error: 'Choose a round and repair action.' });
+    }
+    const supabase = getServiceSupabase();
+    const selection = req.body?.selection;
+    const validSelection = selection && typeof selection === 'object' &&
+      ['keepMatchIds', 'lobbyTeamIds'].every(key => Array.isArray(selection[key]) &&
+        selection[key].length <= 256 && selection[key].every((id: unknown) => typeof id === 'string' && id.length <= 64));
+    if (action !== 'inspect' && !validSelection) return res.status(400).json({ error: 'Invalid repair selection.' });
+    const result = action === 'inspect'
+      ? await inspectLengthRoundRepair(supabase, tournamentId, seasonNumber, roundId)
+      : action === 'review'
+        ? await reviewLengthRoundRepair(supabase, tournamentId, seasonNumber, roundId, selection)
+        : await confirmLengthRoundRepair(supabase, tournamentId, seasonNumber, roundId, selection, readString(req.body?.proposalHash));
     return res.status(200).json(result);
   } catch (error) {
     console.error('Round repair failed:', error);
     const message = error instanceof Error ? error.message
       : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
-        ? error.message : 'The round could not be repaired.';
+        ? error.message : 'The round could not be updated.';
     return res.status(422).json({ error: message });
   }
 }

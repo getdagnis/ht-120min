@@ -14,8 +14,15 @@ export type CompetitionPhase = 'regular' | 'postseason';
 export type RoundPhaseStatus = 'pending' | 'materialized' | 'completed';
 export type LengthScheduleFormatKind = 'balanced' | 'round_robin' | 'round_robin_plus_final' | 'fill' | 'fill_playoffs';
 export type ScheduleRankingSource = 'team_rank' | 'power_rating';
-export interface ScheduleRankingSnapshot { team_id: string; ranking_value: number | null; seed: number }
-export interface ReservedRegularPairing { home_slot_index: number; away_slot_index: number | null }
+export interface ScheduleRankingSnapshot {
+  team_id: string;
+  ranking_value: number | null;
+  seed: number;
+}
+export interface ReservedRegularPairing {
+  home_slot_index: number;
+  away_slot_index: number | null;
+}
 
 export interface LengthScheduleTeam extends TeamSchedulingInfo {
   id: string;
@@ -132,7 +139,12 @@ export function getFullRoundRobinRoundCount(teamCount: number) {
 }
 
 export function getRegularPhaseMatches<T>(
-  rounds: Array<{ phase?: CompetitionPhase | null; round_source?: string | null; is_unscored?: boolean | null; matches: T[] }>,
+  rounds: Array<{
+    phase?: CompetitionPhase | null;
+    round_source?: string | null;
+    is_unscored?: boolean | null;
+    matches: T[];
+  }>,
 ): T[] {
   return rounds.filter((round) => round.phase !== 'postseason' && !round.is_unscored).flatMap((round) => round.matches);
 }
@@ -142,20 +154,39 @@ export function deriveTournamentFormats(input: { teamCount: number; safeRoundCou
   const fullRoundRobinRounds = getFullRoundRobinRoundCount(teamCount);
   if (teamCount < 2 || safeRoundCount < 1) return [] as LengthScheduleFormat[];
 
-  const formats: LengthScheduleFormat[] = [{
-    id: `fill-${safeRoundCount}`, kind: 'fill', totalRounds: safeRoundCount,
-    regularRounds: safeRoundCount, postseasonRounds: 0, label: 'All remaining rounds',
-  }];
-  if (fullRoundRobinRounds <= safeRoundCount) formats.push({
-    id: `round-robin-${fullRoundRobinRounds}`, kind: 'round_robin', totalRounds: fullRoundRobinRounds,
-    regularRounds: fullRoundRobinRounds, postseasonRounds: 0, label: 'Single round robin',
-  });
-  for (const [playoffs, minTeams, minSlots] of [[1, 6, 2], [2, 8, 3], [3, 12, 8]]) {
-    if (teamCount >= minTeams! && safeRoundCount >= minSlots!) formats.push({
-      id: `fill-playoffs-${playoffs}-${safeRoundCount}`, kind: 'fill_playoffs', totalRounds: safeRoundCount,
-      regularRounds: safeRoundCount - playoffs!, postseasonRounds: playoffs!,
-      label: `All remaining + ${playoffs} playoff round${playoffs === 1 ? '' : 's'}`,
+  const formats: LengthScheduleFormat[] = [
+    {
+      id: `fill-${safeRoundCount}`,
+      kind: 'fill',
+      totalRounds: safeRoundCount,
+      regularRounds: safeRoundCount,
+      postseasonRounds: 0,
+      label: 'All remaining rounds',
+    },
+  ];
+  if (fullRoundRobinRounds <= safeRoundCount)
+    formats.push({
+      id: `round-robin-${fullRoundRobinRounds}`,
+      kind: 'round_robin',
+      totalRounds: fullRoundRobinRounds,
+      regularRounds: fullRoundRobinRounds,
+      postseasonRounds: 0,
+      label: 'Single round robin',
     });
+  for (const [playoffs, minTeams, minSlots] of [
+    [1, 6, 2],
+    [2, 8, 3],
+    [3, 12, 8],
+  ]) {
+    if (teamCount >= minTeams! && safeRoundCount >= minSlots!)
+      formats.push({
+        id: `fill-playoffs-${playoffs}-${safeRoundCount}`,
+        kind: 'fill_playoffs',
+        totalRounds: safeRoundCount,
+        regularRounds: safeRoundCount - playoffs!,
+        postseasonRounds: playoffs!,
+        label: `All remaining + ${playoffs} playoff round${playoffs === 1 ? '' : 's'}`,
+      });
   }
   return formats;
 }
@@ -166,8 +197,20 @@ export function getPostseasonRoundLabel(roundNumber: number, postseasonRounds: n
 }
 
 export function seedPlayoffPairings(teamIds: string[]): LengthSchedulePairing[] {
-  const order = teamIds.length === 8 ? [[0, 7], [3, 4], [1, 6], [2, 5]]
-    : teamIds.length === 4 ? [[0, 3], [1, 2]] : [[0, 1]];
+  const order =
+    teamIds.length === 8
+      ? [
+          [0, 7],
+          [3, 4],
+          [1, 6],
+          [2, 5],
+        ]
+      : teamIds.length === 4
+        ? [
+            [0, 3],
+            [1, 2],
+          ]
+        : [[0, 1]];
   return order.map(([home, away]) => ({ homeTeamId: teamIds[home!]!, awayTeamId: teamIds[away!]!, isBye: false }));
 }
 
@@ -185,7 +228,10 @@ export function getSafeFriendlySlotsFromStart(startSlot: CalendarSlot, slots: Ca
 function normalizeTeams(teams: LengthScheduleTeam[]) {
   return teams
     .filter((team) => team.active !== false && team.isPlaceholder !== true)
-    .sort((a, b) => (a.teamRank ?? Number.MAX_SAFE_INTEGER) - (b.teamRank ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
+    .sort(
+      (a, b) =>
+        (a.teamRank ?? Number.MAX_SAFE_INTEGER) - (b.teamRank ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id),
+    );
 }
 
 function pairKey(a: string, b: string) {
@@ -247,6 +293,7 @@ export function generateBalancedRound(
   teams: LengthScheduleTeam[],
   history: PairingHistory = {},
   roundIndex = 0,
+  shuffleIndex = 0,
 ): LengthSchedulePairing[] {
   const normalized = normalizeTeams(teams);
   const teamIds: Array<string | null> = normalized.map((team) => team.id);
@@ -259,21 +306,24 @@ export function generateBalancedRound(
   const usedPairs = new Set(pairCounts.keys());
   // Expanded fields must not enumerate factorially many perfect matchings.
   // Compare complete circle candidates from several ranked rotations.
-  const bounded = history.boundedCandidates && normalized.length > 12
-    ? Array.from({ length: Math.min(8, normalized.length) }, (_, offset) => {
-        const ids = normalized.map(team => team.id);
-        const rotated = [...ids.slice(offset), ...ids.slice(0, offset)];
-        return buildRoundRobinCycles(rotated, teamIds.length - 1).map(round => round.map(pair =>
-          [pair.homeTeamId, pair.awayTeamId] as [string | null, string | null]));
-      }).flat()
-    : null;
-  const strictCandidates = bounded || enumerateRoundMatchings(teamIds, usedPairs);
+  const bounded =
+    history.boundedCandidates && normalized.length > 12
+      ? Array.from({ length: Math.min(8, normalized.length) }, (_, offset) => {
+          const ids = normalized.map((team) => team.id);
+          const rotated = [...ids.slice(offset), ...ids.slice(0, offset)];
+          return buildRoundRobinCycles(rotated, teamIds.length - 1).map((round) =>
+            round.map((pair) => [pair.homeTeamId, pair.awayTeamId] as [string | null, string | null]),
+          );
+        }).flat()
+      : null;
+  const strict = bounded || enumerateRoundMatchings(teamIds, usedPairs);
   // Real-world missed/repaired rounds can exhaust the perfect no-rematch graph
   // before the planned regular season ends. Prefer zero rematches whenever a
   // complete matching exists; otherwise allow the smallest possible number.
-  const candidates = strictCandidates.length > 0
-    ? strictCandidates
-    : enumerateRoundMatchings(teamIds, new Set());
+  const candidates =
+    shuffleIndex === 0 && strict.length
+      ? strict
+      : bounded || enumerateRoundMatchings(teamIds, new Set());
   const teamsById = new Map(normalized.map((team) => [team.id, team]));
   const countRematches = (pairs: Array<[string | null, string | null]>) =>
     pairs.reduce((count, [a, b]) => {
@@ -289,12 +339,29 @@ export function generateBalancedRound(
     return JSON.stringify(left).localeCompare(JSON.stringify(right));
   });
   const homeCounts = { ...(history.homeCounts || {}) };
-  return candidates[0]!.map(([a, b]) => orientPair(a, b, homeCounts, roundIndex));
+  const seen = new Set<string>();
+
+  const alternatives = candidates.filter((pairs) => {
+    const key = pairs
+      .map(([a, b]) => (a && b ? pairKey(a, b) : `bye:${a || b}`))
+      .sort()
+      .join('|');
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const chosen = alternatives[shuffleIndex % alternatives.length];
+
+  return chosen.map(([a, b]) => orientPair(a, b, homeCounts, roundIndex));
 }
 
 function isStartCandidate(slot: CalendarSlot, now: Date) {
   const days = getSignedDaysUntil(slot.nominalDate, now);
-  return slot.selectable && slot.kind !== 'blocked_cup_week' && days >= MIN_START_LEAD_DAYS && days <= MAX_START_LEAD_DAYS;
+  return (
+    slot.selectable && slot.kind !== 'blocked_cup_week' && days >= MIN_START_LEAD_DAYS && days <= MAX_START_LEAD_DAYS
+  );
 }
 
 export function buildLengthScheduleDraft(input: {
@@ -307,34 +374,56 @@ export function buildLengthScheduleDraft(input: {
 }): LengthScheduleDraft {
   const now = input.now ?? new Date();
   const rankingSource = input.rankingSource ?? 'team_rank';
-  const rankingValue = (team: LengthScheduleTeam) => rankingSource === 'team_rank' ? team.teamRank : team.powerRating ?? null;
-  const teams = input.teams.filter(team => team.active !== false && team.isPlaceholder !== true).sort((a, b) => {
-    const av = rankingValue(a), bv = rankingValue(b);
-    if (av == null || bv == null) return av == null && bv == null ? a.id.localeCompare(b.id) : av == null ? 1 : -1;
-    return (rankingSource === 'team_rank' ? av - bv : bv - av) || a.id.localeCompare(b.id);
-  });
-  const rankingSnapshot = teams.map((team, i) => ({ team_id: team.id, ranking_value: rankingValue(team), seed: i + 1 }));
+  const rankingValue = (team: LengthScheduleTeam) =>
+    rankingSource === 'team_rank' ? team.teamRank : (team.powerRating ?? null);
+  const teams = input.teams
+    .filter((team) => team.active !== false && team.isPlaceholder !== true)
+    .sort((a, b) => {
+      const av = rankingValue(a),
+        bv = rankingValue(b);
+      if (av == null || bv == null) return av == null && bv == null ? a.id.localeCompare(b.id) : av == null ? 1 : -1;
+      return (rankingSource === 'team_rank' ? av - bv : bv - av) || a.id.localeCompare(b.id);
+    });
+  const rankingSnapshot = teams.map((team, i) => ({
+    team_id: team.id,
+    ranking_value: rankingValue(team),
+    seed: i + 1,
+  }));
   const allSlots = buildCalendarSlots(now, 24, { includeWeek15WeekendFriendly: false });
   const startSlotOptions = allSlots.filter((slot) => isStartCandidate(slot, now)).slice(0, MAX_START_OPTIONS);
   const selectedStartSlot =
-    startSlotOptions.find((slot) => slot.id === input.startSlotId) || (input.startSlotId ? null : startSlotOptions[0]) || null;
+    startSlotOptions.find((slot) => slot.id === input.startSlotId) ||
+    (input.startSlotId ? null : startSlotOptions[0]) ||
+    null;
   const safeSlots = selectedStartSlot ? getSafeFriendlySlotsFromStart(selectedStartSlot, allSlots) : [];
   const formats = deriveTournamentFormats({ teamCount: teams.length, safeRoundCount: safeSlots.length });
   const selectedFormat = formats.find((format) => format.id === input.selectedFormatId) || formats[0] || null;
 
   let reason: string | null = null;
   if (teams.length < 2) reason = 'At least 2 active teams are required.';
-  else if (rankingSource === 'team_rank' && teams.some((team) => !Number.isInteger(team.teamRank) || Number(team.teamRank) <= 0)) {
+  else if (
+    rankingSource === 'team_rank' &&
+    teams.some((team) => !Number.isInteger(team.teamRank) || Number(team.teamRank) <= 0)
+  ) {
     reason = 'Update HFI ranks before generating this schedule.';
   } else if (!selectedStartSlot) reason = 'Choose a valid start date.';
-  else if (!selectedFormat || selectedFormat.totalRounds > safeSlots.length) reason = 'The selected length does not fit this Hattrick season.';
+  else if (!selectedFormat || selectedFormat.totalRounds > safeSlots.length)
+    reason = 'The selected length does not fit this Hattrick season.';
 
-  const pairingPlan = selectedFormat ? buildRoundRobinCycles(teams.map(team => team.id), selectedFormat.regularRounds, input.openingPairings) : [];
+  const pairingPlan = selectedFormat
+    ? buildRoundRobinCycles(
+        teams.map((team) => team.id),
+        selectedFormat.regularRounds,
+        input.openingPairings,
+      )
+    : [];
   const slotIndexes = new Map(teams.map((team, i) => [team.id, i + 1]));
-  const regularPairings = pairingPlan.map(round => round.map(pair => ({
-    home_slot_index: slotIndexes.get(pair.homeTeamId!)!,
-    away_slot_index: pair.awayTeamId ? slotIndexes.get(pair.awayTeamId)! : null,
-  })));
+  const regularPairings = pairingPlan.map((round) =>
+    round.map((pair) => ({
+      home_slot_index: slotIndexes.get(pair.homeTeamId!)!,
+      away_slot_index: pair.awayTeamId ? slotIndexes.get(pair.awayTeamId)! : null,
+    })),
+  );
   const rounds: LengthScheduleRound[] = [];
   if (!reason && selectedStartSlot && selectedFormat) {
     const firstPairings = pairingPlan[0]!;
@@ -348,7 +437,8 @@ export function buildLengthScheduleDraft(input: {
         ? firstPairings.map((pairing) => {
             const kickoffTeam = teamLookup.get(pairing.homeTeamId || pairing.awayTeamId || '');
             const scheduledFor = kickoffTeam ? getScheduledDateForSlot(slot, kickoffTeam) : null;
-            if (!scheduledFor) throw new Error(`Could not resolve the Round 1 kickoff time for ${kickoffTeam?.name || 'a team'}.`);
+            if (!scheduledFor)
+              throw new Error(`Could not resolve the Round 1 kickoff time for ${kickoffTeam?.name || 'a team'}.`);
             return {
               ...pairing,
               homeTeamName: pairing.homeTeamId ? teamLookup.get(pairing.homeTeamId)?.name || 'Unknown team' : 'BYE',
@@ -372,7 +462,9 @@ export function buildLengthScheduleDraft(input: {
   }
 
   return {
-    rankingSource, rankingSnapshot, regularPairings,
+    rankingSource,
+    rankingSnapshot,
+    regularPairings,
     valid: !reason,
     reason,
     teams,
@@ -391,7 +483,8 @@ export function buildLengthScheduleDraft(input: {
 }
 
 export function serializeLengthScheduleDraft(draft: LengthScheduleDraft): SerializedLengthSchedulePayload {
-  if (!draft.valid || !draft.selectedStartSlot || !draft.selectedFormat) throw new Error(draft.reason || 'Invalid schedule draft.');
+  if (!draft.valid || !draft.selectedStartSlot || !draft.selectedFormat)
+    throw new Error(draft.reason || 'Invalid schedule draft.');
   return {
     version: 2,
     format_id: draft.selectedFormat.id,
@@ -473,9 +566,12 @@ export function resolveChampionshipTeam(input: {
   penaltyShootoutHomeGoals?: number | null;
   penaltyShootoutAwayGoals?: number | null;
 }) {
-  const footballWinner = input.homeGoals === input.awayGoals
-    ? null
-    : input.homeGoals > input.awayGoals ? input.homeTeamId : input.awayTeamId;
+  const footballWinner =
+    input.homeGoals === input.awayGoals
+      ? null
+      : input.homeGoals > input.awayGoals
+        ? input.homeTeamId
+        : input.awayTeamId;
   if (!input.went120 && footballWinner) {
     return footballWinner === input.homeTeamId ? input.awayTeamId : input.homeTeamId;
   }
@@ -485,9 +581,7 @@ export function resolveChampionshipTeam(input: {
     typeof input.penaltyShootoutAwayGoals === 'number' &&
     input.penaltyShootoutHomeGoals !== input.penaltyShootoutAwayGoals
   ) {
-    return input.penaltyShootoutHomeGoals > input.penaltyShootoutAwayGoals
-      ? input.homeTeamId
-      : input.awayTeamId;
+    return input.penaltyShootoutHomeGoals > input.penaltyShootoutAwayGoals ? input.homeTeamId : input.awayTeamId;
   }
   return null;
 }

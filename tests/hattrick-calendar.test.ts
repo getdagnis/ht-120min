@@ -8,6 +8,7 @@ import {
   getHattrickWeekFromDate,
   getHattrickWeekStartDate,
   getRoundPreparationOpensAt,
+  getRoundManagementClosesAt,
   getScheduledDateForSlot,
   isBlockedCupWeek,
   getWeekendKickoffTime,
@@ -45,6 +46,13 @@ test('DST transitions do not change local week arithmetic', () => {
 
   const details = getHattrickWeekDetails(new Date('2026-10-25T04:30:00Z'));
   assert.equal(details.weekStart.toISOString(), '2026-10-18T22:00:00.000Z');
+});
+
+test('round management closes at Tuesday midnight in Hattrick time for midweek and weekend slots', () => {
+  assert.equal(getRoundManagementClosesAt('2026-11-04T18:25:00Z')?.toISOString(), '2026-11-02T23:00:00.000Z');
+  assert.equal(getRoundManagementClosesAt('2026-11-07T12:45:00Z')?.toISOString(), '2026-11-02T23:00:00.000Z');
+  assert.equal(getRoundManagementClosesAt('2026-07-15T18:25:00Z')?.toISOString(), '2026-07-13T22:00:00.000Z');
+  assert.equal(getRoundManagementClosesAt('bad-date'), null);
 });
 
 test('signed day differences keep past slots distinguishable from display values', () => {

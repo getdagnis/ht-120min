@@ -6,11 +6,11 @@ import { generateBalancedRound } from '../src/utils/length-schedule.js';
 import { checkReserveAdmission, findVerifiedReserveOwner, resolveReserveCupStatus } from '../src/server/api/_lib/reserve-admission.js';
 import { registerReserveTeam } from '../src/server/api/_lib/chpp-register.js';
 
-function harness(t: test.TestContext, options: { count?: number; hfi?: boolean; blocked?: boolean; failure?: boolean; cup?: boolean; missingCup?: boolean; leagueCoverage?: boolean; assigned?: boolean; finished?: boolean } = {}) {
+function harness(t: test.TestContext, options: { count?: number; hfi?: boolean; blocked?: boolean; failure?: boolean; cup?: boolean; missingCup?: boolean; leagueCoverage?: boolean; assigned?: boolean; finished?: boolean; pastCutoff?: boolean } = {}) {
   const teams = Array.from({ length: options.count || 2 }, (_, i) => ({ id: `reserve-${i}`, name: `Reserve ${i}`, ht_team_id: 100 + i, active: false, reserve_active: true, is_placeholder: false, power_rating: 1000 + i * 100, team_rank: 100 - i, country_name: 'Germany', league_level: 4 }));
   const tables: Record<string, unknown> = {
     tournaments: { id: 'cup', season: 1, schedule_mode: 'length', status: 'active', max_teams: 4, league_category: options.hfi ? 'hfi' : 'male' },
-    rounds: [{ id: 'round', phase: options.finished ? 'postseason' : 'regular', phase_status: 'materialized', round_number: 2, reserved_slot_id: 'S95-W13-midweek', reserved_slot_kind: 'midweek_friendly', reserved_slot_date: '2030-03-20T00:00:00Z' }],
+    rounds: [{ id: 'round', phase: options.finished ? 'postseason' : 'regular', phase_status: 'materialized', round_number: 2, reserved_slot_id: 'S95-W13-midweek', reserved_slot_kind: 'midweek_friendly', reserved_slot_date: options.pastCutoff ? '2020-11-04T18:25:00Z' : '2030-03-20T00:00:00Z' }],
     tournament_seasons: { id: 'season' },
     matches: options.assigned ? [{ reserve_team_id: teams[0]!.id }] : [],
     profiles: { hattrick_user_id: 8777402, manager_name: 'Fixture manager', oauth_token: 'synthetic-token', oauth_token_secret: 'synthetic-secret' },
@@ -136,6 +136,11 @@ test('odd selections and postseason entry are rejected', async t => {
   const state = harness(t, { finished: true });
   await assert.rejects(checkReserveAdmission(state.supabase, 'cup', ['one']), /even number/);
   await assert.rejects(checkReserveAdmission(state.supabase, 'cup', state.teams.map(team => team.id)), /before playoffs/);
+});
+
+test('current-round Lobby admission closes after Monday 23:59 Hattrick time', async t => {
+  const state = harness(t, { pastCutoff: true });
+  await assert.rejects(checkReserveAdmission(state.supabase, 'cup', state.teams.map(team => team.id)), /closed after Monday 23:59/);
 });
 
 test('missing cup data is distinguished from ownership and friendly booking', async t => {

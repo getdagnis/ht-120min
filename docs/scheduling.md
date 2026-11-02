@@ -102,13 +102,24 @@ The existing 120-minute knockout rule reverses a regulation-time winner and uses
 the normal extra-time or shootout winner once extra time is reached. Ties or
 unplayed knockout fixtures cannot choose advancing teams.
 
-`Repair Round` is distinct from date regeneration. It locks linked/arranged
-fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere teams,
-and re-pairs unbooked fixtures affected by warnings, vacant season slots, or
-multiple BYEs in the same round. It can target any materialized generated regular
-round, including rounds prepared ahead of an unfinished earlier round.
-Unaffected fixtures, including a lone BYE, keep their existing rows.
-The remaining active teams can receive a BYE when no opponent is available.
+`Manage round` is distinct from date regeneration. The generated-schedule card
+offers it on materialized scheduled regular rounds until Monday 23:59 Hattrick
+(Europe/Stockholm) time in the round's week. The UI removes the option at Tuesday
+00:00; the service and confirmation RPC enforce the same cutoff. The older
+paired Lobby admission control in this card also closes at that time, with its
+server preflight enforcing the cutoff. Opening Manage round
+checks current Hattrick bookings without writing. Arranged fixtures stay in place;
+faulty pairs are unavailable. An organizer can release a healthy unarranged pair
+or include eligible Lobby teams. Review generates the proposed round, and Confirm
+checks bookings again before one atomic database transaction. Selection changes
+discard the review. A changed match snapshot or dependent fixture record aborts
+without partial admission. The operation refuses started or past-kickoff rounds
+and preserves arranged match rows, season history, and other rounds. Accepted verified
+cross-bookings deactivate their active current-round warnings. An odd free pool
+receives a single-team BYE. Single Lobby admissions preserve an even
+season-slot box by using a safe vacant slot or adding a paired empty slot.
+Migration `167_reviewed_length_round_repair.sql` is prepared locally and must be
+applied before deploying this editor/API; no live application is implied.
 Migration 166 removes only future, unplayed current-season match rows in
 materialized regular length rounds whose two team sides become empty after a
 roster move. Rows with rating shares, rating automation or Forge booking audit
@@ -117,12 +128,12 @@ before the existing stale-rating trigger can clear those records. Single-team
 BYEs and season slot history remain. Fixture
 Data Refresh also removes eligible older leftovers before choosing the round;
 any fixture missing a team is ignored for round selection.
-Large repair fields use bounded pairing candidates. Fully vacant fixture rows
-are removed inside the repair RPC; this requires migration `124` before using
-the new repair flow. Finalized unplayed containment rows do not become opponent
-history.
+Large repair fields use bounded pairing candidates. The older automatic repair
+RPC from migration `124` remains for legacy callers and tests; the reviewed
+editor uses migration `167`. Finalized unplayed containment rows do not become
+opponent history.
 
-The admin-only Round 1 recovery action is separate from `Repair Round`. It is a
+The admin-only Round 1 recovery action is separate from `Manage round`. It is a
 one-off recovery for the destructive Round 1 repair failure: it ignores current
 Round 1 pairings, reconstructs the deterministic original from the frozen
 `ranking_snapshot_json`, current season slot occupants, and
@@ -304,7 +315,7 @@ A checked Waiting team is admitted at the next eligible regular-round
 materialization, or when an immediate departure opens a place. Unchecked Waiting
 stays for admin review. A manual Promote creates ordinary Active membership and
 season integration; it does not rewrite the current round. Existing booking and
-paired-add/Repair Round operations remain the way to add safe current-round
+paired-add/Manage round operations remain the way to add safe current-round
 fixtures. Past → To waiting is checked; Active → To waiting is unchecked. Remove
 and manager Leave move to Past while preserving match history.
 
