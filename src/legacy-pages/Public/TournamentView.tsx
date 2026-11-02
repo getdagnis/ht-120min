@@ -1696,13 +1696,13 @@ export const TournamentView: React.FC<{
   const lengthScheduleDraft = useMemo(
     () =>
       buildLengthScheduleDraft({
-        teams: activeScheduleTeams,
+        teams: isGenerated ? [] : activeScheduleTeams,
         rankingSource: tournament?.league_category === 'hfi' ? 'team_rank' : 'power_rating',
         startSlotId: scheduleStartSlotId || null,
         selectedFormatId: lengthFormatId,
         now: new Date(),
       }),
-    [activeScheduleTeams, lengthFormatId, scheduleStartSlotId, tournament?.league_category],
+    [activeScheduleTeams, isGenerated, lengthFormatId, scheduleStartSlotId, tournament?.league_category],
   );
   const serializedLengthScheduleDraft = useMemo(
     () => (lengthScheduleDraft.valid ? serializeLengthScheduleDraft(lengthScheduleDraft) : null),
