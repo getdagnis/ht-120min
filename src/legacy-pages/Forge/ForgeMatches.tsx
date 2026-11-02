@@ -96,6 +96,15 @@ interface MatchesResponse {
     message: string;
   } | null;
   error?: string;
+  preparedCount?: number;
+  tournaments?: Array<{
+    id: string;
+    name: string;
+    preparedRounds: number[];
+    reason: string;
+    opensAt?: string | null;
+    error?: string;
+  }>;
 }
 
 interface AutoBookingActivityEntry {
@@ -339,9 +348,12 @@ export function ForgeMatchesSection() {
   const [autoBookingActivityLoading, setAutoBookingActivityLoading] = useState(false);
   const [autoBookingActivityError, setAutoBookingActivityError] = useState('');
   const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null);
+  const [exportedCsvRoundKey, setExportedCsvRoundKey] = useState<string | null>(null);
   const [selectionRestored, setSelectionRestored] = useState(false);
   const [tournamentOptionsLoaded, setTournamentOptionsLoaded] = useState(false);
   const [refreshingData, setRefreshingData] = useState(false);
+  const [refreshingRounds, setRefreshingRounds] = useState(false);
+  const [refreshRoundsMessage, setRefreshRoundsMessage] = useState('');
   const [data, setData] = useState<MatchesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -695,10 +707,56 @@ export function ForgeMatchesSection() {
     }
   };
 
+  const refreshRounds = async () => {
+    if (refreshingRounds || bulkRunning || Object.keys(busyActions).length > 0) return;
+    setRefreshingRounds(true);
+    setRefreshRoundsMessage('');
+    try {
+      const response = await fetch('/api/forge/matches', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refresh-rounds' }),
+      });
+      const payload = (await response.json()) as MatchesResponse;
+      if (!response.ok) throw new Error(payload.error || 'Could not refresh reserved rounds.');
+      setSelectedRoundNumber(null);
+      await loadTournamentOptions(false);
+      if (selectedTournamentId) {
+        await loadMatches(selectedTournamentId, null, false);
+      }
+      const selectedOutcome = payload.tournaments?.find((item) => item.id === selectedTournamentId);
+      const failures = payload.tournaments?.filter((item) => item.error) || [];
+      let selectedDetail = '';
+      if (selectedOutcome?.error) {
+        selectedDetail = `${selectedOutcome.name}: ${selectedOutcome.error}`;
+      } else if (selectedOutcome && selectedOutcome.preparedRounds.length > 0) {
+        selectedDetail = `${selectedOutcome.name}: prepared Round${selectedOutcome.preparedRounds.length === 1 ? '' : 's'} ${selectedOutcome.preparedRounds.join(', ')}.`;
+      } else if (selectedOutcome) {
+        const reason = selectedOutcome.reason === 'not_due' && selectedOutcome.opensAt
+          ? `next round opens at ${new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short',
+          }).format(new Date(selectedOutcome.opensAt))} Stockholm time`
+          : selectedOutcome.reason.replaceAll('_', ' ');
+        selectedDetail = `${selectedOutcome.name}: ${reason}.`;
+      }
+      const failureDetail = failures.length > 0
+        ? ` Preparation failed for ${failures.map((item) => item.name).join(', ')}.`
+        : '';
+      setRefreshRoundsMessage(payload.preparedCount
+        ? `Prepared ${payload.preparedCount} due round${payload.preparedCount === 1 ? '' : 's'}. ${selectedDetail} No bookings were sent.${failureDetail}`
+        : `${selectedDetail || 'No reserved rounds are due yet.'}${failureDetail}`);
+    } catch (refreshError) {
+      setRefreshRoundsMessage(refreshError instanceof Error ? refreshError.message : 'Could not refresh reserved rounds.');
+    } finally {
+      setRefreshingRounds(false);
+    }
+  };
+
   const bookAll = async () => {
     const tournamentId = selectedTournamentId;
     const roundNumber = data?.currentRound?.roundNumber;
-    if (!tournamentId || !roundNumber || bulkRunning || refreshingData || Object.keys(busyActions).length) return;
+    if (!tournamentId || !roundNumber || bulkRunning || refreshingData || csvExportMissing || Object.keys(busyActions).length) return;
     if (
       !window.confirm(
         `Book eligible matches in ${data?.tournament?.name}, ${data?.currentRound?.roundLabel || `Round ${roundNumber}`}?\n\nThis will refresh Hattrick data, send Cup Rules challenges, then accept matching challenges. It performs real Hattrick actions.`,
@@ -924,6 +982,7 @@ export function ForgeMatchesSection() {
     action: 'challenge' | 'accept' | 'withdraw' | 'reverse',
     matchPlace?: 0 | 1,
   ) => {
+    if (csvExportMissing && (action === 'challenge' || action === 'accept')) return;
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
     const verb =
       action === 'challenge'
@@ -1015,6 +1074,11 @@ export function ForgeMatchesSection() {
 
   const visibleFixtureCount =
     data?.fixtures?.filter((fixture) => visibleStatuses[fixtureStatusFilter(fixture.status)]).length ?? 0;
+  const currentCsvRoundKey = data?.tournament && data.currentRound
+    ? `${data.tournament.slug || data.tournament.id}:${data.tournament.season}:${data.currentRound.id}`
+    : null;
+  const csvExportRequired = data?.tournament?.slug === 'around-the-world';
+  const csvExportMissing = csvExportRequired && currentCsvRoundKey !== exportedCsvRoundKey;
 
   return (
     <section className={styles.page}>
@@ -1046,12 +1110,14 @@ export function ForgeMatchesSection() {
                 <input
                   id="forge-auto-booking" type="checkbox" role="switch"
                   checked={autoBooking === true}
-                  disabled={autoBooking === null || autoBookingBusy}
+                  disabled={autoBooking === null || autoBookingBusy || (data?.tournament?.slug === 'around-the-world' && autoBooking !== true)}
                   onChange={(event) => void saveAutoBooking(event.target.checked)}
                 />
                 <span>{autoBooking === null ? 'Loading…' : autoBookingBusy ? 'Saving…' : autoBooking ? 'On' : 'Off'}</span>
                 {autoBookingError && <p className={styles.error} role="alert">{autoBookingError}</p>}
-                <small>Saved for this season. Worker activity is shown at the bottom of this page.</small>
+                <small>{data?.tournament?.slug === 'around-the-world'
+                  ? 'Automatic booking is unavailable. Export the current round CSV before manual booking.'
+                  : 'Saved for this season. Worker activity is shown at the bottom of this page.'}</small>
               </div>
             )}
             {!loading && !error && selectedTournamentId && data?.roundOptions && data.roundOptions.length > 0 && (
@@ -1194,7 +1260,10 @@ export function ForgeMatchesSection() {
                       variant="outline"
                       size="sm"
                       disabled={loading || refreshingData || bulkRunning || Object.keys(busyActions).length > 0}
-                      onClick={() => exportRoundCsv(data, fixtureErrors)}
+                      onClick={() => {
+                        exportRoundCsv(data, fixtureErrors);
+                        if (currentCsvRoundKey) setExportedCsvRoundKey(currentCsvRoundKey);
+                      }}
                     >
                       Export CSV
                     </Button>
@@ -1205,9 +1274,11 @@ export function ForgeMatchesSection() {
                         bulkRunning ||
                         loading ||
                         refreshingData ||
+                        csvExportMissing ||
                         Object.keys(busyActions).length > 0 ||
                         data.currentRound.phaseStatus !== 'materialized'
                       }
+                      title={csvExportMissing ? 'Export this round\'s CSV before booking.' : undefined}
                       onClick={() => void bookAll()}
                     >
                       Book all
@@ -1385,9 +1456,11 @@ export function ForgeMatchesSection() {
                                   <Button
                                     variant="primaryAction"
                                     size="sm"
-                                    disabled={!team.canChallenge || fixtureBusy || bulkRunning}
+                                    disabled={!team.canChallenge || fixtureBusy || bulkRunning || csvExportMissing}
                                     title={
-                                      team.canChallenge
+                                      csvExportMissing
+                                        ? 'Export this round\'s CSV before booking.'
+                                        : team.canChallenge
                                         ? `Send a Cup Rules challenge to ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
                                         : team.challengeDisabledReason
                                     }
@@ -1399,7 +1472,8 @@ export function ForgeMatchesSection() {
                                     <Button
                                       variant="secondaryDanger"
                                       size="sm"
-                                      disabled={fixtureBusy || bulkRunning}
+                                      disabled={fixtureBusy || bulkRunning || csvExportMissing}
+                                      title={csvExportMissing ? 'Export this round\'s CSV before booking.' : undefined}
                                       onClick={() => void runAction(fixture, team, 'challenge', 0)}
                                     >
                                       Challenge as home
@@ -1418,9 +1492,11 @@ export function ForgeMatchesSection() {
                                   <Button
                                     variant="secondaryDanger"
                                     size="sm"
-                                    disabled={!team.canAccept || fixtureBusy || bulkRunning}
+                                    disabled={!team.canAccept || fixtureBusy || bulkRunning || csvExportMissing}
                                     title={
-                                      team.canAccept
+                                      csvExportMissing
+                                        ? 'Export this round\'s CSV before booking.'
+                                        : team.canAccept
                                         ? `Accept the challenge from ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
                                         : team.acceptDisabledReason
                                     }
@@ -1447,6 +1523,16 @@ export function ForgeMatchesSection() {
 
         <aside className={styles.bookingSidebar}>
           <SectionCard title="Bookable matches" className={styles.surfaceCard}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={refreshingRounds || bulkRunning || Object.keys(busyActions).length > 0}
+              onClick={() => void refreshRounds()}
+            >
+              <ArrowClockwise size={16} />
+              {refreshingRounds ? 'Refreshing rounds…' : 'Refresh rounds'}
+            </Button>
+            {refreshRoundsMessage && <p className={styles.empty} role="status">{refreshRoundsMessage}</p>}
             {tournaments.length === 0 ? (
               <p className={styles.empty}>No tournaments have a current materialized round.</p>
             ) : (

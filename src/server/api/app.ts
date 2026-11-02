@@ -449,6 +449,7 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const tournamentId = readString(req.body?.tournamentId);
   const seasonNumber = Number(req.body?.seasonNumber);
+  const roundId = readString(req.body?.roundId) || null;
   if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
     return res.status(400).json({ error: 'Invalid round repair request.' });
   }
@@ -458,7 +459,7 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
     return res.status(403).json({ error: 'You do not have permission to repair this round.' });
   }
   try {
-    const result = await repairLengthRound(getServiceSupabase(), tournamentId, seasonNumber);
+    const result = await repairLengthRound(getServiceSupabase(), tournamentId, seasonNumber, roundId);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Round repair failed:', error);

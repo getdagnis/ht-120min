@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
 import { getServiceSupabase } from '../_lib/supabase.js';
+import { prepareDueLengthScheduleRounds } from '../_lib/length-schedule-service.js';
 import { isForgeEnabled } from '../../forge-availability.js';
 import { compareTournamentListing } from '../../../utils/tournament-collections.js';
 import { getMatchDateForRound } from '../../../utils/match-schedule.js';
@@ -29,6 +30,7 @@ import {
   isForgeFixtureMisarranged,
   resolveForgeFixtureActionTarget,
   resolveForgeTeamActions,
+  prepareForgeTournamentRoundsIndependently,
   selectCurrentForgeRound,
   type ForgeFixtureRecord,
   type ForgeFixtureTeam,
@@ -101,7 +103,12 @@ type ForgeRoundRow = {
   reserved_slot_date?: string | null;
   phase: 'regular' | 'postseason';
   phase_status: 'pending' | 'materialized' | 'completed';
-  matches?: Array<{ completed: boolean | null; status?: string | null }> | null;
+  matches?: Array<{
+    completed: boolean | null;
+    status?: string | null;
+    ht_match_id?: number | null;
+    scheduled_for?: string | null;
+  }> | null;
 };
 
 type ForgeProfileRow = {
@@ -291,7 +298,7 @@ async function loadMaterializedRounds(
 ) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('id, tournament_id, created_at, season_number, round_number, round_source, is_unscored, reserved_slot_kind, reserved_slot_date, phase, phase_status, matches(id, completed, status)')
+    .select('id, tournament_id, created_at, season_number, round_number, round_source, is_unscored, reserved_slot_kind, reserved_slot_date, phase, phase_status, matches(id, completed, status, ht_match_id, scheduled_for)')
     .eq('tournament_id', tournament.id)
     .eq('season_number', tournament.season || 1)
     .eq('phase', 'regular')
@@ -428,6 +435,8 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
         matches: (matchesByRound.get(candidate.id) || []).map((match) => ({
           completed: match.completed,
           status: match.status,
+          ht_match_id: match.ht_match_id,
+          scheduled_for: match.scheduled_for,
         })),
       }));
     const bookingRounds = tournamentRounds.filter(
@@ -1179,6 +1188,9 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
   const supabase = getServiceSupabase();
   const tournament = await loadTournament(supabase, tournamentId);
   if (!tournament) return res.status(404).json({ error: 'Tournament not found, inactive, or archived.' });
+  if (tournament.slug === 'around-the-world' && mode === 'real') {
+    return res.status(409).json({ error: 'Export the current round CSV and use the manual booking controls for this tournament.' });
+  }
   const round = await loadCurrentRound(supabase, tournament);
   if (!round || round.phase_status !== 'materialized') {
     return res.status(409).json({ error: 'There is no materialized round to inspect.' });
@@ -1385,6 +1397,27 @@ export async function runAutoBookingWorker(req: VercelRequest, res: VercelRespon
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireForgeAdmin(req, res)) return;
   try {
+    if (req.method === 'POST' && req.body?.action === 'refresh-rounds') {
+      const supabase = getServiceSupabase();
+      const { data: rows, error } = await supabase.from('tournaments')
+        .select('id, name, season, status, is_archived, is_test, schedule_mode')
+        .eq('schedule_mode', 'length')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      const outcomes = await prepareForgeTournamentRoundsIndependently(
+        (rows || []).filter(isRelevantTournament),
+        (tournament) => prepareDueLengthScheduleRounds(
+          supabase,
+          tournament.id,
+          Math.max(1, Number(tournament.season) || 1),
+        ),
+      );
+      return res.status(200).json({
+        preparedCount: outcomes.reduce((count, item) => count + item.preparedRounds.length, 0),
+        failedCount: outcomes.filter((item) => item.error).length,
+        tournaments: outcomes,
+      });
+    }
     if (req.method === 'GET' && readString(req.query.setting) === 'auto-booking') {
       const supabase = getServiceSupabase();
       const tournament = await loadTournament(supabase, readString(req.query.tournamentId));
@@ -1452,6 +1485,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const supabase = getServiceSupabase();
       const tournament = await loadTournament(supabase, req.body.tournamentId);
       if (!tournament) return res.status(404).json({ error: 'Tournament not found or not active.' });
+      if (tournament.slug === 'around-the-world' && req.body.enabled === true) {
+        return res.status(409).json({ error: 'Automatic booking is unavailable for this tournament; export the current round CSV before booking.' });
+      }
       const season = tournament.season || 1;
       const { error } = await supabase.from('tournament_season_auto_booking_settings').upsert({
         tournament_id: tournament.id, season_number: season, enabled: req.body.enabled, updated_at: new Date().toISOString(),

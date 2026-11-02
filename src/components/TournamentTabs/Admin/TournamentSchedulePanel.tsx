@@ -134,13 +134,21 @@ interface TournamentSchedulePanelProps {
     round_number: number;
     phase?: 'regular' | 'postseason';
     phase_status?: 'pending' | 'materialized' | 'completed';
+    is_unscored?: boolean;
     reserved_slot_date?: string | null;
     reserved_slot_kind?: string | null;
     round_source?: string | null;
-    matches: Array<{ id: string; status?: string; home_team?: { name?: string } | null; away_team?: { name?: string } | null }>;
+    matches: Array<{
+      id: string;
+      status?: string;
+      home_slot_id?: string | null;
+      away_slot_id?: string | null;
+      home_team?: { name?: string } | null;
+      away_team?: { name?: string } | null;
+    }>;
   }>;
   isRepairingRound?: boolean;
-  onRepairRound?: () => void;
+  onRepairRound?: (roundId: string) => void;
   reserveAdmissionControl?: React.ReactNode;
   organizerRoundControl?: React.ReactNode;
   isRecoveringRoundOne?: boolean;
@@ -1090,10 +1098,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
   const renderLengthGenerated = () => {
     const currentRound = lengthRounds.find((round) => round.phase_status === 'materialized');
-    const hasRepairableMatches = currentRound?.phase === 'regular' && (
-      currentRound.matches.some((match) => match.status === 'misarranged') ||
-      currentRound.matches.filter((match) => Boolean(match.home_team) !== Boolean(match.away_team)).length > 1
-    );
+    const isRepairableRound = (round: NonNullable<typeof currentRound>) => {
+      if (round.phase !== 'regular' || round.phase_status !== 'materialized' ||
+          round.round_source === 'organizer' || round.is_unscored) return false;
+      const byeCount = round.matches.filter((match) => Boolean(match.home_team) !== Boolean(match.away_team)).length;
+      return round.matches.some((match) => match.status === 'misarranged' ||
+        Boolean(match.home_slot_id && !match.home_team) || Boolean(match.away_slot_id && !match.away_team)) || byeCount > 1;
+    };
     return (
       <div className={adminStyles.genOptions}>
         <div className={adminStyles.scheduleIntro}>
@@ -1140,6 +1151,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                     {match.away_team?.name || 'BYE'}
                   </div>
                 ))}
+                {onRepairRound && isRepairableRound(round) && (
+                  <div className={adminStyles.scheduleAction}>
+                    <Button variant="secondaryAction" size="sm" onClick={() => onRepairRound(round.id)} disabled={isRepairingRound}>
+                      {isRepairingRound ? 'Repairing round…' : `Repair Round ${round.round_number}`}
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1158,18 +1176,11 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
         {currentRound?.phase === 'regular' && reserveAdmissionControl}
-        {currentRound && hasRepairableMatches && onRepairRound && (
-          <>
-            <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
-              {isRepairingRound
-                ? `Repairing Round ${currentRound.round_number}...`
-                : `Repair Round ${currentRound.round_number}`}
-            </Button>
-            <p className={adminStyles.smallNote}>
-              Repair Round can pair teams left in separate BYE fixtures or repair fixtures affected by unavailable teams.
-              Refresh fixture status before repairing. Unaffected fixtures stay locked.
-            </p>
-          </>
+        {onRepairRound && lengthRounds.some(isRepairableRound) && (
+          <p className={adminStyles.smallNote}>
+            Repair Round can pair teams left in separate BYE fixtures or repair fixtures affected by unavailable teams.
+            Refresh fixture status before repairing. Unaffected fixtures stay locked.
+          </p>
         )}
       </div>
     );

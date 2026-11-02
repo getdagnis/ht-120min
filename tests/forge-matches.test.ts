@@ -5,6 +5,7 @@ import {
   findExactPendingIncomingChallenge,
   findExactPendingOutgoingChallenge,
   isForgeFixtureAlreadyBooked,
+  prepareForgeTournamentRoundsIndependently,
   resolveForgeFixtureActionTarget,
   resolveForgeTeamActions,
   selectCurrentForgeRound,
@@ -138,6 +139,39 @@ test('current Forge round is the earliest materialized round with unfinished fix
     { round_number: 5, phase_status: 'materialized', matches: [{ completed: false }] },
   ]);
   assert.equal(current?.round_number, 3);
+});
+
+test('Forge selects the due upcoming round with open fixtures over an earlier booked unfinished round', () => {
+  const now = new Date('2026-11-02T05:01:00Z');
+  const current = selectCurrentForgeRound([
+    {
+      round_number: 6,
+      phase_status: 'materialized',
+      reserved_slot_kind: 'midweek_friendly',
+      reserved_slot_date: '2026-10-27T23:00:00Z',
+      matches: [{ completed: false, status: 'arranged', ht_match_id: 1001, scheduled_for: '2026-10-28T18:00:00Z' }],
+    },
+    {
+      round_number: 7,
+      phase_status: 'materialized',
+      reserved_slot_kind: 'weekend_friendly',
+      reserved_slot_date: '2026-11-06T23:00:00Z',
+      matches: [{ completed: false, status: 'not_arranged', ht_match_id: null, scheduled_for: '2026-11-08T12:00:00Z' }],
+    },
+  ], now);
+  assert.equal(current?.round_number, 7);
+});
+
+test('one tournament refresh failure does not stop later tournaments', async () => {
+  const outcomes = await prepareForgeTournamentRoundsIndependently(
+    [{ id: 'broken', name: 'Broken schedule' }, { id: 'ready', name: 'Ready schedule' }],
+    async (tournament) => {
+      if (tournament.id === 'broken') throw { message: 'Round 5 has no reserved slot.' };
+      return { prepared: [{ roundNumber: 5 }], reason: 'prepared' };
+    },
+  );
+  assert.equal(outcomes[0]?.error, 'Round 5 has no reserved slot.');
+  assert.deepEqual(outcomes[1]?.preparedRounds, [5]);
 });
 
 test('non-Forge request is rejected before loading tournament data', async () => {

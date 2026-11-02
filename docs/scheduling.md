@@ -63,12 +63,27 @@ for ordinary generation, including large fields.
 
 The full calendar is reserved atomically, but only Round 1 has match rows at
 publication, accounting for every active participant. Later rounds remain
-`pending` until the existing progression service and atomic transition resolve
-the current round. Replacements inherit physical season slots and their frozen
-seeds. Missed, repaired, reoriented or vacated rounds reuse the existing played
-opponent/BYE history fallback, preferring least-repeated opponents rather than
-forcing the original future plan. Finalized-unplayed fixtures are not played
-opponent history. Existing version 1 schedules retain their original progression.
+`pending` until their Hattrick booking window opens: Monday 06:00
+Europe/Stockholm for the next weekend slot and Thursday 06:00 for the next
+midweek slot. Preparation is idempotent and may materialize the next reserved
+regular round while an earlier round is still unresolved. It does not complete
+or rewrite the earlier round. Fixture result progression remains a separate
+operation. The Forge Matches **Refresh rounds** action runs this preparation
+across relevant tournaments; Fixture Data Refresh also prepares the selected
+tournament before refreshing its fixtures. Neither action books Hattrick matches.
+
+Round preparation uses the same atomic membership transition safeguards for
+eligible Waiting admissions and departures, and retains exact booked fixtures.
+Saved v2 pairing plans are reused when prior pairings still match the frozen
+plan; when roster or historical state requires it, the existing balanced
+pairing generator is used. Version 1 schedules use that existing generator.
+Replacements inherit physical season slots and their frozen seeds. Missed,
+repaired, reoriented or vacated rounds reuse the existing played opponent/BYE
+history fallback, preferring least-repeated opponents rather than forcing the
+original future plan. Finalized-unplayed fixtures are not played opponent
+history. Around the World keeps its approved Flag Hunters round-one CSV opener;
+Forge requires CSV export for the displayed round before manual booking and
+does not allow real automatic booking for that tournament.
 
 Every Active participant in a length season needs a current season slot before
 the next round can materialize. The transition checks this inside its atomic
@@ -90,8 +105,9 @@ unplayed knockout fixtures cannot choose advancing teams.
 `Repair Round` is distinct from date regeneration. It locks linked/arranged
 fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere teams,
 and re-pairs unbooked fixtures affected by warnings, vacant season slots, or
-multiple BYEs in the same round. Unaffected fixtures, including a lone BYE,
-keep their existing rows.
+multiple BYEs in the same round. It can target any materialized generated regular
+round, including rounds prepared ahead of an unfinished earlier round.
+Unaffected fixtures, including a lone BYE, keep their existing rows.
 The remaining active teams can receive a BYE when no opponent is available.
 Large repair fields use bounded pairing candidates. Fully vacant fixture rows
 are removed inside the repair RPC; this requires migration `124` before using
@@ -151,7 +167,8 @@ Regeneration also supports the optional W15 weekend flag when applicable and kee
 - Generated midweek kickoff estimates use `COUNTRY_FRIENDLY_TIMES` in `src/utils/ht-data.ts`.
 - Generated weekend kickoff estimates use `src/utils/global-match-times.json`.
 - Weekend scheduling uses league-level-aware lookup where possible.
-- Missing weekend country metadata falls back to a default weekend kickoff.
+- Missing weekend country metadata, or a country without usable weekend entries,
+  falls back to the default weekend kickoff.
 - Generated `scheduled_for` values are planned estimates, not proof of the eventual Hattrick kickoff.
 - Exact CHPP kickoff instants are stored separately in `matches.chpp_match_date`.
 - Public fixture dates prefer `chpp_match_date`; a generated schedule time is labeled estimated and does not drive inferred live status or polling.
@@ -211,6 +228,8 @@ Relevant tests:
 - `tests/reschedule-draft.test.ts`
 - `tests/match-schedule.test.ts`
 - `tests/length-schedule.test.ts`
+- `tests/length-schedule-progression.test.ts`
+- `tests/forge-matches.test.ts`
 
 Manual SQL helper:
 

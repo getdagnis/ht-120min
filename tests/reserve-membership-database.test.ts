@@ -106,7 +106,36 @@ function setup(oldPending = false) {
   migration('150_organizer_pairing_assistant.sql');
   migration('151_organizer_saved_round_repair.sql');
   migration('158_honor_deferred_departures_with_booked_fixtures.sql');
+  sql('ALTER TABLE rounds ADD is_unscored boolean NOT NULL DEFAULT false;');
+  migration('165_prepare_due_length_rounds.sql');
 }
+
+test('due-round preparation preserves the unfinished prior round and is idempotent', { skip: !enabled }, () => {
+  setup();
+  sql(`UPDATE rounds SET reserved_slot_date='2026-11-04T18:25:00Z' WHERE id='${id(21)}';
+    UPDATE matches SET status='not_arranged', completed=false, scheduled_for='2026-10-28T18:25:00Z'
+      WHERE id='${id(40)}';`);
+  const p = JSON.parse(sql(`SELECT get_length_round_preparation_plan('${id(10)}',1,'${id(20)}');`)) as {
+    activeTeamIds: string[]; teamIds: string[]; rosterVersion: string;
+  };
+  const matches = [{
+    home_team_id: id(1), away_team_id: id(2), scheduled_for: '2026-11-04T18:25:00Z',
+    schedule_resolution: 'pending',
+  }];
+  const array = (values: string[]) => `ARRAY[${values.map(value => `'${value}'::uuid`).join(',')}]::uuid[]`;
+  const call = () => JSON.parse(sql(`SELECT prepare_due_length_regular_round(
+    '${id(10)}',1,'${id(20)}','${id(21)}',${json(matches)},${array(p.teamIds)},${array(p.activeTeamIds)},'${p.rosterVersion}');`)) as {
+      prepared: boolean; reason?: string;
+    };
+  assert.equal(call().prepared, true);
+  assert.equal(sql(`SELECT phase_status FROM rounds WHERE id='${id(20)}';`), 'materialized');
+  assert.equal(sql(`SELECT status || '|' || completed || '|' || schedule_resolution FROM matches WHERE id='${id(40)}';`),
+    'not_arranged|f|pending');
+  assert.equal(sql(`SELECT phase_status || '|' || count(*) FROM rounds r JOIN matches m ON m.round_id=r.id
+    WHERE r.id='${id(21)}' GROUP BY phase_status;`), 'materialized|1');
+  assert.deepEqual(call(), { prepared: false, reason: 'already_materialized', round_id: id(21) });
+  assert.equal(sql(`SELECT count(*) FROM matches WHERE round_id='${id(21)}';`), '1');
+});
 
 test('admin context is committed only for real membership changes', { skip: !enabled }, () => {
   setup();

@@ -229,6 +229,21 @@ export function getHattrickWeekDetails(date: Date) {
   };
 }
 
+export function getRoundPreparationOpensAt(
+  slotDate: Date | string,
+  kind: HattrickScheduleSlotKind,
+): Date | null {
+  const date = slotDate instanceof Date ? slotDate : new Date(slotDate);
+  if (!Number.isFinite(date.getTime())) return null;
+
+  const localDateKey = stockholmDateKey(date);
+  const weekday = new Date(localDateKey).getUTCDay();
+  const daysFromMonday = (weekday + 6) % 7;
+  const weekMonday = addLocalDays(localDateKey, -daysFromMonday);
+  const openingDate = kind === 'weekend_friendly' ? weekMonday : addLocalDays(weekMonday, -4);
+  return localDateKeyToInstant(openingDate, 6);
+}
+
 export function buildCalendarSlots(now = new Date(), weeksAhead = 64, options: BuildCalendarSlotsOptions = {}): CalendarSlot[] {
   const currentWeekIndex = getWeekIndexFromLocalDateKey(stockholmDateKey(now));
   const slots: CalendarSlot[] = [];
@@ -374,14 +389,20 @@ export function getWeekendKickoffTime(
     band: parseWeekendBand(entry.label),
   }));
 
-  if (weekendEntries.length === 0) return null;
+  if (weekendEntries.length === 0) {
+    return { ...DEFAULT_WEEKEND_KICKOFF, reason: 'No weekend kickoff data' };
+  }
 
   const sortedEntries = weekendEntries
     .filter((entry) => entry.band !== null)
     .sort((a, b) => (a.band ?? 99) - (b.band ?? 99));
 
+  if (sortedEntries.length === 0) {
+    return { ...DEFAULT_WEEKEND_KICKOFF, reason: 'No supported weekend division data' };
+  }
+
   if (leagueLevel == null) {
-    const entry = sortedEntries[0] ?? weekendEntries[0];
+    const entry = sortedEntries[0];
     return entry
       ? {
           day: parseDay(entry.day),
@@ -396,8 +417,6 @@ export function getWeekendKickoffTime(
   const levelBand = leagueLevel <= 6 ? 6 : leagueLevel === 7 ? 7 : 8;
   const chosen =
     sortedEntries.find((entry) => (entry.band ?? 99) >= levelBand) ?? sortedEntries[sortedEntries.length - 1];
-  if (!chosen) return null;
-
   return { day: parseDay(chosen.day), time: chosen.time, label: chosen.label, source: 'weekend' };
 }
 

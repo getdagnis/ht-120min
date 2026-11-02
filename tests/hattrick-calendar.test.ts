@@ -7,6 +7,7 @@ import {
   getHattrickWeekDetails,
   getHattrickWeekFromDate,
   getHattrickWeekStartDate,
+  getRoundPreparationOpensAt,
   getScheduledDateForSlot,
   isBlockedCupWeek,
   getWeekendKickoffTime,
@@ -127,6 +128,18 @@ test('weekend kickoff lands on the weekend and uses the canonical weekend time',
   assert.equal(scheduled!.toISOString(), '2026-07-19T08:00:00.000Z');
 });
 
+test('round preparation opens on the Stockholm weekday boundary for each reserved slot kind', () => {
+  assert.equal(
+    getRoundPreparationOpensAt('2026-07-17T22:00:00Z', 'weekend_friendly')?.toISOString(),
+    '2026-07-13T04:00:00.000Z',
+  );
+  assert.equal(
+    getRoundPreparationOpensAt('2026-07-14T22:00:00Z', 'midweek_friendly')?.toISOString(),
+    '2026-07-09T04:00:00.000Z',
+  );
+  assert.equal(getRoundPreparationOpensAt('bad-date', 'weekend_friendly'), null);
+});
+
 test('weekend kickoff lookup falls back to the broadest division band when league level is missing', () => {
   const missingSwedishLevel = getWeekendKickoffTime('Sweden', null);
   assert.ok(missingSwedishLevel);
@@ -143,6 +156,17 @@ test('weekend kickoff lookup falls back to the broadest division band when leagu
   assert.ok(resolved);
   assert.equal(resolved!.day, 0);
   assert.equal(resolved!.time, '10:00');
+});
+
+test('weekend kickoff lookup uses the default when a country has no weekend schedule data', () => {
+  const time = getWeekendKickoffTime('Equatorial Guinea', 6);
+  assert.deepEqual(time, {
+    day: 0,
+    time: '10:00',
+    label: 'Weekend fallback',
+    source: 'weekend',
+    reason: 'No weekend kickoff data',
+  });
 });
 
 test('weekend kickoff lookup falls back for manual teams with missing country metadata', () => {

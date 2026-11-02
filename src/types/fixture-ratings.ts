@@ -65,16 +65,27 @@ export function fixtureRatingNotice(status: FixtureRatingShareStatus | undefined
 
 /** Status enrichment must remain compatible with the original public view. */
 export async function readFixtureRatingStatuses(
-  read: (fields: string) => PromiseLike<{
+  fixtureIds: readonly string[],
+  read: (fields: string, fixtureIds: readonly string[]) => PromiseLike<{
     data: unknown;
     error: { code?: string; message?: string } | null;
   }>,
 ) {
-  let result = await read(PUBLIC_FIXTURE_RATING_STATUS_FIELDS);
-  if (result.error && ['42703', 'PGRST204'].includes(result.error.code || '')) {
-    // Schema rollout/cache lag must not take down tournament pages. The legacy
-    // projection is still status-only; never fall back to the private shares table.
-    result = await read('fixture_id,team_id,ht_match_id');
+  const uniqueIds = [...new Set(fixtureIds)];
+  const batches: string[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += 100) {
+    batches.push(uniqueIds.slice(index, index + 100));
   }
-  return { data: (result.data || []) as FixtureRatingShareStatus[], error: result.error };
+  const results = await Promise.all(batches.map(async (batch) => {
+    let result = await read(PUBLIC_FIXTURE_RATING_STATUS_FIELDS, batch);
+    if (result.error && ['42703', 'PGRST204'].includes(result.error.code || '')) {
+      // Schema rollout/cache lag must not take down tournament pages. The legacy
+      // projection is still status-only; never fall back to the private shares table.
+      result = await read('fixture_id,team_id,ht_match_id', batch);
+    }
+    return result;
+  }));
+  const failed = results.find((result) => result.error);
+  if (failed?.error) return { data: [] as FixtureRatingShareStatus[], error: failed.error };
+  return { data: results.flatMap((result) => (result.data || []) as FixtureRatingShareStatus[]), error: null };
 }

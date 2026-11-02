@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { repairLengthRound } from '../src/server/api/_lib/length-schedule-service.js';
 
-function createHarness(options: { doubleBye: boolean; warning?: boolean; unpairedTeam?: boolean } = { doubleBye: true }) {
+function createHarness(options: { doubleBye: boolean; warning?: boolean; unpairedTeam?: boolean; secondRound?: boolean } = { doubleBye: true }) {
   const teams = Array.from({ length: options.doubleBye || options.unpairedTeam ? 4 : 3 }, (_, index) => ({
     id: `team-${index + 1}`, name: `Team ${index + 1}`, active: true,
     reserve_active: false, is_placeholder: false, team_rank: index + 1,
@@ -22,10 +22,16 @@ function createHarness(options: { doubleBye: boolean; warning?: boolean; unpaire
     reserved_slot_id: 'S169-W13-midweek', reserved_slot_kind: 'midweek_friendly',
     reserved_slot_date: '2099-09-23T00:00:00.000Z', matches,
   };
+  const laterRound = {
+    ...round,
+    id: 'round-2',
+    round_number: 2,
+    matches: [match('round-2-pair', 'team-1', 'team-2'), match('round-2-bye-1', 'team-3', null), match('round-2-bye-2', null, 'team-4')],
+  };
   const rows: Record<string, Record<string, unknown>[]> = {
     tournaments: [{ id: 'cup', schedule_mode: 'length' }],
     tournament_seasons: [{ id: 'season-1', schedule_plan_json: {}, ranking_snapshot_json: teams.map(team => ({ team_id: team.id, team_rank: team.team_rank })) }],
-    rounds: [round], teams,
+    rounds: options.secondRound ? [round, laterRound] : [round], teams,
     tournament_season_slots: teams.map(team => ({ id: `slot-${team.id}`, current_team_id: team.id })),
     tournament_season_slot_assignments: [],
     fixture_warnings: options.warning ? [{ team_id: 'team-1', active: true }] : [],
@@ -97,4 +103,12 @@ test('warning repair reports a new BYE separately from unplayable containment', 
   assert.equal(replacement.length, 2);
   assert.equal(replacement.filter((match) => match.schedule_resolution === 'finalized_unplayed').length, 1);
   assert.equal(replacement.filter((match) => match.away_team_id === null).length, 1);
+});
+
+test('repair can target a later materialized regular round', async () => {
+  const { supabase, calls } = createHarness({ doubleBye: true, secondRound: true });
+  const result = await repairLengthRound(supabase, 'cup', 1, 'round-2');
+  assert.equal(result.roundNumber, 2);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.args.p_round_id, 'round-2');
 });

@@ -42,7 +42,7 @@ import {
   parseChppMatchesXml,
   type ParsedChppMatch,
 } from '../../../../shared/matches-archive.js';
-import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
+import { prepareDueLengthScheduleRounds, progressLengthSchedule } from '../_lib/length-schedule-service.js';
 import { tryRecalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 // Simplified helper for match date calculation on server
@@ -1393,19 +1393,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const supabase = getServiceSupabase();
     const { data: tournament } = await supabase.from('tournaments').select('*').eq('id', tournament_id).single();
-    const { data: rounds } = await supabase
+    const { data: initialRounds } = await supabase
       .from('rounds')
       .select('*, matches(*)')
       .eq('tournament_id', tournament_id)
       .eq('season_number', tournament?.season || 1)
       .order('round_number');
-    const { data: teams } = (await supabase.from('teams').select('*').eq('tournament_id', tournament_id)) as {
+    let rounds = initialRounds;
+    const { data: initialTeams } = (await supabase.from('teams').select('*').eq('tournament_id', tournament_id)) as {
       data: TeamWithAuth[] | null;
     };
-    const { data: existingWarnings } = await supabase
+    let teams = initialTeams;
+    const { data: initialWarnings } = await supabase
       .from('fixture_warnings')
       .select('*')
       .eq('tournament_id', tournament_id);
+    let existingWarnings = initialWarnings;
 
     if (!tournament || !teams || (!rounds && !contextOnly)) return res.status(404).json({ error: 'Data not found' });
 
@@ -1433,6 +1436,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         hattrick_context: hattrickContext,
       });
+    }
+
+    if (tournament.schedule_mode === 'length') {
+      const preparation = await prepareDueLengthScheduleRounds(
+        supabase,
+        String(tournament_id),
+        Number(tournament.season || 1),
+      );
+      if (preparation.prepared.length > 0) {
+        const refreshedRounds = await supabase
+          .from('rounds')
+          .select('*, matches(*)')
+          .eq('tournament_id', tournament_id)
+          .eq('season_number', tournament.season || 1)
+          .order('round_number');
+        if (refreshedRounds.error) throw refreshedRounds.error;
+        rounds = refreshedRounds.data;
+        const [refreshedTeams, refreshedWarnings] = await Promise.all([
+          supabase.from('teams').select('*').eq('tournament_id', tournament_id),
+          supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament_id),
+        ]);
+        if (refreshedTeams.error) throw refreshedTeams.error;
+        if (refreshedWarnings.error) throw refreshedWarnings.error;
+        teams = refreshedTeams.data as TeamWithAuth[];
+        existingWarnings = refreshedWarnings.data;
+      }
     }
 
     // Identify the closest actionable round. A past misarranged fixture no longer

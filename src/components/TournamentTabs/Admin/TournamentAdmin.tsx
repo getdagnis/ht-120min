@@ -378,7 +378,7 @@ export interface TournamentAdminController {
     onGenerateSchedule: () => void | Promise<void>;
     onConfirmGenerateSchedule: () => void | Promise<void>;
     onRegenerateSchedule: () => Promise<boolean>;
-    onRepairCurrentLengthRound: () => void | Promise<void>;
+    onRepairCurrentLengthRound: (roundId: string) => void | Promise<void>;
     onRecoverOriginalLengthRoundOne: () => void | Promise<void>;
     onCloseScheduleNotice: () => void;
     onPreviewHtMatchAdd: (matchId: string) => Promise<HtMatchAddPreview>;

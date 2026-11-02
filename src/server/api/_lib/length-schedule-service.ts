@@ -8,7 +8,7 @@ import {
   type LengthScheduleTeam,
   type PairingHistory,
 } from '../../../utils/length-schedule.js';
-import { getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
+import { getRoundPreparationOpensAt, getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment, type Team } from '../../../utils/standings.js';
 import type { PersistedScoringMode } from '../../../../shared/scoring-profile.js';
 import type { getServiceSupabase } from './supabase.js';
@@ -219,7 +219,11 @@ function seasonRanks(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeas
   return ranks;
 }
 
-function reservedPairings(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, roundNumber: number) {
+function reservedPairings(
+  state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>,
+  roundNumber: number,
+  allowUnresolvedHistory = false,
+) {
   const plan = readSchedulePlan(state.season.schedule_plan_json);
   if (!plan) return null;
   if (state.assignments.some(a => a.admission_request_id) || state.pendingTeams.length > 0) return null;
@@ -237,7 +241,8 @@ function reservedPairings(state: NonNullable<Awaited<ReturnType<typeof loadLengt
     const actual = previous.matches.map(match => `${match.home_slot_id || ''}:${match.away_slot_id || ''}`).sort();
     if (!expected || JSON.stringify(expected) !== JSON.stringify(actual) || previous.matches.some(match =>
       Boolean(match.home_team_id && match.away_team_id) &&
-      (match.schedule_resolution === 'finalized_unplayed' || (!match.completed && match.status !== 'finished')),
+      (match.schedule_resolution === 'finalized_unplayed'
+        || (!allowUnresolvedHistory && !match.completed && match.status !== 'finished')),
     )) return null;
   }
   return pairs.map(pair => {
@@ -333,6 +338,145 @@ function buildStoredPairings(round: StoredRound, pairings: LengthSchedulePairing
   });
 }
 
+export function findUnslottedPairingTeamIds(
+  matches: Array<{ home_team_id: string | null; away_team_id: string | null }>,
+  slotTeamIds: Iterable<string>,
+  pendingAdmissionTeamIds: Iterable<string> = [],
+) {
+  const allowedIds = new Set([...slotTeamIds, ...pendingAdmissionTeamIds]);
+  return [...new Set(matches.flatMap((match) => [match.home_team_id, match.away_team_id])
+    .filter((teamId): teamId is string => Boolean(teamId) && !allowedIds.has(teamId)))];
+}
+
+export async function prepareDueLengthScheduleRounds(
+  supabase: ServiceSupabase,
+  tournamentId: string,
+  seasonNumber: number,
+  now = new Date(),
+) {
+  const prepared: Array<{ roundId: string; roundNumber: number }> = [];
+  let lastReason = 'no_due_round';
+
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
+    if (!state) return { prepared, reason: 'not_length_schedule' };
+    const current = state.rounds
+      .filter((round) => round.phase === 'regular' && round.round_source !== 'organizer' && round.phase_status === 'materialized')
+      .sort((left, right) => right.round_number - left.round_number)[0];
+    if (!current) return { prepared, reason: 'no_materialized_regular_round' };
+    const next = state.rounds.find((round) =>
+      round.round_number === current.round_number + 1 && round.phase === 'regular' && round.round_source !== 'organizer',
+    );
+    if (!next) return { prepared, reason: 'no_next_reserved_regular_round' };
+    if (next.phase_status !== 'pending') return { prepared, reason: 'next_round_not_pending' };
+    if (!next.reserved_slot_date || !next.reserved_slot_kind) return { prepared, reason: 'next_round_missing_slot' };
+    const opensAt = getRoundPreparationOpensAt(next.reserved_slot_date, next.reserved_slot_kind);
+    if (!opensAt || opensAt > now) return { prepared, reason: 'not_due', opensAt: opensAt?.toISOString() ?? null };
+
+    let completedPreparation = false;
+    for (let retry = 0; retry < 3 && !completedPreparation; retry += 1) {
+      const { data: planData, error: planError } = await supabase.rpc('get_length_round_preparation_plan', {
+        p_tournament_id: tournamentId,
+        p_season_number: seasonNumber,
+        p_current_round_id: current.id,
+      });
+      if (planError) {
+        if (planError.code === '40001' && retry < 2) continue;
+        throw planError;
+      }
+      const plan = planData as {
+        activeTeamIds?: string[];
+        teamIds?: string[];
+        departingTeamIds?: string[];
+        rosterVersion?: string;
+      };
+      const activeIds = plan.activeTeamIds || [];
+      const enteringIds = plan.teamIds || [];
+      const departingIds = plan.departingTeamIds || [];
+      const activeSet = new Set(activeIds);
+      const enteringSet = new Set(enteringIds);
+      const departingSet = new Set(departingIds);
+      const loadedActiveIds = state.teams.map((team) => team.id).sort();
+      if (JSON.stringify([...activeIds].sort()) !== JSON.stringify(loadedActiveIds)) {
+        if (retry < 2) continue;
+        throw new Error('Tournament membership changed while preparing the next round.');
+      }
+      const enteringTeams = state.pendingTeams.filter((team) => enteringSet.has(team.id));
+      if (enteringTeams.length !== enteringIds.length) {
+        if (retry < 2) continue;
+        throw new Error('Waiting membership changed while preparing the next round.');
+      }
+
+      const roundTeamsRows = [
+        ...state.teams.filter((team) => !departingSet.has(team.id)),
+        ...enteringTeams,
+      ];
+      const roundState = { ...state, teams: roundTeamsRows };
+      const ranks = seasonRanks(roundState);
+      const roundTeams = toLengthTeams(roundTeamsRows, ranks);
+      const history = buildPairingHistory(state.rounds.filter((round) =>
+        round.phase === 'regular' && (round.phase_status === 'completed' || round.id === current.id),
+      ));
+      history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json))
+        || state.assignments.some((assignment) => assignment.admission_request_id)
+        || enteringTeams.length > 0;
+      history.boundedCandidates = state.assignments.some((assignment) => assignment.admission_request_id)
+        || enteringTeams.length > 0;
+      balanceExpandedHistory(history);
+
+      const frozenPairings = departingIds.length === 0
+        ? reservedPairings({ ...roundState, pendingTeams: enteringTeams }, next.round_number, true)
+        : null;
+      const matches = buildStoredPairings(
+        next,
+        frozenPairings ?? generateBalancedRound(roundTeams, history, next.round_number - 1),
+        roundTeams,
+      );
+      const unslottedIds = findUnslottedPairingTeamIds(
+        matches,
+        state.slots.map((slot) => slot.current_team_id).filter((id): id is string => Boolean(id)),
+        enteringIds,
+      );
+      if (unslottedIds.length > 0) {
+        const descriptions = unslottedIds.map((id) => {
+          const team = roundTeamsRows.find((candidate) => candidate.id === id);
+          return team ? `${team.name} (${id})` : id;
+        });
+        throw new Error(
+          `Round ${next.round_number} includes ${descriptions.join(', ')} without a current-season slot. ` +
+          'No fixtures or membership changes were written.',
+        );
+      }
+      if (matches.some((match) => Date.parse(String(match.scheduled_for)) <= now.getTime())) {
+        return { prepared, reason: 'reserved_slot_has_started', roundNumber: next.round_number };
+      }
+      const { data, error } = await supabase.rpc('prepare_due_length_regular_round', {
+        p_tournament_id: tournamentId,
+        p_season_number: seasonNumber,
+        p_current_round_id: current.id,
+        p_next_round_id: next.id,
+        p_matches: matches,
+        p_pending_team_ids: enteringIds,
+        p_active_team_ids: activeIds,
+        p_roster_version: plan.rosterVersion,
+      });
+      if (error) {
+        if (error.code === '40001' && retry < 2) continue;
+        throw error;
+      }
+      if (data?.prepared === true) {
+        prepared.push({ roundId: next.id, roundNumber: next.round_number });
+        completedPreparation = true;
+      } else {
+        lastReason = typeof data?.reason === 'string' ? data.reason : 'not_prepared';
+        return { prepared, reason: lastReason, opensAt: opensAt.toISOString() };
+      }
+    }
+    if (!completedPreparation) return { prepared, reason: 'membership_changed' };
+  }
+  return { prepared, reason: 'preparation_limit_reached' };
+}
+
 function balanceExpandedHistory(history: PairingHistory) {
   if (!history.boundedCandidates) return;
   // Late entrants have fewer appearances. Compare home bias per appearance,
@@ -357,10 +501,7 @@ export async function progressLengthSchedule(
   if (!state) return { advanced: false, reason: 'not_length_schedule' };
   let completedAdditionalRound = false;
   for (const round of state.rounds.filter(round => round.round_source === 'organizer' && round.phase_status === 'materialized')) {
-    const ready = round.matches.every(match => isResolvedMatch(match) || (
-      !match.completed && match.ht_match_id === null && ['not_arranged', 'misarranged'].includes(match.status || 'not_arranged') &&
-      match.scheduled_for !== null && new Date(match.scheduled_for).getTime() <= Date.now()
-    ));
+    const ready = round.matches.every(isResolvedMatch);
     if (!ready) continue;
     const result = await supabase.rpc('apply_length_round_transition', {
       p_tournament_id: tournamentId, p_season_number: seasonNumber, p_completed_round_id: round.id,
@@ -380,15 +521,7 @@ export async function progressLengthSchedule(
   }
   const current = state.rounds.find((round) => round.round_source !== 'organizer' && round.phase_status === 'materialized');
   if (!current) return { advanced: completedAdditionalRound, reason: 'no_materialized_round' };
-  const canFinalizeExpiredFixture = (match: StoredMatch) =>
-    !match.completed &&
-    match.ht_match_id === null &&
-    (match.status === null || match.status === 'not_arranged' || match.status === 'misarranged') &&
-    match.scheduled_for !== null &&
-    new Date(match.scheduled_for).getTime() <= Date.now() &&
-    (match.schedule_resolution === 'finalized_unplayed' || !isResolvedMatch(match));
-  const hasExpiredUnlinkedFixture = current.matches.some(canFinalizeExpiredFixture);
-  if (current.matches.some((match) => !isResolvedMatch(match) && !canFinalizeExpiredFixture(match))) {
+  if (current.matches.some((match) => !isResolvedMatch(match))) {
     return { advanced: false, reason: 'round_unresolved' };
   }
   const next = state.rounds.find((round) => round.round_source !== 'organizer' && round.round_number === current.round_number + 1) || null;
@@ -492,7 +625,7 @@ export async function progressLengthSchedule(
     )
     .map((round) => round.id);
 
-  const { data, error } = await supabase.rpc('apply_length_round_transition_with_membership', {
+  const transitionArgs = {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_completed_round_id: current.id,
@@ -504,7 +637,17 @@ export async function progressLengthSchedule(
     p_pending_team_ids: next?.phase === 'regular'
       ? state.pendingTeams.filter((team) => plan.teamIds.includes(team.id)).map((team) => team.id)
       : [],
-  });
+  };
+  const { data, error } = next?.phase_status === 'materialized'
+    ? await supabase.rpc('apply_length_round_transition', {
+      p_tournament_id: tournamentId,
+      p_season_number: seasonNumber,
+      p_completed_round_id: current.id,
+      p_next_round_id: next.id,
+      p_matches: [],
+      p_champion_team_id: null,
+    })
+    : await supabase.rpc('apply_length_round_transition_with_membership', transitionArgs);
   if (error) {
     if (['40001', 'P0001'].includes(error.code || '') && error.message === 'Round is not ready; membership remains unchanged') {
       return { advanced: false, reason: 'round_not_ready' };
@@ -513,11 +656,10 @@ export async function progressLengthSchedule(
     throw error;
   }
 
-  // The transition may finalize an expired fixture and progress the round.
-  // Keep its warning record as history while clearing its active state.
+  // Keep any prior finalized-unplayed warning as history while clearing its
+  // active state after the round's legitimate completion transition.
   const warningRoundIds = [...new Set([
     ...finalizedWarningRoundIds,
-    ...(hasExpiredUnlinkedFixture ? [current.id] : []),
   ])];
   if (warningRoundIds.length > 0) {
     const { error: warningError } = await supabase
@@ -569,10 +711,15 @@ export async function repairLengthRound(
   supabase: ServiceSupabase,
   tournamentId: string,
   seasonNumber: number,
+  requestedRoundId?: string | null,
 ) {
   const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
   if (!state) throw new Error('This tournament does not use staged length scheduling.');
-  const current = state.rounds.find((round) => round.phase_status === 'materialized' && round.phase === 'regular');
+  const current = state.rounds.find((round) =>
+    (!requestedRoundId || round.id === requestedRoundId) &&
+    round.phase_status === 'materialized' && round.phase === 'regular' &&
+    round.round_source !== 'organizer' && !round.is_unscored,
+  );
   if (!current) throw new Error('There is no repairable regular round.');
   const protectedMatches = current.matches.filter(
     (match) =>
@@ -653,6 +800,7 @@ export async function repairLengthRound(
   if (error) throw error;
   return {
     ...(firstRelation(data as Record<string, unknown> | Record<string, unknown>[] | null) || {}),
+    roundNumber: current.round_number,
     lockedFixtures: untouchedMatches.filter((match) => match.home_team_id && match.away_team_id).length,
     unavailableTeams: unavailableTeamIds.length,
     repairedPlayableFixtures: repair.repairedPairs.filter((pairing) => !pairing.isBye).length,

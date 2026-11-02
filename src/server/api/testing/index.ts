@@ -318,6 +318,7 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
     teamId,
     opponentTeamId,
     matchType: Number(value(req, 'matchType') || '1') === 1 ? 1 : 0,
+    isWeekendFriendly: value(req, 'isWeekendFriendly') === '1' ? 1 : 0,
     matchPlace: 0,
     requestOptions: parseChppRequestOptionsFromQuery(req.query),
   });

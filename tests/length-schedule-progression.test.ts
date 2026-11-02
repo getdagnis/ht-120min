@@ -176,30 +176,30 @@ async function progress(harness: ReturnType<typeof createHarness>) {
   );
 }
 
-test('expired unlinked misarranged fixture is finalized and progresses the round', async () => {
+test('expired unlinked misarranged fixture is left untouched while the next round waits for its time boundary', async () => {
   const harness = createHarness(fixture('misarranged'));
 
   const result = await progress(harness);
 
-  assert.equal(result.advanced, true);
-  assert.equal(harness.currentRound.matches[0]?.schedule_resolution, 'finalized_unplayed');
+  assert.deepEqual(result, { advanced: false, reason: 'round_unresolved' });
+  assert.equal(harness.currentRound.matches[0]?.schedule_resolution, 'pending');
   assert.equal(harness.currentRound.matches[0]?.status, 'misarranged');
-  assert.equal(harness.currentRound.phase_status, 'completed');
-  assert.equal(harness.nextRound.phase_status, 'materialized');
-  assert.equal(harness.nextRound.matches.length, 1);
-  assert.equal(harness.warnings.length, 1);
-  assert.equal(harness.warnings[0]?.active, false);
+  assert.equal(harness.currentRound.phase_status, 'materialized');
+  assert.equal(harness.nextRound.phase_status, 'pending');
+  assert.equal(harness.nextRound.matches.length, 0);
+  assert.equal(harness.rpcCalls.length, 0);
 });
 
-test('expired unlinked not_arranged fixture is finalized and progresses the round', async () => {
+test('expired unlinked not_arranged fixture is not finalized by result progression', async () => {
   const harness = createHarness(fixture('not_arranged'));
 
   const result = await progress(harness);
 
-  assert.equal(result.advanced, true);
-  assert.equal(harness.currentRound.matches[0]?.schedule_resolution, 'finalized_unplayed');
-  assert.equal(harness.currentRound.matches[0]?.status, 'misarranged');
-  assert.equal(harness.nextRound.phase_status, 'materialized');
+  assert.deepEqual(result, { advanced: false, reason: 'round_unresolved' });
+  assert.equal(harness.currentRound.matches[0]?.schedule_resolution, 'pending');
+  assert.equal(harness.currentRound.matches[0]?.status, 'not_arranged');
+  assert.equal(harness.nextRound.phase_status, 'pending');
+  assert.equal(harness.rpcCalls.length, 0);
 });
 
 test('future pending fixture remains unresolved and blocks progression', async () => {
@@ -233,7 +233,9 @@ test('arranged, linked, and ongoing fixtures are not finalized by expired-fixtur
 });
 
 test('repeated progression does not materialize duplicate next-round fixtures', async () => {
-  const harness = createHarness(fixture('misarranged'));
+  const harness = createHarness(fixture('finished', {
+    completed: true, home_goals: 1, away_goals: 0, schedule_resolution: 'played',
+  }));
 
   const firstResult = await progress(harness);
   const firstFixtures = [...harness.nextRound.matches];

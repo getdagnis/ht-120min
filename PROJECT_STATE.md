@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-31
+Last updated: 2026-11-02
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -9,6 +9,8 @@ The local MVP includes a deterministic Meet the Manager spotlight built from per
 ## Current Product State
 
 Forge Match Bookings has a locally implemented tournament and season automatic-booking switch. Migration `161_tournament_season_auto_booking_settings.sql` is prepared; absent rows are OFF. The server worker discovers enabled current-season tournaments, excludes finished/archived/disabled entries, processes at most five fixtures per invocation, and writes bounded retry times to the service-only audit table from migration 162. International midweek fixtures use a Hattrick-time opening schedule; other fixture types and persistent eligibility blocks use slower checks. Forge shows the last ten real-mode audit records at the bottom of Match Bookings through its authenticated API. The batch endpoint `/api/cron/auto-booking` uses server-only bearer authentication, defaults to dry-run, and requires a separate server-only flag plus explicit real-mode request for CHPP actions. The owner reports that the generalized production cron already runs every five minutes; it was not independently inspected or modified. The replacement Cron SQL and read-only enabled-tournament preview remain in `docs/auto-booking-cron.sql`. Migration 162 must exist in the target database before using the endpoint. Live Supabase/CHPP verification remains outstanding.
+
+Length-schedule rounds now have a separate local preparation path tied to the Hattrick booking windows: Monday 06:00 Europe/Stockholm for weekend slots and Thursday 06:00 for midweek slots. It can prepare the immediate next reserved regular round while an earlier round remains unresolved, without completing or rewriting that earlier round. Forge Matches includes an admin-only **Refresh rounds** action for relevant tournaments; Fixture Data Refresh also invokes preparation. Waiting admissions and eligible departures are applied atomically at the newly prepared round using the existing safeguards. Around the World keeps its approved Flag Hunters opener and requires CSV export before manual booking; real automatic booking is blocked for it. Migration `165_prepare_due_length_rounds.sql` and matching code are local only, not applied or live-verified. No Hattrick bookings or live tournament changes were made; the requested small-tournament W16 availability and Queens of the Pacific state require a later real Supabase/Forge check.
 
 Tournament cache partitioning and public fixture projections are implemented locally: per-round current fixtures, lazy per-season history, and two initial Manager Spotlights with on-demand browsing. Migration `155_daily_manager_spotlights.sql` introduces service-only atomic UTC-day selection metadata and is **not applied**. Apply it before deploying the associated loader. Stored event/report facts and live processing are preserved. Real largest-tournament cache sizing, database concurrency/RLS execution, browser behavior and deployed cache reuse remain unverified. See [public data boundaries](docs/public-data-implementation.md#tournament-cache-and-spotlight-boundaries-local-implementation).
 

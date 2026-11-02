@@ -2096,8 +2096,8 @@ export const TournamentView: React.FC<{
     if (matchesData) {
       const fixtureIds = (matchesData as { id: string }[]).map((match) => match.id);
       const { data: ratingRows, error: ratingsError } = fixtureIds.length
-        ? await readFixtureRatingStatuses((fields) =>
-            supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', fixtureIds),
+        ? await readFixtureRatingStatuses(fixtureIds, (fields, ids) =>
+            supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', [...ids]),
           )
         : { data: [], error: null };
       if (ratingsError) {
@@ -5188,10 +5188,10 @@ export const TournamentView: React.FC<{
     }
   };
 
-  const repairCurrentLengthRound = async () => {
+  const repairCurrentLengthRound = async (roundId: string) => {
     if (!tournament || tournament.schedule_mode !== 'length') return;
     const currentRound = rounds.find(
-      (round) => !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular',
+      (round) => round.id === roundId && !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular',
     );
     if (!currentRound) return;
     if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`))
@@ -5201,7 +5201,7 @@ export const TournamentView: React.FC<{
       const response = await fetch('/api/app?route=repair-length-round', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1 }),
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1, roundId }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not repair this round.');

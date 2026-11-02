@@ -179,7 +179,8 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   if ('error' in slotsResult && slotsResult.error) throw slotsResult.error;
   const matchIds = ((matchesResult.data || []) as { id: string }[]).map((match) => match.id);
   const ratingStatusResult = matchIds.length
-    ? await query('rating-status-' + JSON.stringify(matchIds), () => readFixtureRatingStatuses((fields) => supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', matchIds)))
+    ? await query('rating-statuses', () => readFixtureRatingStatuses(matchIds, (fields, ids) =>
+        supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', [...ids])))
     : { data: [], error: null };
   if (ratingStatusResult.error) throw ratingStatusResult.error;
   if ('error' in profilesResult && profilesResult.error) throw profilesResult.error;
@@ -209,14 +210,23 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   );
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
   const slotIds = (slotsResult.data || []).map((slot) => String((slot as Record<string, unknown>).id));
-  const assignmentFilters = [
-    ...(slotIds.length ? [`tournament_season_slot_id.in.(${slotIds.join(',')})`] : []),
-    ...(assignmentIds.length ? [`id.in.(${assignmentIds.join(',')})`] : []),
-  ];
-  const assignmentResult = assignmentFilters.length
-    ? await query('assignments-' + assignmentFilters.join(','), () => supabase.from('tournament_season_slot_assignments')
-        .select('id,tournament_season_slot_id,team_id,assigned_at,released_at,team_name,ht_team_id,manager_name,hattrick_user_id,logo_url')
-        .or(assignmentFilters.join(',')))
+  const assignmentResult = slotIds.length || assignmentIds.length
+    ? await query('assignments', async () => {
+        const assignmentFields = 'id,tournament_season_slot_id,team_id,assigned_at,released_at,team_name,ht_team_id,manager_name,hattrick_user_id,logo_url';
+        const batches = (ids: string[]) => Array.from({ length: Math.ceil(ids.length / 100) }, (_, index) =>
+          ids.slice(index * 100, index * 100 + 100));
+        const queries = [
+          ...batches(slotIds).map((ids) => supabase.from('tournament_season_slot_assignments')
+            .select(assignmentFields).in('tournament_season_slot_id', ids)),
+          ...batches(assignmentIds).map((ids) => supabase.from('tournament_season_slot_assignments')
+            .select(assignmentFields).in('id', ids)),
+        ];
+        const results = await Promise.all(queries);
+        const failed = results.find((result) => result.error);
+        if (failed?.error) return { data: null, error: failed.error };
+        const rows = new Map(results.flatMap((result) => result.data || []).map((row) => [row.id, row]));
+        return { data: [...rows.values()], error: null };
+      })
     : { data: [], error: null };
   if (assignmentResult.error) throw assignmentResult.error;
   const assignmentRows = assignmentResult.data;
