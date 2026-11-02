@@ -217,4 +217,3 @@ GRANT EXECUTE ON FUNCTION public.apply_reviewed_length_round_repair(uuid,integer
   TO service_role;
 COMMIT;
 
--- applied!

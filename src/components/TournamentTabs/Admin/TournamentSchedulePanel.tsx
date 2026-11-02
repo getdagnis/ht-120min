@@ -88,6 +88,7 @@ interface SchedulePanelTeam {
 interface RoundRepairSelection {
   keepMatchIds: string[];
   lobbyTeamIds: string[];
+  shuffleIndex?: number;
 }
 
 interface RoundRepairInspection {
@@ -100,6 +101,7 @@ interface RoundRepairInspection {
 
 interface RoundRepairReview {
   proposalHash: string;
+  shuffleIndex: number;
   keptFixtures: number;
   matches: Array<{ home_team_id: string | null; away_team_id: string | null; ht_match_id?: number }>;
   lobbyTeamIds: string[];
@@ -1177,10 +1179,19 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     setRepairError('');
     try {
       if (action === 'review') {
-        const result = await onRepairRound(repairRoundId, 'review', repairSelection) as RoundRepairReview;
+        const nextSelection = {
+          ...repairSelection,
+          shuffleIndex: (repairReview?.shuffleIndex ?? -1) + 1,
+        };
+        const result = await onRepairRound(repairRoundId, 'review', nextSelection) as RoundRepairReview;
         setRepairReview(result);
       } else if (repairReview) {
-        await onRepairRound(repairRoundId, 'confirm', repairSelection, repairReview.proposalHash);
+        await onRepairRound(
+          repairRoundId,
+          'confirm',
+          { ...repairSelection, shuffleIndex: repairReview.shuffleIndex },
+          repairReview.proposalHash,
+        );
         setRepairRoundId(null);
         setRepairInspection(null);
         setRepairReview(null);
@@ -1330,8 +1341,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                     </div>}
                     {repairError && <p role="alert" className={adminStyles.generatedRepairError}>{repairError}</p>}
                     {hasReviewableChanges ? <div className={adminStyles.generatedRepairActions}>
-                      <Button variant="secondaryAction" size="sm" onClick={() => void submitRoundRepair('review')} disabled={repairBusy}>
-                        {repairBusy ? 'Checking…' : 'Review changes'}
+                      <Button variant="secondaryAction" size="sm" onClick={() => void submitRoundRepair('review')}
+                        disabled={repairBusy || Boolean(repairReview && repairReview.shuffleIndex >= 100)}>
+                        {repairBusy ? 'Checking…' : repairReview ? 'Reshuffle pairs' : 'Review changes'}
                       </Button>
                       {repairReview && <Button variant="primary" size="sm" onClick={() => void submitRoundRepair('confirm')} disabled={repairBusy}>
                         Confirm changes

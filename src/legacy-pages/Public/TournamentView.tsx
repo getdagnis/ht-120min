@@ -5191,7 +5191,7 @@ export const TournamentView: React.FC<{
   const repairCurrentLengthRound = async (
     roundId: string,
     action: 'inspect' | 'review' | 'confirm',
-    selection?: { keepMatchIds: string[]; lobbyTeamIds: string[] },
+    selection?: { keepMatchIds: string[]; lobbyTeamIds: string[]; shuffleIndex?: number },
     proposalHash?: string,
   ) => {
     if (!tournament || tournament.schedule_mode !== 'length') throw new Error('Tournament unavailable.');

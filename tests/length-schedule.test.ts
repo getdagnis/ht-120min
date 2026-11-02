@@ -229,6 +229,26 @@ test('balanced round falls back to the minimum number of rematches when strict p
   assert.equal(rematches.length, 1);
 });
 
+test('reshuffled rounds cycle through distinct pairings and relax rematch preferences', () => {
+  const teams = rankedTeams(4);
+  const history = { playedPairs: [['team-1', 'team-2']] as Array<[string, string]> };
+  const getPairKeys = (shuffleIndex: number) =>
+    generateBalancedRound(teams, history, 0, shuffleIndex)
+      .filter((pairing) => pairing.homeTeamId && pairing.awayTeamId)
+      .map((pairing) => [pairing.homeTeamId!, pairing.awayTeamId!].sort().join(':'))
+      .sort();
+  const first = getPairKeys(0);
+  const second = getPairKeys(1);
+  const relaxed = getPairKeys(2);
+
+  assert.notDeepEqual(second, first);
+  assert.notDeepEqual(relaxed, first);
+  assert.notDeepEqual(relaxed, second);
+  assert.ok(!first.includes('team-1:team-2'));
+  assert.ok(!second.includes('team-1:team-2'));
+  assert.ok(relaxed.includes('team-1:team-2'));
+});
+
 test('new repair fallbacks favor least-repeated opponents while legacy matching stays unchanged', () => {
   const teams = rankedTeams(4);
   const playedPairs: Array<[string, string]> = [
