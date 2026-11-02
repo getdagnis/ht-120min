@@ -143,6 +143,7 @@ interface FixturesViewProps {
   upcomingRoundIndex: number;
   focusedRoundIndex: number;
   defaultVisibleRoundsCount: number;
+  participatingTeamCount?: number;
   expandedRounds: Record<string, boolean>;
   toggleRound: (roundId: string) => void;
   onExpandAllRounds: () => void;
@@ -241,6 +242,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   upcomingRoundIndex,
   focusedRoundIndex,
   defaultVisibleRoundsCount,
+  participatingTeamCount,
   expandedRounds,
   toggleRound,
   onExpandAllRounds,
@@ -320,7 +322,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const fixtureText = useTranslations('fixtures');
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
-  const [showMisarrangedMatches, setShowMisarrangedMatches] = React.useState(false);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
   const teamFilterRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
@@ -503,6 +504,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [rounds]);
+  const [showMisarrangedMatches, setShowMisarrangedMatches] = React.useState(
+    () => (participatingTeamCount ?? fixtureTeams.length) <= 16,
+  );
   const selectedTeamName = fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
@@ -1011,9 +1015,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   aria-expanded={isTeamFilterOpen}
                   aria-haspopup="listbox"
                 >
-                  <span>
-                    {uiText('fILTER')} {selectedTeamName || uiText('aLLTEAMS')}
-                  </span>
+                  <span className={styles.fixturesFilterLabel}>{uiText('fILTER')}</span>
+                  <span className={styles.fixturesFilterValue}>{selectedTeamName || uiText('aLLTEAMS')}</span>
                 </button>
                 {isTeamFilterOpen && (
                   <div
@@ -1055,11 +1058,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             {rounds.length > 0 && (
               <button
                 type="button"
-                className={styles.fixturesHeaderAction}
+                className={`${styles.fixturesHeaderAction} ${styles.fixturesFilterButton}`}
                 aria-pressed={showMisarrangedMatches}
                 onClick={() => setShowMisarrangedMatches((show) => !show)}
               >
-                <span>{uiText(showMisarrangedMatches ? 'showMisarrangedOn' : 'showMisarrangedOff')}</span>
+                <span className={styles.fixturesFilterLabel}>{uiText('misarrangedLabel')}</span>
+                <span className={styles.fixturesFilterValue}>
+                  {uiText(showMisarrangedMatches ? 'misarrangedOn' : 'misarrangedOff')}
+                </span>
               </button>
             )}
             {rounds.length > 0 && (

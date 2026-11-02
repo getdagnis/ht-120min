@@ -7006,6 +7006,7 @@ export const TournamentView: React.FC<{
             focusedRoundIndex={isViewingHistoricalFixtures ? -1 : focusedRoundIndex}
             season={fixtureSeasonNumber}
             defaultVisibleRoundsCount={isViewingHistoricalFixtures ? fixtureRounds.length : defaultVisibleRoundsCount}
+            participatingTeamCount={isViewingHistoricalFixtures ? undefined : activeParticipantCount}
             expandedRounds={expandedRounds}
             toggleRound={toggleRound}
             onExpandAllRounds={expandAllRounds}
