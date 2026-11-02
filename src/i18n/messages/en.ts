@@ -1,7 +1,7 @@
 const messages = {
   lobby: {
     title: "Lobby",
-    hanging_around: "Hanging around",
+    hanging_around: "Sitting out",
     ready_to_join: "Join when possible",
     open_to_invitations: "Available as reserve",
     statusForTeam: "Lobby status for {team}",

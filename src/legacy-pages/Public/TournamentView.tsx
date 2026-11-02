@@ -84,7 +84,7 @@ import {
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
-import { getFocusedFixtureRoundIndex, getUpcomingFixtureRoundIndex, isResolvedFixture } from '../../utils/fixture-round-focus';
+import { getFocusedFixtureRoundIndex, getUpcomingFixtureRoundIndex } from '../../utils/fixture-round-focus';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import {
   canViewerJoinAnotherTeam,
@@ -1048,22 +1048,27 @@ export const TournamentView: React.FC<{
   const storedHtManagerName = useHydratedLocalStorage('my_ht_manager_name');
   const currentHtUserId = Number(storedHtUserId || '0') || null;
   const hasMyMatches = Boolean(
-    currentHtUserId && rounds.some((round) =>
-      round.matches.some((match) =>
-        Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
-        Number(match.away_team?.hattrick_user_id) === currentHtUserId,
+    currentHtUserId &&
+    rounds.some((round) =>
+      round.matches.some(
+        (match) =>
+          Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+          Number(match.away_team?.hattrick_user_id) === currentHtUserId,
       ),
     ),
   );
   const hasHistory = historySeasons.length > 0;
   type TournamentTab = 'standings' | 'fixtures' | 'my-matches' | 'history' | 'guestbook' | 'admin' | 'news';
-  const activeTab: TournamentTab = activeTabParam === 'my-matches'
-    ? (currentHtUserId && hasMyMatches ? 'my-matches' : 'fixtures')
-    : activeTabParam === 'history' && !hasHistory
-      ? 'standings'
-      : ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
-        ? activeTabParam as Exclude<TournamentTab, 'my-matches'>
-        : 'standings';
+  const activeTab: TournamentTab =
+    activeTabParam === 'my-matches'
+      ? currentHtUserId && hasMyMatches
+        ? 'my-matches'
+        : 'fixtures'
+      : activeTabParam === 'history' && !hasHistory
+        ? 'standings'
+        : ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
+          ? (activeTabParam as Exclude<TournamentTab, 'my-matches'>)
+          : 'standings';
   const isFixturesTab = activeTab === 'fixtures' || activeTab === 'my-matches';
 
   useEffect(() => {
@@ -1703,10 +1708,21 @@ export const TournamentView: React.FC<{
     () => (lengthScheduleDraft.valid ? serializeLengthScheduleDraft(lengthScheduleDraft) : null),
     [lengthScheduleDraft],
   );
-  const [lengthOpeningPreview, setLengthOpeningPreview] = useState<{ previewToken: string; preferenceCount: number; historicalOpener: boolean;
+  const [lengthOpeningPreview, setLengthOpeningPreview] = useState<{
+    previewToken: string;
+    preferenceCount: number;
+    historicalOpener: boolean;
     pairingSource: 'approved' | 'flags' | 'preferences' | 'ranked';
-    openingMatches: Array<{ home: string; away: string; isBye: boolean; homeComment: string | null; awayComment: string | null;
-      homeCommentedAt: string | null; awayCommentedAt: string | null }> } | null>(null);
+    openingMatches: Array<{
+      home: string;
+      away: string;
+      isBye: boolean;
+      homeComment: string | null;
+      awayComment: string | null;
+      homeCommentedAt: string | null;
+      awayCommentedAt: string | null;
+    }>;
+  } | null>(null);
   const rescheduleInputRounds = useMemo(
     () =>
       rounds.map((round) => ({
@@ -1947,7 +1963,11 @@ export const TournamentView: React.FC<{
         const tournamentData = data.tournament as unknown as Tournament;
         setTournament((current) => ({ ...current, ...tournamentData }));
         setTeams(data.teams as unknown as Team[]);
-        setSpotlightData({ managerSpotlight: data.managerSpotlight, managerSpotlights: data.managerSpotlights, hasMore: data.managerSpotlightsHasMore });
+        setSpotlightData({
+          managerSpotlight: data.managerSpotlight,
+          managerSpotlights: data.managerSpotlights,
+          hasMore: data.managerSpotlightsHasMore,
+        });
         setRounds(reviveInitialRounds(data));
         setStandings(data.standings as unknown as TeamStanding[]);
         setSeasonSlots(data.seasonSlots);
@@ -2224,7 +2244,8 @@ export const TournamentView: React.FC<{
     () => {
       void fetchFixturesOnly();
     },
-    tournament?.status !== 'finished' && (isFixturesTab || activeTab === 'standings' || isAppg120ScoringMode(tournament?.scoring_mode)),
+    tournament?.status !== 'finished' &&
+      (isFixturesTab || activeTab === 'standings' || isAppg120ScoringMode(tournament?.scoring_mode)),
     isAppg120ScoringMode(tournament?.scoring_mode),
   );
 
@@ -2741,7 +2762,8 @@ export const TournamentView: React.FC<{
     tournament?.schedule_mode === 'length' &&
     rounds.some(
       (round) =>
-        !round.is_unscored && round.phase_status === 'materialized' &&
+        !round.is_unscored &&
+        round.phase_status === 'materialized' &&
         round.matches.length > 0 &&
         round.matches.every((match) => match.completed || match.status === 'misarranged') &&
         rounds.some((next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending'),
@@ -2770,7 +2792,10 @@ export const TournamentView: React.FC<{
         // 2. Also trigger a live check for HT-linked matches that may have result data.
         //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
         const matchesToSync = allMatches.filter(
-          (m) => m.ht_match_id && (manualRatings || !m.completed) && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
+          (m) =>
+            m.ht_match_id &&
+            (manualRatings || !m.completed) &&
+            (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
         );
         const matchIdsToSync = new Set<number>();
         for (const match of matchesToSync) {
@@ -3607,11 +3632,15 @@ export const TournamentView: React.FC<{
 
     const now = new Date().toISOString();
     const finishedAt = resolveSeasonFinishedAt(
-      rounds.filter(round => !round.is_unscored).flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      rounds
+        .filter((round) => !round.is_unscored)
+        .flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       existingSeason?.finished_at || now,
     );
     const startedAt = resolveSeasonStartedAt(
-      rounds.filter(round => !round.is_unscored).flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      rounds
+        .filter((round) => !round.is_unscored)
+        .flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       existingSeason?.started_at || tournament.schedule_generated_at || null,
     );
     const { data, error } = await supabase
@@ -3897,8 +3926,10 @@ export const TournamentView: React.FC<{
       if (matchesError) throw matchesError;
 
       const roundNumberById = new Map(seasonRounds.map((round) => [round.id, round.round_number]));
-      const countedRoundIds = new Set(seasonRounds.filter(round => !round.is_unscored).map(round => round.id));
-      const matches = ((seasonMatches || []) as MatchWithTeams[]).filter(match => countedRoundIds.has(match.round_id));
+      const countedRoundIds = new Set(seasonRounds.filter((round) => !round.is_unscored).map((round) => round.id));
+      const matches = ((seasonMatches || []) as MatchWithTeams[]).filter((match) =>
+        countedRoundIds.has(match.round_id),
+      );
       const historicalTeamIds = new Set(
         [
           ...matches.flatMap((match) => [match.home_team_id, match.away_team_id]),
@@ -5044,15 +5075,24 @@ export const TournamentView: React.FC<{
     }
     if (usesLengthSchedulePlanner) {
       try {
-        const response = await fetch('/api/app?route=generate-length-schedule', { method: 'POST',
+        const response = await fetch('/api/app?route=generate-length-schedule', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'preview', tournamentId: tournament.id, seasonNumber: tournament.season || 1,
-            schedulePayload: serializedLengthScheduleDraft }) });
+          body: JSON.stringify({
+            action: 'preview',
+            tournamentId: tournament.id,
+            seasonNumber: tournament.season || 1,
+            schedulePayload: serializedLengthScheduleDraft,
+          }),
+        });
         const preview = await response.json();
         if (!response.ok) throw new Error(preview.error || 'Could not preview the opening round.');
         setLengthOpeningPreview(preview);
       } catch (cause) {
-        setScheduleNotice({ title: 'Could not preview schedule', message: cause instanceof Error ? cause.message : 'Try again.' });
+        setScheduleNotice({
+          title: 'Could not preview schedule',
+          message: cause instanceof Error ? cause.message : 'Try again.',
+        });
         return;
       }
     }
@@ -5150,7 +5190,9 @@ export const TournamentView: React.FC<{
 
   const repairCurrentLengthRound = async () => {
     if (!tournament || tournament.schedule_mode !== 'length') return;
-    const currentRound = rounds.find((round) => !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular');
+    const currentRound = rounds.find(
+      (round) => !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular',
+    );
     if (!currentRound) return;
     if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`))
       return;
@@ -5171,7 +5213,9 @@ export const TournamentView: React.FC<{
         message: [
           `${body.lockedFixtures || 0} unaffected fixtures kept.`,
           `${body.repairedPlayableFixtures || 0} playable fixtures created.`,
-          ...(contained ? [`${contained} unplayable ${contained === 1 ? 'pairing' : 'pairings'} recorded for unavailable teams.`] : []),
+          ...(contained
+            ? [`${contained} unplayable ${contained === 1 ? 'pairing' : 'pairings'} recorded for unavailable teams.`]
+            : []),
           ...(byes ? [`${byes} ${byes === 1 ? 'BYE' : 'BYEs'} assigned.`] : []),
         ].join(' '),
       });
@@ -5727,7 +5771,9 @@ export const TournamentView: React.FC<{
       round.phase === 'regular' &&
       round.phase_status === 'pending' &&
       round.round_number ===
-        (rounds.find((current) => !current.is_unscored && current.phase_status === 'materialized')?.round_number ?? -1) + 1,
+        (rounds.find((current) => !current.is_unscored && current.phase_status === 'materialized')?.round_number ??
+          -1) +
+          1,
   );
   const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && canManageOperationalAdmin && !isGenerated);
@@ -5851,18 +5897,40 @@ export const TournamentView: React.FC<{
   const [historyRetry, setHistoryRetry] = useState(0);
   useEffect(() => {
     const current = Number(tournament?.season || 1);
-    const historyNumber = Number(searchParams.get('historySeason')) || [...seasons].filter((entry) => entry.status === 'finished').sort((a, b) => b.season_number - a.season_number)[0]?.season_number;
-    const number = activeTab === 'history' ? historyNumber : selectedSeasonNumber < current ? selectedSeasonNumber : null;
+    const historyNumber =
+      Number(searchParams.get('historySeason')) ||
+      [...seasons].filter((entry) => entry.status === 'finished').sort((a, b) => b.season_number - a.season_number)[0]
+        ?.season_number;
+    const number =
+      activeTab === 'history' ? historyNumber : selectedSeasonNumber < current ? selectedSeasonNumber : null;
     const season = seasons.find((entry) => entry.season_number === number);
-    if (!tournament?.slug || !number || !season || (season as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded) return;
+    if (
+      !tournament?.slug ||
+      !number ||
+      !season ||
+      (season as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded
+    )
+      return;
     let cancelled = false;
-    readTournamentSeasonPublicData(tournament.slug, number).then((data) => {
-      if (cancelled) return;
-      if (!data) throw new Error('Season unavailable.');
-      setHistoryLoadError(null);
-      setSeasons((current) => current.map((entry) => entry.season_number === number ? { ...entry, ...data, publicSnapshotLoaded: true } as TournamentSeason : entry));
-    }).catch(() => { if (!cancelled) setHistoryLoadError(number); });
-    return () => { cancelled = true; };
+    readTournamentSeasonPublicData(tournament.slug, number)
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) throw new Error('Season unavailable.');
+        setHistoryLoadError(null);
+        setSeasons((current) =>
+          current.map((entry) =>
+            entry.season_number === number
+              ? ({ ...entry, ...data, publicSnapshotLoaded: true } as TournamentSeason)
+              : entry,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryLoadError(number);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab, searchParams, selectedSeasonNumber, seasons, tournament?.slug, tournament?.season, historyRetry]);
 
   if (loading) {
@@ -5926,13 +5994,19 @@ export const TournamentView: React.FC<{
       : []
     : rounds;
   const fixtureSeasonNumber = selectedSeasonNumber;
-  const ongoingMatchCount = !isViewingHistoricalSeason && tournament.status !== 'finished' && renderTimestamp > 0
-    ? new Set(allMatches.filter((match) => {
-        if (!match.ht_match_id || match.completed || liveData[String(match.ht_match_id)]?.status !== 'ongoing') return false;
-        const kickoff = match.match_date ? new Date(match.match_date).getTime() : NaN;
-        return Number.isFinite(kickoff) && renderTimestamp <= kickoff + 4 * 60 * 60 * 1000;
-      }).map((match) => match.id)).size
-    : 0;
+  const ongoingMatchCount =
+    !isViewingHistoricalSeason && tournament.status !== 'finished' && renderTimestamp > 0
+      ? new Set(
+          allMatches
+            .filter((match) => {
+              if (!match.ht_match_id || match.completed || liveData[String(match.ht_match_id)]?.status !== 'ongoing')
+                return false;
+              const kickoff = match.match_date ? new Date(match.match_date).getTime() : NaN;
+              return Number.isFinite(kickoff) && renderTimestamp <= kickoff + 4 * 60 * 60 * 1000;
+            })
+            .map((match) => match.id),
+        ).size
+      : 0;
   const standingsWarningTeamIds = (() => {
     if (isViewingHistoricalSeason || isSandbox || tournament.is_test || warnings.length === 0) {
       return new Set<string>();
@@ -5982,8 +6056,16 @@ export const TournamentView: React.FC<{
     : [];
   const selectedHistorySeasonNumber =
     Number(searchParams.get('historySeason')) || historySeasons[0]?.season_number || null;
-  const requestedHistorySeason = activeTab === 'history' ? seasons.find((season) => season.season_number === selectedHistorySeasonNumber) : isViewingHistoricalSeason ? selectedSeason : null;
-  const waitingForHistory = Boolean(requestedHistorySeason && !(requestedHistorySeason as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded);
+  const requestedHistorySeason =
+    activeTab === 'history'
+      ? seasons.find((season) => season.season_number === selectedHistorySeasonNumber)
+      : isViewingHistoricalSeason
+        ? selectedSeason
+        : null;
+  const waitingForHistory = Boolean(
+    requestedHistorySeason &&
+    !(requestedHistorySeason as TournamentSeason & { publicSnapshotLoaded?: boolean }).publicSnapshotLoaded,
+  );
   const handleHistorySeasonChange = (seasonNumber: number) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('tab', 'history');
@@ -6776,23 +6858,25 @@ export const TournamentView: React.FC<{
         >
           {uiText('news')}
         </Link>
-        {hasHistory && <Link
-          href={getTabHref('history')}
-          prefetch={false}
-          onNavigate={(event) => {
-            event.preventDefault();
-            window.history.pushState(null, '', getTabHref('history'));
-          }}
-          className={activeTab === 'history' ? styles.active : ''}
-          onClick={() => handleTabChange('history')}
-        >
-          {uiText('history')}
-          {historyTabBadgeCount > 0 && (
-            <span className={styles.historyTabBadge} aria-label={uiText('newSeasonHistoryActivity')}>
-              {historyTabBadgeCount}
-            </span>
-          )}
-        </Link>}
+        {hasHistory && (
+          <Link
+            href={getTabHref('history')}
+            prefetch={false}
+            onNavigate={(event) => {
+              event.preventDefault();
+              window.history.pushState(null, '', getTabHref('history'));
+            }}
+            className={activeTab === 'history' ? styles.active : ''}
+            onClick={() => handleTabChange('history')}
+          >
+            {uiText('history')}
+            {historyTabBadgeCount > 0 && (
+              <span className={styles.historyTabBadge} aria-label={uiText('newSeasonHistoryActivity')}>
+                {historyTabBadgeCount}
+              </span>
+            )}
+          </Link>
+        )}
         <Link
           href={getTabHref('admin')}
           prefetch={false}
@@ -6863,8 +6947,17 @@ export const TournamentView: React.FC<{
       </Modal>
 
       {waitingForHistory && ['history', 'fixtures', 'my-matches', 'standings'].includes(activeTab) && (
-        <div className={styles.loading} role={historyLoadError === requestedHistorySeason?.season_number ? 'alert' : 'status'}>
-          {historyLoadError === requestedHistorySeason?.season_number ? <Button variant="primary" onClick={() => setHistoryRetry((value) => value + 1)}>{uiText('tryAgain')}</Button> : t('loading')}
+        <div
+          className={styles.loading}
+          role={historyLoadError === requestedHistorySeason?.season_number ? 'alert' : 'status'}
+        >
+          {historyLoadError === requestedHistorySeason?.season_number ? (
+            <Button variant="primary" onClick={() => setHistoryRetry((value) => value + 1)}>
+              {uiText('tryAgain')}
+            </Button>
+          ) : (
+            t('loading')
+          )}
         </div>
       )}
       {activeTab === 'history' && !waitingForHistory && (
@@ -7082,10 +7175,27 @@ export const TournamentView: React.FC<{
                       {team.logo_url && <img src={team.logo_url} alt="" />}
                       <div className={styles.lobbyTeamDetails}>
                         <span className={styles.lobbyTeamName}>{team.name}</span>
-                        <TeamByline mode="standings" teamId={team.ht_team_id} teamName={team.name} managerName={team.manager_name} managerHtId={team.hattrick_user_id} countryName={team.country_name} countryId={team.country_id} />
+                        <TeamByline
+                          mode="standings"
+                          teamId={team.ht_team_id}
+                          teamName={team.name}
+                          managerName={team.manager_name}
+                          managerHtId={team.hattrick_user_id}
+                          countryName={team.country_name}
+                          countryId={team.country_id}
+                        />
                       </div>
                       <div className={styles.lobbyTeamActions}>
-                        <LobbyStatusSelect tournamentId={tournament.id} team={team} canEdit={team.hattrick_user_id === Number(myHtUserId) || Boolean(roleAccess?.canManageOperations)} onChanged={async () => { await fetchData({ showLoader: false, invalidate: false, fresh: true }); }} />
+                        <LobbyStatusSelect
+                          tournamentId={tournament.id}
+                          team={team}
+                          canEdit={
+                            team.hattrick_user_id === Number(myHtUserId) || Boolean(roleAccess?.canManageOperations)
+                          }
+                          onChanged={async () => {
+                            await fetchData({ showLoader: false, invalidate: false, fresh: true });
+                          }}
+                        />
                         {team.hattrick_user_id === Number(myHtUserId) && (
                           <Button
                             size="xs"
@@ -7189,7 +7299,7 @@ export const TournamentView: React.FC<{
                 />
               )}
             <ManagerSpotlight
-              key={`${tournament.id}:${managerSpotlight?.managerId || "none"}`}
+              key={`${tournament.id}:${managerSpotlight?.managerId || 'none'}`}
               loadRemaining={() => readRemainingTournamentSpotlights(tournament.id)}
               spotlight={managerSpotlight}
               spotlights={managerSpotlights}

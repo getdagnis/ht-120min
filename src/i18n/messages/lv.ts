@@ -14,8 +14,8 @@ const messages = {
   lobby: {
     title: "Vestibils",
     hanging_around: "Palieku kopienā",
-    ready_to_join: "Gatavs pievienoties",
-    open_to_invitations: "Atvērts uzaicinājumiem",
+    ready_to_join: "Gatavs piedalīties",
+    open_to_invitations: "Nodrošinu rezervi",
     statusForTeam: "Komandas {team} statuss vestibilā",
     saveError: "Neizdevās atjaunināt statusu.",
   },
