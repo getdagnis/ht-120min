@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { CaretDown, CaretUp } from 'phosphor-react';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../legacy-pages/Public/TournamentAdmin.module.sass';
@@ -8,6 +9,7 @@ import {
   formatCalendarDateWithWeek,
   getCupWeekDecoration,
   getHattrickCalendarContext,
+  getRoundManagementClosesAt,
 } from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
@@ -83,6 +85,26 @@ interface SchedulePanelTeam {
   is_placeholder?: boolean;
 }
 
+interface RoundRepairSelection {
+  keepMatchIds: string[];
+  lobbyTeamIds: string[];
+}
+
+interface RoundRepairInspection {
+  defaultKeepMatchIds: string[];
+  protectedMatchIds: string[];
+  warningTeamIds: string[];
+  externalTeamIds: string[];
+  crossBookings: Array<{ home_team_id: string; away_team_id: string; ht_match_id: number }>;
+}
+
+interface RoundRepairReview {
+  proposalHash: string;
+  keptFixtures: number;
+  matches: Array<{ home_team_id: string | null; away_team_id: string | null; ht_match_id?: number }>;
+  lobbyTeamIds: string[];
+}
+
 interface TournamentSchedulePanelProps {
   isGenerated: boolean;
   isCollapsed: boolean;
@@ -143,12 +165,17 @@ interface TournamentSchedulePanelProps {
       status?: string;
       home_slot_id?: string | null;
       away_slot_id?: string | null;
+      home_team_id?: string | null;
+      away_team_id?: string | null;
+      ht_match_id?: number | null;
       home_team?: { name?: string } | null;
       away_team?: { name?: string } | null;
     }>;
   }>;
   isRepairingRound?: boolean;
-  onRepairRound?: (roundId: string) => void;
+  onRepairRound?: (roundId: string, action: 'inspect' | 'review' | 'confirm',
+    selection?: RoundRepairSelection, proposalHash?: string) => Promise<RoundRepairInspection | RoundRepairReview | unknown>;
+  reserveTeams?: SchedulePanelTeam[];
   reserveAdmissionControl?: React.ReactNode;
   organizerRoundControl?: React.ReactNode;
   isRecoveringRoundOne?: boolean;
@@ -272,6 +299,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   lengthRounds = [],
   isRepairingRound = false,
   onRepairRound,
+  reserveTeams = [],
   reserveAdmissionControl,
   organizerRoundControl,
   isRecoveringRoundOne = false,
@@ -280,6 +308,23 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const scheduleText = useTranslations('TournamentView');
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const [expandedCompletedRounds, setExpandedCompletedRounds] = useState<Record<string, boolean>>({});
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [repairRoundId, setRepairRoundId] = useState<string | null>(null);
+  const [repairInspection, setRepairInspection] = useState<RoundRepairInspection | null>(null);
+  const [repairSelection, setRepairSelection] = useState<RoundRepairSelection>({ keepMatchIds: [], lobbyTeamIds: [] });
+  const [repairReview, setRepairReview] = useState<RoundRepairReview | null>(null);
+  const [repairBusy, setRepairBusy] = useState(false);
+  const [repairError, setRepairError] = useState('');
+  useEffect(() => {
+    const nextCutoff = lengthRounds
+      .map(round => round.reserved_slot_date && getRoundManagementClosesAt(round.reserved_slot_date)?.getTime())
+      .filter((value): value is number => typeof value === 'number' && value > currentTime)
+      .sort((a, b) => a - b)[0];
+    if (!nextCutoff) return;
+    const timer = window.setTimeout(() => setCurrentTime(Date.now()),
+      Math.min(2_147_483_647, Math.max(0, nextCutoff - Date.now())));
+    return () => window.clearTimeout(timer);
+  }, [lengthRounds, currentTime]);
   const [manualAddOpen, setManualAddOpen] = useState(false);
   const [addMatchInput, setAddMatchInput] = useState('');
   const [addMatchPreview, setAddMatchPreview] = useState<HtMatchAddPreview | null>(null);
@@ -1096,69 +1141,206 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     );
   };
 
+  const openRoundRepair = async (roundId: string) => {
+    if (!onRepairRound) return;
+    if (repairRoundId === roundId) {
+      setRepairRoundId(null);
+      setRepairInspection(null);
+      setRepairReview(null);
+      return;
+    }
+    setRepairRoundId(roundId);
+    setRepairInspection(null);
+    setRepairReview(null);
+    setRepairError('');
+    setRepairBusy(true);
+    try {
+      const inspection = await onRepairRound(roundId, 'inspect') as RoundRepairInspection;
+      setRepairInspection(inspection);
+      setRepairSelection({ keepMatchIds: inspection.defaultKeepMatchIds, lobbyTeamIds: [] });
+    } catch (error) {
+      setRepairError(error instanceof Error ? error.message : 'Could not check this round.');
+    } finally {
+      setRepairBusy(false);
+    }
+  };
+
+  const changeRepairSelection = (next: RoundRepairSelection) => {
+    setRepairSelection(next);
+    setRepairReview(null);
+    setRepairError('');
+  };
+
+  const submitRoundRepair = async (action: 'review' | 'confirm') => {
+    if (!onRepairRound || !repairRoundId) return;
+    setRepairBusy(true);
+    setRepairError('');
+    try {
+      if (action === 'review') {
+        const result = await onRepairRound(repairRoundId, 'review', repairSelection) as RoundRepairReview;
+        setRepairReview(result);
+      } else if (repairReview) {
+        await onRepairRound(repairRoundId, 'confirm', repairSelection, repairReview.proposalHash);
+        setRepairRoundId(null);
+        setRepairInspection(null);
+        setRepairReview(null);
+      }
+    } catch (error) {
+      setRepairReview(null);
+      setRepairError(error instanceof Error ? error.message : 'Could not update this round.');
+    } finally {
+      setRepairBusy(false);
+    }
+  };
+
   const renderLengthGenerated = () => {
     const currentRound = lengthRounds.find((round) => round.phase_status === 'materialized');
-    const isRepairableRound = (round: NonNullable<typeof currentRound>) => {
-      if (round.phase !== 'regular' || round.phase_status !== 'materialized' ||
-          round.round_source === 'organizer' || round.is_unscored) return false;
-      const byeCount = round.matches.filter((match) => Boolean(match.home_team) !== Boolean(match.away_team)).length;
-      return round.matches.some((match) => match.status === 'misarranged' ||
-        Boolean(match.home_slot_id && !match.home_team) || Boolean(match.away_slot_id && !match.away_team)) || byeCount > 1;
-    };
+    const isRepairableRound = (round: NonNullable<typeof currentRound>) =>
+      round.phase === 'regular' && round.phase_status === 'materialized' &&
+      round.round_source !== 'organizer' && !round.is_unscored &&
+      Boolean(round.reserved_slot_date &&
+        (getRoundManagementClosesAt(round.reserved_slot_date)?.getTime() ?? 0) > currentTime);
+    const nameById = new Map([...teams, ...reserveTeams].map(team => [team.id, team.name]));
+    for (const round of lengthRounds) for (const match of round.matches) {
+      if (match.home_team_id && match.home_team?.name) nameById.set(match.home_team_id, match.home_team.name);
+      if (match.away_team_id && match.away_team?.name) nameById.set(match.away_team_id, match.away_team.name);
+    }
+    const teamName = (id: string | null | undefined) => id ? nameById.get(id) || 'Team' : 'BYE';
     return (
-      <div className={adminStyles.genOptions}>
-        <div className={adminStyles.scheduleIntro}>
-          <h2>{scheduleText('roundByRoundSchedule')}</h2>
-          <p className={adminStyles.scheduleSubtitle}>{scheduleText('roundByRoundScheduleDescription')}</p>
+      <div className={adminStyles.generatedSchedule}>
+        <div className={adminStyles.generatedScheduleIntro}>
+          <div>
+            <span className={adminStyles.generatedEyebrow}>Season schedule</span>
+            <h2>{scheduleText('roundByRoundSchedule')}</h2>
+            <p>{scheduleText('roundByRoundScheduleDescription')}</p>
+          </div>
+          <span className={adminStyles.generatedRoundCount}>{lengthRounds.length} rounds</span>
         </div>
-        <div className={adminStyles.schedulePreview}>
+        <div className={adminStyles.generatedRoundList}>
           {lengthRounds.map((round) => {
             const isCompleted = round.phase_status === 'completed';
-            const isExpanded = expandedCompletedRounds[round.id] ?? round.matches.length <= 8;
+            const isPast = isCompleted || Boolean(round.phase_status === 'materialized' && round.reserved_slot_date &&
+              new Date(round.reserved_slot_date).getTime() <= currentTime);
+            const isExpanded = expandedCompletedRounds[round.id] ?? !isPast;
+            const isActive = currentRound?.id === round.id && !isCompleted;
+            const isEditing = repairRoundId === round.id && isRepairableRound(round);
+            const hasReviewableChanges = Boolean(isEditing && repairInspection && (
+              repairSelection.lobbyTeamIds.length > 0 ||
+              round.matches.some(match => !repairInspection.protectedMatchIds.includes(match.id) &&
+                !repairSelection.keepMatchIds.includes(match.id)) ||
+              repairInspection.crossBookings.some(pair => !round.matches.some(match => match.ht_match_id === pair.ht_match_id)) ||
+              (round.matches.length === 0 && teams.some(team => team.active !== false && !team.reserve_active && !team.is_placeholder))
+            ));
+            const crossIds = new Set(repairInspection?.crossBookings.flatMap(pair => [pair.home_team_id, pair.away_team_id]) || []);
+            const warningIds = new Set(repairInspection?.warningTeamIds || []);
+            const unavailableIds = new Set([...warningIds, ...crossIds]);
             const roundLabel = `${getRoundDisplayLabel(round, lengthRounds)}${
               round.phase === 'postseason'
                 ? ` — ${getPostseasonRoundLabel(lengthRounds.filter(item => item.phase === 'postseason' && item.round_number <= round.round_number).length, lengthRounds.filter(item => item.phase === 'postseason').length)}`
                 : ''
             }`;
             return (
-              <div key={round.id} className={adminStyles.previewRow}>
-                {isCompleted ? (
-                  <button
-                    type="button"
-                    className={adminStyles.previewToggle}
-                    aria-expanded={isExpanded}
-                    onClick={() => setExpandedCompletedRounds((current) => ({ ...current, [round.id]: !isExpanded }))}
-                  >
+              <section key={round.id} className={adminStyles.generatedRound}>
+                <div className={adminStyles.generatedRoundHeader}>
+                  <div>
                     <strong>{roundLabel}</strong>
-                    {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
-                    <span>{isExpanded ? 'Hide' : 'Show'} {round.matches.length} fixtures</span>
-                  </button>
-                ) : (
-                  <>
-                    <strong>{roundLabel}</strong>
-                    {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
-                  </>
-                )}
+                    {round.reserved_slot_date && <span className={adminStyles.generatedRoundDate}>{formatLongDate(new Date(round.reserved_slot_date))}</span>}
+                  </div>
+                  <div className={adminStyles.generatedRoundActions}>
+                    <span className={`${adminStyles.generatedRoundStatus} ${isActive ? adminStyles.generatedRoundStatusActive : ''}`}>
+                      {isCompleted ? 'Completed' : isActive ? 'Active' : 'Planned'}
+                    </span>
+                    {isPast && <button type="button" className={adminStyles.generatedChevronButton}
+                      aria-label={`${isExpanded ? 'Hide' : 'Show'} ${roundLabel} fixtures`}
+                      title={`${isExpanded ? 'Hide' : 'Show'} fixtures`}
+                      aria-expanded={isExpanded} onClick={() => setExpandedCompletedRounds(current => ({ ...current, [round.id]: !isExpanded }))}>
+                      {isExpanded ? <CaretUp size={18} weight="bold" /> : <CaretDown size={18} weight="bold" />}
+                    </button>}
+                    {onRepairRound && isRepairableRound(round) && <button type="button" className={adminStyles.generatedTextLink}
+                      aria-expanded={isEditing} disabled={repairBusy} onClick={() => void openRoundRepair(round.id)}>
+                      {isEditing ? 'Close management' : 'Manage round'}
+                    </button>}
+                  </div>
+                </div>
                 {round.phase_status === 'pending' ? (
-                  <p className={adminStyles.smallNote}>
+                  <p className={adminStyles.generatedPending}>
                     {round.phase === 'postseason'
                       ? 'Qualifiers and winners from the preceding round'
                       : `Pairings generated after Round ${round.round_number - 1}`}
                   </p>
-                ) : (!isCompleted || isExpanded) && round.matches.map((match) => (
-                  <div key={match.id} className={adminStyles.roundRow}>
-                    {match.home_team?.name || 'BYE'} <span className={adminStyles.rowmiddle}>vs</span>{' '}
-                    {match.away_team?.name || 'BYE'}
-                  </div>
-                ))}
-                {onRepairRound && isRepairableRound(round) && (
-                  <div className={adminStyles.scheduleAction}>
-                    <Button variant="secondaryAction" size="sm" onClick={() => onRepairRound(round.id)} disabled={isRepairingRound}>
-                      {isRepairingRound ? 'Repairing round…' : `Repair Round ${round.round_number}`}
-                    </Button>
-                  </div>
-                )}
-              </div>
+                ) : (!isPast || isExpanded) && <div className={adminStyles.generatedFixtures}>
+                  {round.matches.map((match) => {
+                    const protectedMatch = Boolean(repairInspection?.protectedMatchIds.includes(match.id));
+                    const badMatch = isEditing && Boolean(repairInspection) && !protectedMatch &&
+                      (match.status === 'misarranged' ||
+                        [match.home_team_id, match.away_team_id].some(id => id && unavailableIds.has(id)));
+                    const checked = protectedMatch || Boolean(repairSelection.keepMatchIds.includes(match.id));
+                    const selectable = isEditing && Boolean(repairInspection) && !protectedMatch && !badMatch;
+                    return <label key={match.id} className={`${adminStyles.generatedFixture} ${badMatch ? adminStyles.generatedFixtureBad : ''}`}>
+                      {isEditing && repairInspection && <input type="checkbox" checked={badMatch ? false : checked}
+                        disabled={!selectable || repairBusy} onChange={event => {
+                          const keepMatchIds = event.target.checked
+                            ? [...repairSelection.keepMatchIds, match.id]
+                            : repairSelection.keepMatchIds.filter(id => id !== match.id);
+                          changeRepairSelection({ ...repairSelection, keepMatchIds });
+                        }} aria-label={`Keep ${teamName(match.home_team_id)} versus ${teamName(match.away_team_id)}`} />}
+                      <span className={adminStyles.generatedFixtureTeams}>
+                        <span className={badMatch && match.home_team_id && warningIds.has(match.home_team_id) ? adminStyles.generatedBadTeam : ''}>
+                          {badMatch && match.home_team_id && warningIds.has(match.home_team_id) && <span aria-label="Misarranged team">⚠</span>} {match.home_team?.name || 'BYE'}
+                        </span>
+                        <span className={adminStyles.generatedVersus}>vs</span>
+                        <span className={badMatch && match.away_team_id && warningIds.has(match.away_team_id) ? adminStyles.generatedBadTeam : ''}>
+                          {badMatch && match.away_team_id && warningIds.has(match.away_team_id) && <span aria-label="Misarranged team">⚠</span>} {match.away_team?.name || 'BYE'}
+                        </span>
+                      </span>
+                      {isEditing && repairInspection && <span className={`${adminStyles.generatedFixtureTag} ${protectedMatch ? adminStyles.generatedFixtureTagArranged : ''}`}>
+                        {protectedMatch ? 'Arranged ✓' : badMatch ? 'Unavailable' : checked ? 'Keep' : 'Release'}
+                      </span>}
+                    </label>;
+                  })}
+                  {isEditing && repairInspection?.crossBookings.filter(pair => !round.matches.some(match => match.ht_match_id === pair.ht_match_id)).map(pair =>
+                    <div key={pair.ht_match_id} className={adminStyles.generatedFixture}>
+                      <input type="checkbox" checked disabled aria-label="Verified arranged Hattrick match" />
+                      <span className={adminStyles.generatedFixtureTeams}>{teamName(pair.home_team_id)} <span className={adminStyles.generatedVersus}>vs</span> {teamName(pair.away_team_id)}</span>
+                      <span className={`${adminStyles.generatedFixtureTag} ${adminStyles.generatedFixtureTagArranged}`}>Arranged ✓</span>
+                    </div>)}
+                </div>}
+                {isEditing && <div className={adminStyles.generatedRepairPanel}>
+                  {repairBusy && !repairInspection && <p>Checking current Hattrick bookings…</p>}
+                  {repairInspection && <>
+                    <p className={adminStyles.generatedRepairHelp}>Arranged matches stay in place. Uncheck a future unarranged fixture to reshuffle its teams.</p>
+                    <div className={adminStyles.generatedLobbySelection}>
+                      <fieldset>
+                        <legend>Include available Lobby teams</legend>
+                        {reserveTeams.length ? reserveTeams.map(team => <label key={team.id} className={adminStyles.generatedChoice}>
+                          <input type="checkbox" checked={repairSelection.lobbyTeamIds.includes(team.id)} disabled={repairBusy} onChange={event =>
+                            changeRepairSelection({ ...repairSelection, lobbyTeamIds: event.target.checked
+                              ? [...repairSelection.lobbyTeamIds, team.id] : repairSelection.lobbyTeamIds.filter(id => id !== team.id) })} />
+                          {team.name}
+                        </label>) : <span className={adminStyles.generatedMuted}>No Lobby teams available</span>}
+                      </fieldset>
+                    </div>
+                    {repairReview && <div className={adminStyles.generatedRepairReview}>
+                      <strong>Review proposed round</strong>
+                      <p>{repairReview.keptFixtures} existing fixtures stay in place. {repairReview.matches.length} fixtures will be added.</p>
+                      {repairReview.matches.map((match, index) => <div key={`${match.home_team_id}-${match.away_team_id}-${index}`}>
+                        {teamName(match.home_team_id)} <span className={adminStyles.generatedVersus}>vs</span> {teamName(match.away_team_id)}
+                        {match.ht_match_id && <span className={`${adminStyles.generatedFixtureTag} ${adminStyles.generatedFixtureTagArranged}`}>Arranged ✓</span>}
+                      </div>)}
+                    </div>}
+                    {repairError && <p role="alert" className={adminStyles.generatedRepairError}>{repairError}</p>}
+                    {hasReviewableChanges ? <div className={adminStyles.generatedRepairActions}>
+                      <Button variant="secondaryAction" size="sm" onClick={() => void submitRoundRepair('review')} disabled={repairBusy}>
+                        {repairBusy ? 'Checking…' : 'Review changes'}
+                      </Button>
+                      {repairReview && <Button variant="primary" size="sm" onClick={() => void submitRoundRepair('confirm')} disabled={repairBusy}>
+                        Confirm changes
+                      </Button>}
+                    </div> : <p className={adminStyles.generatedMuted}>No changes selected for this round.</p>}
+                  </>}
+                  {!repairInspection && repairError && <p role="alert" className={adminStyles.generatedRepairError}>{repairError}</p>}
+                </div>}
+              </section>
             );
           })}
         </div>
@@ -1175,13 +1357,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               </p>
             </div>
           )}
-        {currentRound?.phase === 'regular' && reserveAdmissionControl}
-        {onRepairRound && lengthRounds.some(isRepairableRound) && (
-          <p className={adminStyles.smallNote}>
-            Repair Round can pair teams left in separate BYE fixtures or repair fixtures affected by unavailable teams.
-            Refresh fixture status before repairing. Unaffected fixtures stay locked.
-          </p>
-        )}
+        {currentRound && isRepairableRound(currentRound) && reserveAdmissionControl}
       </div>
     );
   };

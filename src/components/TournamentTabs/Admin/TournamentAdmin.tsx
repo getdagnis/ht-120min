@@ -1793,6 +1793,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             lengthRounds={tournament.schedule_mode === 'length' ? rounds : []}
                             isRepairingRound={isRepairingRound}
                             onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
+                            reserveTeams={reserveTeams}
                             reserveAdmissionControl={
                               canManageOperationalAdmin && reserveTeams.length > 0 ? (
                                 <>

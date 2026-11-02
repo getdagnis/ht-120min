@@ -5,7 +5,7 @@ import { validateTournamentCountrySizeEligibility } from './country-size-eligibi
 import { managerCountrySizeAllowance } from '../../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts } from './chpp-register.js';
 import { buildRoundRobinCycles } from '../../../utils/round-robin-cycles.js';
-import { getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
+import { getRoundManagementClosesAt, getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails.js';
 import { isFriendlyInsideAcceptedWindow } from './match-window.js';
@@ -49,9 +49,14 @@ export async function checkReserveAdmission(
   supabase: SupabaseClient,
   tournamentId: string,
   teamIds: string[],
-  options: { isSiteAdmin?: boolean; roundId?: string; persistRankings?: boolean } = {},
+  options: { isSiteAdmin?: boolean; roundId?: string; persistRankings?: boolean; mixedRoundRepair?: boolean } = {},
 ) {
-  if (teamIds.length < 2 || teamIds.length % 2 || new Set(teamIds).size !== teamIds.length) throw new Error('Select an even number of at least two reserves.');
+  if (teamIds.length < (options.mixedRoundRepair ? 1 : 2) ||
+    (!options.mixedRoundRepair && teamIds.length % 2) || new Set(teamIds).size !== teamIds.length) {
+    throw new Error(options.mixedRoundRepair
+      ? 'Select eligible Lobby teams for this round.'
+      : 'Select an even number of at least two reserves.');
+  }
   const { data: tournament, error: tournamentError } = await supabase.from('tournaments').select('id, season, schedule_mode, status, is_archived, max_teams, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception').eq('id', tournamentId).single();
   if (tournamentError) throw tournamentError;
   if (tournament.is_archived || tournament.schedule_mode !== 'length' || ['finished', 'stopped', 'archived'].includes(tournament.status)) throw new Error('Reserve admission is available for running staged schedules.');
@@ -62,6 +67,10 @@ export async function checkReserveAdmission(
     : rounds?.find(round => round.phase_status === 'materialized' && round.round_source !== 'organizer');
   if (!round || round.phase !== 'regular' || round.phase_status !== 'materialized' || round.round_source === 'organizer' ||
       rounds?.some(round => round.phase === 'postseason' && round.phase_status !== 'pending')) throw new Error('Choose a materialized generated regular round before playoffs begin.');
+  const closesAt = round.reserved_slot_date && getRoundManagementClosesAt(round.reserved_slot_date);
+  if (!closesAt || Date.now() >= closesAt.getTime()) {
+    throw new Error('Round management closed after Monday 23:59 Hattrick time.');
+  }
   const { data: teams, error: teamError } = await supabase.from('teams').select('*').eq('tournament_id', tournamentId).in('id', teamIds);
   if (teamError) throw teamError;
   if (!teams || teams.length !== teamIds.length || teams.some(team => team.active || !team.reserve_active || team.is_placeholder)) throw new Error('The selected reserve list changed. Refresh and try again.');
@@ -169,7 +178,7 @@ export async function checkReserveAdmission(
     const av = Number(a[rankingSource]); const bv = Number(b[rankingSource]);
     return (av > 0 ? bv > 0 ? (rankingSource === 'team_rank' ? av - bv : bv - av) : -1 : bv > 0 ? 1 : 0) || a.id.localeCompare(b.id);
   });
-  const pairs = buildRoundRobinCycles(teams.map(team => team.id), 1)[0]!;
+  const pairs = options.mixedRoundRepair ? [] : buildRoundRobinCycles(teams.map(team => team.id), 1)[0]!;
   const matches = pairs.map(pair => {
     const home = teams.find(team => team.id === pair.homeTeamId)!;
     const scheduled = getScheduledDateForSlot(slot, { countryName: home.country_name, leagueLevel: home.league_level });

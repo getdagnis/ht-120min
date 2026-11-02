@@ -8,10 +8,14 @@ import {
   type LengthScheduleTeam,
   type PairingHistory,
 } from '../../../utils/length-schedule.js';
-import { getRoundPreparationOpensAt, getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
+import { getRoundManagementClosesAt, getRoundPreparationOpensAt, getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment, type Team } from '../../../utils/standings.js';
 import type { PersistedScoringMode } from '../../../../shared/scoring-profile.js';
 import type { getServiceSupabase } from './supabase.js';
+import { createHash } from 'node:crypto';
+import { fetchTeamBookingStatus, isBookedFriendlyMatch } from './matchmaker.js';
+import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
+import { isFriendlyInsideAcceptedWindow } from './match-window.js';
 
 type ServiceSupabase = ReturnType<typeof getServiceSupabase>;
 
@@ -65,6 +69,7 @@ interface TeamRow {
   logo_url: string | null;
   manager_name: string | null;
   team_rank: number | null;
+  power_rating: number | null;
   reserve_active: boolean | null;
   actively_waiting?: boolean;
 }
@@ -113,7 +118,7 @@ function buildPairingHistory(rounds: StoredRound[]): PairingHistory {
 
 async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string, seasonNumber: number) {
   const [{ data: tournament, error: tournamentError }, { data: season, error: seasonError }] = await Promise.all([
-    supabase.from('tournaments').select('id, schedule_mode, scoring_mode, league_category').eq('id', tournamentId).maybeSingle(),
+    supabase.from('tournaments').select('id, schedule_mode, scoring_mode, league_category, max_teams').eq('id', tournamentId).maybeSingle(),
     supabase
       .from('tournament_seasons')
       .select('id, schedule_plan_json, ranking_snapshot_json, champion_team_id')
@@ -159,12 +164,12 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
   // Membership is authoritative; physical slot occupancy is compatibility data.
   const { data: teams, error: teamsError } = await supabase
     .from('teams')
-    .select('id, name, ht_team_id, hattrick_user_id, active, replacement_for_team_id, country_name, country_id, league_id, league_level, logo_url, manager_name, team_rank, reserve_active, is_placeholder')
+    .select('id, name, ht_team_id, hattrick_user_id, active, replacement_for_team_id, country_name, country_id, league_id, league_level, logo_url, manager_name, team_rank, power_rating, reserve_active, is_placeholder')
     .eq('tournament_id', tournamentId).eq('active', true);
   if (teamsError) throw teamsError;
   const { data: pendingTeams, error: pendingError } = await supabase
     .from('teams')
-    .select('id, name, ht_team_id, hattrick_user_id, active, replacement_for_team_id, country_name, country_id, league_id, league_level, logo_url, manager_name, team_rank, reserve_active, actively_waiting')
+    .select('id, name, ht_team_id, hattrick_user_id, active, replacement_for_team_id, country_name, country_id, league_id, league_level, logo_url, manager_name, team_rank, power_rating, reserve_active, actively_waiting')
     .eq('tournament_id', tournamentId)
     .eq('active', false);
   if (pendingError) throw pendingError;
@@ -177,6 +182,7 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
     teams: (teams || []).filter(team => team.reserve_active !== true && team.is_placeholder !== true) as TeamRow[],
     allTeams: [...(teams || []), ...(pendingTeams || [])] as TeamRow[],
     pendingTeams: ((pendingTeams || []) as TeamRow[]).filter((team) => team.reserve_active === true && team.actively_waiting === true),
+    lobbyTeams: ((pendingTeams || []) as TeamRow[]).filter((team) => team.reserve_active === true),
   };
 }
 
@@ -806,4 +812,196 @@ export async function repairLengthRound(
     containedUnplayableFixtures: repair.containmentPairs.length,
     byeFixturesCreated: repair.repairedPairs.filter((pairing) => pairing.isBye).length,
   };
+}
+
+export interface RoundRepairSelection {
+  keepMatchIds: string[];
+  lobbyTeamIds: string[];
+}
+
+function repairRoundFromState(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, roundId: string) {
+  const round = state.rounds.find(item => item.id === roundId && item.phase === 'regular' &&
+    item.phase_status === 'materialized' && item.round_source !== 'organizer' && !item.is_unscored);
+  if (!round || !round.reserved_slot_date || !round.reserved_slot_kind) throw new Error('Choose an available generated regular round.');
+  const closesAt = getRoundManagementClosesAt(round.reserved_slot_date);
+  if (!closesAt || Date.now() >= closesAt.getTime()) {
+    throw new Error('Round management closed after Monday 23:59 Hattrick time.');
+  }
+  if (round.matches.some(match => match.completed || match.status === 'ongoing' || match.status === 'finished' ||
+    match.finished_at || (match.scheduled_for && new Date(match.scheduled_for).getTime() <= Date.now()))) {
+    throw new Error('This round has started and can no longer be changed.');
+  }
+  return round;
+}
+
+async function inspectRoundBookings(supabase: ServiceSupabase, state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, round: StoredRound) {
+  const gatewayResult = await supabase.from('teams').select('id, oauth_token, oauth_token_secret')
+    .eq('tournament_id', state.tournament.id).not('oauth_token', 'is', null).not('oauth_token_secret', 'is', null);
+  if (gatewayResult.error) throw gatewayResult.error;
+  const gateway = gatewayResult.data?.[0];
+  if (!gateway?.oauth_token || !gateway.oauth_token_secret || !process.env.CHPP_CONSUMER_KEY || !process.env.CHPP_CONSUMER_SECRET) {
+    throw new Error('A connected Hattrick manager is needed to check bookings before repairing this round.');
+  }
+  const byHtId = new Map(state.teams.filter(team => team.ht_team_id).map(team => [team.ht_team_id, team]));
+  const credentialsByTeamId = new Map((gatewayResult.data || []).map(team => [team.id, team]));
+  const observations = new Map<string, { matchId: number; matchType: number; opponentHtId: number; homeHtId: number; date: string }>();
+  // CHPP is queried only for this explicit repair action, in small batches.
+  for (let start = 0; start < state.teams.length; start += 5) {
+    const batch = state.teams.slice(start, start + 5);
+    const results = await Promise.all(batch.map(async team => {
+      if (!team.ht_team_id) throw new Error(`The Hattrick ID for ${team.name} is missing.`);
+      const booking = await fetchTeamBookingStatus(process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!,
+        credentialsByTeamId.get(team.id) || gateway, team.ht_team_id);
+      if (!booking.scheduledMatches) throw new Error(`Could not verify the Hattrick bookings for ${team.name}.`);
+      const inWindow = booking.scheduledMatches.filter(match => {
+        const date = parseChppStockholmDate(match.matchDate);
+        return isBookedFriendlyMatch(match) && date &&
+          isFriendlyInsideAcceptedWindow(date, new Date(round.reserved_slot_date!), round.reserved_slot_kind!);
+      });
+      if (inWindow.length > 1) throw new Error(`Multiple bookings were found for ${team.name} in this round.`);
+      const match = inWindow[0];
+      return { team, match, date: match ? parseChppStockholmDate(match.matchDate) : null };
+    }));
+    for (const { team, match, date } of results) {
+      if (!match) continue;
+      if (!date || !match.matchId || ![match.homeTeamId, match.awayTeamId].includes(team.ht_team_id!)) {
+        throw new Error(`Could not verify the booking for ${team.name}.`);
+      }
+      observations.set(team.id, { matchId: match.matchId,
+        matchType: match.matchType,
+        opponentHtId: match.homeTeamId === team.ht_team_id ? match.awayTeamId : match.homeTeamId,
+        homeHtId: match.homeTeamId,
+        date: date.toISOString() });
+    }
+  }
+  const crossBookings: Array<{ home_team_id: string; away_team_id: string; ht_match_id: number; match_type: number; scheduled_for: string }> = [];
+  const externalTeamIds: string[] = [];
+  const seen = new Set<number>();
+  for (const team of state.teams) {
+    const observed = observations.get(team.id);
+    if (!observed || seen.has(observed.matchId)) continue;
+    const opponent = byHtId.get(observed.opponentHtId);
+    const reciprocal = opponent && observations.get(opponent.id);
+    if (!opponent) { externalTeamIds.push(team.id); continue; }
+    if (!reciprocal || reciprocal.matchId !== observed.matchId || reciprocal.opponentHtId !== team.ht_team_id) {
+      throw new Error(`The booking for ${team.name} could not be confirmed from both teams.`);
+    }
+    seen.add(observed.matchId);
+    // CHPP side ordering is not needed for the pairing, but preserving it avoids
+    // reversing a booked fixture when it is recorded in the round.
+    const booked = state.teams.find(candidate => candidate.ht_team_id === observed.opponentHtId)!;
+    const home = team.ht_team_id === observed.homeHtId ? team.id : booked.id;
+    crossBookings.push({ home_team_id: home, away_team_id: home === team.id ? booked.id : team.id,
+      ht_match_id: observed.matchId, match_type: observed.matchType, scheduled_for: observed.date });
+  }
+  return { crossBookings, externalTeamIds };
+}
+
+export async function inspectLengthRoundRepair(supabase: ServiceSupabase, tournamentId: string, seasonNumber: number, roundId: string) {
+  const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
+  if (!state) throw new Error('This tournament does not use staged length scheduling.');
+  const round = repairRoundFromState(state, roundId);
+  const bookings = await inspectRoundBookings(supabase, state, round);
+  const warningResult = await supabase.from('fixture_warnings').select('team_id').eq('round_id', roundId).eq('active', true);
+  if (warningResult.error) throw warningResult.error;
+  const warningTeamIds = [...new Set([...(warningResult.data || []).map(item => item.team_id), ...bookings.externalTeamIds])];
+  const crossIds = new Set(bookings.crossBookings.flatMap(pair => [pair.home_team_id, pair.away_team_id]));
+  const protectedMatchIds = round.matches.filter(match => match.ht_match_id || match.status === 'arranged').map(match => match.id);
+  const protectedIds = new Set(round.matches.filter(match => protectedMatchIds.includes(match.id))
+    .flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))));
+  if (bookings.externalTeamIds.some(id => protectedIds.has(id))) {
+    throw new Error('A Hattrick booking conflicts with a protected fixture. Refresh fixtures and resolve it first.');
+  }
+  for (const pair of bookings.crossBookings) {
+    const existing = round.matches.find(match => match.ht_match_id === pair.ht_match_id);
+    if ((protectedIds.has(pair.home_team_id) || protectedIds.has(pair.away_team_id)) &&
+      (!existing || ![existing.home_team_id, existing.away_team_id].includes(pair.home_team_id) ||
+        ![existing.home_team_id, existing.away_team_id].includes(pair.away_team_id))) {
+      throw new Error('A Hattrick booking conflicts with an already protected fixture. Refresh fixtures and resolve it first.');
+    }
+  }
+  const defaultKeepMatchIds = round.matches.filter(match =>
+    protectedMatchIds.includes(match.id) ||
+    (!match.home_team_id || !warningTeamIds.includes(match.home_team_id)) &&
+    (!match.away_team_id || !warningTeamIds.includes(match.away_team_id)) &&
+    (!match.home_team_id || !crossIds.has(match.home_team_id)) &&
+    (!match.away_team_id || !crossIds.has(match.away_team_id)) && match.status !== 'misarranged' &&
+    Boolean(match.home_team_id || match.away_team_id),
+  ).map(match => match.id);
+  return { roundId, defaultKeepMatchIds, protectedMatchIds, warningTeamIds, ...bookings };
+}
+
+export async function reviewLengthRoundRepair(supabase: ServiceSupabase, tournamentId: string, seasonNumber: number,
+  roundId: string, selection: RoundRepairSelection) {
+  const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
+  if (!state) throw new Error('This tournament does not use staged length scheduling.');
+  const round = repairRoundFromState(state, roundId);
+  const inspected = await inspectLengthRoundRepair(supabase, tournamentId, seasonNumber, roundId);
+  const unique = (ids: string[]) => ids.length === new Set(ids).size;
+  if (![selection.keepMatchIds, selection.lobbyTeamIds].every(ids => Array.isArray(ids) && unique(ids))) {
+    throw new Error('The round selection contains duplicate or invalid teams.');
+  }
+  const allowedKeeps = new Set(inspected.defaultKeepMatchIds);
+  const keptIds = new Set([...selection.keepMatchIds, ...inspected.protectedMatchIds]);
+  if (selection.keepMatchIds.some(id => !allowedKeeps.has(id))) throw new Error('A selected fixture cannot be kept.');
+  const keptMatches = round.matches.filter(match => keptIds.has(match.id));
+  const crossExisting = new Set(inspected.crossBookings.map(pair => pair.ht_match_id));
+  const newCrossBookings = inspected.crossBookings.filter(pair => !round.matches.some(match => match.ht_match_id === pair.ht_match_id));
+  const taken = new Set(keptMatches.flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))));
+  for (const pair of inspected.crossBookings) { taken.add(pair.home_team_id); taken.add(pair.away_team_id); }
+  const eligibleLobby = new Set(state.lobbyTeams.map(team => team.id));
+  if (selection.lobbyTeamIds.some(id => !eligibleLobby.has(id))) throw new Error('A selected Lobby team is no longer available.');
+  if (selection.lobbyTeamIds.length) {
+    const { checkReserveAdmission } = await import('./reserve-admission.js');
+    const admission = await checkReserveAdmission(supabase, tournamentId, selection.lobbyTeamIds,
+      { roundId, persistRankings: false, mixedRoundRepair: true });
+    if (!admission.canAdmit) throw new Error(admission.statuses.find(status => status.error)?.error || 'A selected Lobby team is unavailable.');
+    if (state.tournament && admission.newFieldSize > (Number(state.tournament.max_teams) || Infinity)) {
+      throw new Error('Increase the team limit before admitting these Lobby teams.');
+    }
+  }
+  const unavailable = new Set(inspected.externalTeamIds);
+  const freeTeams = [...state.teams.filter(team => !taken.has(team.id) && !unavailable.has(team.id)),
+    ...state.lobbyTeams.filter(team => selection.lobbyTeamIds.includes(team.id))];
+  const ranks = seasonRanks(state);
+  const history = buildPairingHistory(state.rounds.filter(item => item.round_number < round.round_number));
+  history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json)) || state.assignments.some(a => a.admission_request_id);
+  history.boundedCandidates = true;
+  balanceExpandedHistory(history);
+  const rankedTeams = toLengthTeams([...state.teams, ...state.lobbyTeams], ranks).map(team => {
+    const lobby = state.lobbyTeams.find(item => item.id === team.id);
+    return lobby ? { ...team, teamRank: state.tournament.league_category === 'hfi'
+      ? lobby.team_rank : lobby.power_rating } : team;
+  });
+  const pairings = freeTeams.length ? generateBalancedRound(rankedTeams.filter(team => freeTeams.some(item => item.id === team.id)), history) : [];
+  const allTeams = rankedTeams;
+  const generated = buildStoredPairings(round, pairings, allTeams);
+  const byeIds = [...unavailable].filter(id => !taken.has(id));
+  const byes = buildStoredPairings(round, byeIds.map(id => ({ homeTeamId: id, awayTeamId: null, isBye: true })), allTeams)
+    .map(item => ({ ...item, schedule_resolution: unavailable.has(item.home_team_id!) ? 'finalized_unplayed' : 'pending' }));
+  const expectedMatchIds = round.matches.map(match => match.id).sort();
+  const expectedMatches = round.matches.map(match => ({ id: match.id, home_team_id: match.home_team_id,
+    away_team_id: match.away_team_id, ht_match_id: match.ht_match_id, status: match.status,
+    schedule_resolution: match.schedule_resolution })).sort((a, b) => a.id.localeCompare(b.id));
+  const proposal = { roundId, keptMatchIds: [...keptIds].sort(), expectedMatchIds, expectedMatches,
+    lobbyTeamIds: [...selection.lobbyTeamIds].sort(), matches: [...generated, ...byes,
+      ...newCrossBookings.map(pair => ({ ...pair, schedule_resolution: 'pending' }))],
+    crossBookingIds: [...crossExisting].sort() };
+  const proposalHash = createHash('sha256').update(JSON.stringify(proposal)).digest('hex');
+  return { ...proposal, proposalHash, keptFixtures: keptMatches.length,
+    newFixtures: proposal.matches.length };
+}
+
+export async function confirmLengthRoundRepair(supabase: ServiceSupabase, tournamentId: string, seasonNumber: number,
+  roundId: string, selection: RoundRepairSelection, proposalHash: string) {
+  const review = await reviewLengthRoundRepair(supabase, tournamentId, seasonNumber, roundId, selection);
+  if (review.proposalHash !== proposalHash) throw new Error('The bookings or round changed. Review the repair again.');
+  const { data, error } = await supabase.rpc('apply_reviewed_length_round_repair', {
+    p_tournament_id: tournamentId, p_season_number: seasonNumber, p_round_id: roundId,
+    p_expected_match_ids: review.expectedMatchIds, p_expected_matches: review.expectedMatches,
+    p_kept_match_ids: review.keptMatchIds,
+    p_lobby_team_ids: review.lobbyTeamIds, p_matches: review.matches,
+  });
+  if (error) throw error;
+  return data;
 }

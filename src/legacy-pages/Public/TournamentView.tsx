@@ -5188,42 +5188,33 @@ export const TournamentView: React.FC<{
     }
   };
 
-  const repairCurrentLengthRound = async (roundId: string) => {
-    if (!tournament || tournament.schedule_mode !== 'length') return;
+  const repairCurrentLengthRound = async (
+    roundId: string,
+    action: 'inspect' | 'review' | 'confirm',
+    selection?: { keepMatchIds: string[]; lobbyTeamIds: string[] },
+    proposalHash?: string,
+  ) => {
+    if (!tournament || tournament.schedule_mode !== 'length') throw new Error('Tournament unavailable.');
     const currentRound = rounds.find(
       (round) => round.id === roundId && !round.is_unscored && round.phase_status === 'materialized' && round.phase === 'regular',
     );
-    if (!currentRound) return;
-    if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`))
-      return;
+    if (!currentRound) throw new Error('This round can no longer be managed.');
     setIsRepairingRound(true);
     try {
       const response = await fetch('/api/app?route=repair-length-round', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1, roundId }),
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1, roundId,
+          action, selection, proposalHash }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Could not repair this round.');
-      await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
-      const contained = Number(body.containedUnplayableFixtures) || 0;
-      const byes = Number(body.byeFixturesCreated) || 0;
-      setScheduleNotice({
-        title: `Round ${currentRound.round_number} repair complete`,
-        message: [
-          `${body.lockedFixtures || 0} unaffected fixtures kept.`,
-          `${body.repairedPlayableFixtures || 0} playable fixtures created.`,
-          ...(contained
-            ? [`${contained} unplayable ${contained === 1 ? 'pairing' : 'pairings'} recorded for unavailable teams.`]
-            : []),
-          ...(byes ? [`${byes} ${byes === 1 ? 'BYE' : 'BYEs'} assigned.`] : []),
-        ].join(' '),
-      });
-    } catch (error) {
-      setScheduleNotice({
-        title: 'Could not repair round',
-        message: error instanceof Error ? error.message : 'The round could not be repaired.',
-      });
+      if (!response.ok) throw new Error(body.error || 'Could not update this round.');
+      if (action === 'confirm') {
+        await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
+        setScheduleNotice({ title: `Round ${currentRound.round_number} updated`,
+          message: `${body.fixtures_replaced || 0} fixtures replaced. ${body.fixtures_inserted || 0} fixtures added. ${body.admitted || 0} Lobby teams admitted.` });
+      }
+      return body;
     } finally {
       setIsRepairingRound(false);
     }
@@ -5446,7 +5437,7 @@ export const TournamentView: React.FC<{
     const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
     if (!match) return;
     if (tournament?.schedule_mode === 'length') {
-      alert('Fixtures in a staged schedule are managed through Repair Round and cannot be deleted individually.');
+      alert('Use Manage round for staged-schedule fixtures; they cannot be deleted individually.');
       return;
     }
 
