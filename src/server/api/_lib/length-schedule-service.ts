@@ -355,7 +355,7 @@ export async function prepareDueLengthScheduleRounds(
   now = new Date(),
 ) {
   const prepared: Array<{ roundId: string; roundNumber: number }> = [];
-  let lastReason = 'no_due_round';
+  let lastReason: string;
 
   for (let attempt = 0; attempt < 32; attempt += 1) {
     const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
@@ -393,7 +393,6 @@ export async function prepareDueLengthScheduleRounds(
       const activeIds = plan.activeTeamIds || [];
       const enteringIds = plan.teamIds || [];
       const departingIds = plan.departingTeamIds || [];
-      const activeSet = new Set(activeIds);
       const enteringSet = new Set(enteringIds);
       const departingSet = new Set(departingIds);
       const loadedActiveIds = state.teams.map((team) => team.id).sort();

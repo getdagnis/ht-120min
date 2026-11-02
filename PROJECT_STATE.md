@@ -2,6 +2,8 @@
 
 Last updated: 2026-11-02
 
+Migration `166_remove_empty_future_fixtures.sql` is prepared locally to delete safe double-empty future fixtures only in materialized regular length rounds. It preserves rows with rating, automation or Forge booking audit references; a before-update guard blocks team-side removal when stored 120m ratings exist, before the existing stale-rating trigger can clear them. Fixture Data Refresh also calls its service-only cleanup for older leftovers and ignores fixtures missing either team when choosing a round. The migration requires tables from 095, 118, 139 and 162. Local code and migration are not proof of live Supabase application or behavior; deploy the refresh change only after the migration is applied.
+
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.

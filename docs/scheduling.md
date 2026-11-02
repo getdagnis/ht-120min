@@ -109,6 +109,14 @@ multiple BYEs in the same round. It can target any materialized generated regula
 round, including rounds prepared ahead of an unfinished earlier round.
 Unaffected fixtures, including a lone BYE, keep their existing rows.
 The remaining active teams can receive a BYE when no opponent is available.
+Migration 166 removes only future, unplayed current-season match rows in
+materialized regular length rounds whose two team sides become empty after a
+roster move. Rows with rating shares, rating automation or Forge booking audit
+references remain. A team-side removal with stored 120m ratings is rejected
+before the existing stale-rating trigger can clear those records. Single-team
+BYEs and season slot history remain. Fixture
+Data Refresh also removes eligible older leftovers before choosing the round;
+any fixture missing a team is ignored for round selection.
 Large repair fields use bounded pairing candidates. Fully vacant fixture rows
 are removed inside the repair RPC; this requires migration `124` before using
 the new repair flow. Finalized unplayed containment rows do not become opponent

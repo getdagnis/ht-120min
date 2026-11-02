@@ -178,12 +178,19 @@ export function selectUpcomingRefreshRound<
     id: string;
     round_number: number;
     created_at: string;
-    matches: Array<{ completed: boolean | null; status: string | null; scheduled_for?: string | null }>;
+    matches: Array<{
+      completed: boolean | null;
+      status: string | null;
+      scheduled_for?: string | null;
+      home_team_id: string | null;
+      away_team_id: string | null;
+    }>;
   },
 >(rounds: Round[], now = new Date(), countryName?: string) {
   return rounds.find((round) =>
     round.matches.some((match) => {
       if (match.completed) return false;
+      if (!match.home_team_id || !match.away_team_id) return false;
       if (match.status !== 'misarranged') return true;
       return getMatchTargetDate(match, round, countryName).getTime() > now.getTime();
     }),
@@ -1461,6 +1468,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (refreshedWarnings.error) throw refreshedWarnings.error;
         teams = refreshedTeams.data as TeamWithAuth[];
         existingWarnings = refreshedWarnings.data;
+      }
+    }
+
+    const emptyFixtureIds = tournament.schedule_mode === 'length' ? rounds
+      .filter((round) => round.phase === 'regular' && round.phase_status === 'materialized')
+      .flatMap((round) => round.matches
+        .filter((match) => match.home_team_id === null && match.away_team_id === null && match.schedule_resolution === 'pending')
+        .map((match) => match.id)) : [];
+    if (emptyFixtureIds.length > 0) {
+      const { data: removedIds, error: cleanupError } = await supabase.rpc('remove_empty_future_fixtures', {
+        p_tournament_id: tournament_id,
+        p_season_number: tournament.season || 1,
+        p_match_ids: emptyFixtureIds,
+      });
+      if (cleanupError) throw cleanupError;
+      const removed = new Set((removedIds || []) as string[]);
+      if (removed.size > 0) {
+        rounds = rounds.map((round) => ({
+          ...round,
+          matches: round.matches.filter((match) => !removed.has(match.id)),
+        }));
       }
     }
 
