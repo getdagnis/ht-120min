@@ -348,7 +348,7 @@ export function ActiveTeamsTable({
           }}
         >
           <option value="all">All teams</option>
-          <option value="high-risk">High risk</option>
+          <option value="high-risk">High risk teams</option>
           <option value="high-risk-managers">High risk managers</option>
           <option value="conflict">Misarranged</option>
           <option value="no-games">No games</option>
@@ -473,7 +473,9 @@ export function ActiveTeamsTable({
                   <td>{stats.played}</td>
                   <td>
                     <span
-                      className={stats.misarranged !== null && stats.misarranged > 0 ? styles.misarrangedCount : undefined}
+                      className={
+                        stats.misarranged !== null && stats.misarranged > 0 ? styles.misarrangedCount : undefined
+                      }
                       data-tooltip-id={tooltipId}
                       data-tooltip-content={misarrangedTooltip(stats)}
                       tabIndex={0}
