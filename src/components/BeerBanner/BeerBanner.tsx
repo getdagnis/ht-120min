@@ -32,7 +32,7 @@ export const BeerBanner: React.FC<BeerBannerProps> = ({ variant = 'default' }) =
         </div>
         <div className={styles.right}>
           <a href="https://buymeacoffee.com/dagnis" target="_blank">
-            <img src="/bmc_qr.png" alt={t('buyMeBeerQrAlt')} className={styles.qrCode} />
+            <img src="/revolut.png" alt={t('buyMeBeerQrAlt')} className={styles.qrCode} />
           </a>
         </div>
       </div>
