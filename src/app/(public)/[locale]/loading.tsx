@@ -9,7 +9,7 @@ export default function PublicPageLoading() {
   const t = useTranslations('common');
 
   return (
-    <SectionCard title={t('loadingPage')} className="mt-12 mb-12">
+    <SectionCard title={t('loadingPage')} className="mt-12">
       <p role="status" aria-live="polite">
         {t('gettingTournamentInformation')}
       </p>

@@ -187,7 +187,7 @@ const messages = {
     rateOnHattrick: 'Click the CHPP logo to rate this app on Hattrick!',
     chppProductPageAlt: 'CHPP product page',
     beerBannerTitle: 'Keep the project fun!',
-    beerBannerDescription: 'Programming dull things requires a lot of expensive coffee, programming fun features – needs beer too. Don\'t let me run on coffee alone!',
+    beerBannerDescription: 'Creating dull things burns tons of coffee, making fun features – demands beer. Don\'t let the project run on coffee alone!',
     tipDevBeer: 'Tip Dev a beer!',
     buyMeBeerQrAlt: 'Buy me a beer QR',
     loadingPage: 'Loading page…',
