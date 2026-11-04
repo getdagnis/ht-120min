@@ -255,11 +255,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
   const percentage120min = (standing: TeamStanding) =>
     standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
-  const regular120minGamesPlayed = (standing: TeamStanding) =>
+  const countedGamesTotal = (standing: TeamStanding) =>
     standing.played + (misarrangedGameCounts[standing.teamId] || 0);
+  const countedGamesDisplay = (standing: TeamStanding) => {
+    const total = countedGamesTotal(standing);
+    return `${standing.played}/${total}`;
+  };
   const percentage120minOfGames = (standing: TeamStanding) => {
-    const gamesPlayed = regular120minGamesPlayed(standing);
-    return gamesPlayed > 0 ? (standing.achievements120min / gamesPlayed) * 100 : 0;
+    return standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
   };
   const averageMatchQuota = useMemo(() => {
     return showAppgScoring || showAverage120Scoring ? getAppgStandingsQuota(standings) : 0;
@@ -911,13 +914,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       styles.center,
                       'Percentage of completed matches that reached 120 minutes',
                     )}
-                    {sortableHeader(uiText('playedColumn'), 'played', styles.center, 'Completed matches played')}
+                    {sortableHeader(uiText('playedColumn'), 'played', styles.center, uiText('gamesTooltip'))}
                     {sortableHeader(uiText('differenceColumn'), 'gd', styles.center, 'Goal difference')}
                     {sortableHeader(uiText('goalsColumn'), 'gf', styles.center, 'Goals scored')}
                   </>
                 ) : (
                   <>
-                    {sortableHeader(uiText('playedColumn'), 'played', styles.center, 'Completed matches played')}
+                    {sortableHeader(uiText('playedColumn'), 'played', styles.center, uiText('gamesTooltip'))}
                     {sortableHeader(uiText('wonColumn'), 'won', styles.center, 'Matches won')}
                     {sortableHeader(uiText('drawnColumn'), 'drawn', styles.center, 'Matches drawn')}
                     {sortableHeader(uiText('lostColumn'), 'lost', styles.center, 'Matches lost')}
@@ -1122,7 +1125,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       ) : show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
-                          <td className={styles.center}>{regular120minGamesPlayed(s)}</td>
+                          <td className={styles.center}>{countedGamesDisplay(s)}</td>
                           <td className={styles.center}>{s.pts}</td>
                           <td className={styles.center}>{percentage120minOfGames(s).toFixed(0)}%</td>
                           <td className={styles.center}>{s.totalMinutes}</td>
@@ -1140,13 +1143,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                             {averagePointsPerGame(s).toFixed(2)}
                           </td>
                           <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
-                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{countedGamesDisplay(s)}</td>
                           <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                           <td className={styles.center}>{s.gf}</td>
                         </>
                       ) : (
                         <>
-                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{countedGamesDisplay(s)}</td>
                           <td className={styles.center}>{s.won}</td>
                           <td className={styles.center}>{s.drawn}</td>
                           <td className={styles.center}>{s.lost}</td>
