@@ -6023,6 +6023,48 @@ export const TournamentView: React.FC<{
       ? new Set(warningTeamIds)
       : mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
   })();
+  const misarrangedGameCounts = (() => {
+    if (isViewingHistoricalSeason || isSandbox || tournament.is_test) return {};
+
+    const fixtureRoundIds = new Set(
+      fixtureRounds
+        .filter((round) => round.phase !== 'postseason' && !round.is_unscored)
+        .map((round) => round.id),
+    );
+    const warningTeamIds = warnings
+      .filter((warning) =>
+        warning.active !== false &&
+        warning.reason === 'misarranged' &&
+        fixtureRoundIds.has(warning.round_id) &&
+        typeof warning.team_id === 'string',
+      )
+      .filter((warning) => {
+        const round = fixtureRounds.find((item) => item.id === warning.round_id);
+        const fixture = round?.matches.find((match) =>
+          (match.home_team_id === warning.team_id || match.away_team_id === warning.team_id) &&
+          match.reserve_replaces_team_id !== warning.team_id,
+        );
+        return !fixture || isFixtureMisarranged(fixture.status || 'not_arranged', fixture.completed, true);
+      })
+      .filter((warning, index, allWarnings) =>
+        allWarnings.findIndex((candidate) =>
+          candidate.round_id === warning.round_id && candidate.team_id === warning.team_id,
+        ) === index,
+      )
+      .map((warning) => warning.team_id as string);
+    const slotIdByTeamId = new Map(
+      seasonSlots
+        .filter((slot) => slot.current_team_id)
+        .map((slot) => [slot.current_team_id!, slot.id]),
+    );
+    const standingsIds = warningTeamIds.map((teamId) =>
+      tournament.schedule_mode === 'length' ? teamId : slotIdByTeamId.get(teamId) || teamId,
+    );
+    return standingsIds.reduce<Record<string, number>>((counts, teamId) => {
+      counts[teamId] = (counts[teamId] || 0) + 1;
+      return counts;
+    }, {});
+  })();
   const handleSeasonChange = (seasonNumber: number) => {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('season', String(seasonNumber));
@@ -7095,6 +7137,7 @@ export const TournamentView: React.FC<{
               seasonStatus={selectedSeason?.status}
               rounds={fixtureRounds}
               warningTeamIds={standingsWarningTeamIds}
+              misarrangedGameCounts={misarrangedGameCounts}
               activityTeams={
                 isViewingHistoricalSeason || isSandbox || tournament.is_test
                   ? []
