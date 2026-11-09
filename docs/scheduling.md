@@ -443,3 +443,14 @@ the exception rollback and lock. Prepared locally, not applied by the agent.
 Existing looping backends must also be cleared after correction; replacing the
 function alone does not stop transactions already in flight. Other custom
 `40001` business rejections remain an explicitly separate audit item.
+
+### Unlinked fixture progression follow-up (2026-11-04)
+
+Progression now distinguishes link state from the scheduled-slot boundary:
+linked matches block until completed or finished; unlinked fixtures are
+finalized as unplayed once their scheduled slot has passed. Future unlinked
+fixtures remain pending so a refresh cannot skip a newly materialized round.
+Unscored organizer rounds do not participate in progression or qualification.
+Migration `168_unlinked_matches_resolve_rounds.sql` and the matching service
+change are prepared locally; Supabase application and live tournament behavior
+remain unverified.

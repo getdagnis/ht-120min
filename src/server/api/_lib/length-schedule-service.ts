@@ -89,10 +89,12 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
-function isResolvedMatch(match: StoredMatch) {
+function isResolvedMatch(match: StoredMatch, now = Date.now()) {
   if (!match.home_team_id || !match.away_team_id) return true;
-  if (match.status === 'ongoing') return false;
-  return match.completed || match.status === 'finished' || match.schedule_resolution === 'finalized_unplayed';
+  if (match.ht_match_id != null) return match.completed || match.status === 'finished';
+  if (match.completed || match.status === 'finished' || match.schedule_resolution === 'finalized_unplayed') return true;
+  const scheduledFor = match.scheduled_for ? Date.parse(match.scheduled_for) : NaN;
+  return Number.isFinite(scheduledFor) && scheduledFor <= now;
 }
 
 function buildPairingHistory(rounds: StoredRound[]): PairingHistory {
@@ -590,7 +592,7 @@ export async function progressLengthSchedule(
   if (!state) return { advanced: false, reason: 'not_length_schedule' };
   let completedAdditionalRound = false;
   for (const round of state.rounds.filter(
-    (round) => round.round_source === 'organizer' && round.phase_status === 'materialized',
+    (round) => round.round_source === 'organizer' && !round.is_unscored && round.phase_status === 'materialized',
   )) {
     const ready = round.matches.every(isResolvedMatch);
     if (!ready) continue;
@@ -631,7 +633,9 @@ export async function progressLengthSchedule(
     ) || null;
   if (
     (next?.phase === 'postseason' || !next) &&
-    state.rounds.some((round) => round.round_source === 'organizer' && round.phase_status !== 'completed')
+    state.rounds.some(
+      (round) => round.round_source === 'organizer' && !round.is_unscored && round.phase_status !== 'completed',
+    )
   ) {
     return { advanced: completedAdditionalRound, reason: 'additional_regular_round_unresolved' };
   }

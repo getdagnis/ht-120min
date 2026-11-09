@@ -32,6 +32,7 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
     assert.match(sql('SELECT organizer_saved_repair_enabled();'), /t/);
     sql(readFileSync(new URL('../migrations/153_unscored_organizer_rounds.sql', import.meta.url), 'utf8'));
     sql(readFileSync(new URL('../migrations/154_unscored_legacy_schedule_rounds.sql', import.meta.url), 'utf8'));
+    sql(readFileSync(new URL('../migrations/168_unlinked_matches_resolve_rounds.sql', import.meta.url), 'utf8'));
     sql(`INSERT INTO tournaments(id,season,schedule_mode,schedule_generated_at,status) VALUES('${uuid(100)}',1,'length',now(),'active');
       ${Array.from({ length: 6 }, (_, i) => `INSERT INTO teams(id,tournament_id,name,ht_team_id,hattrick_user_id,active) VALUES('${uuid(i + 1)}','${uuid(100)}','Team ${i + 1}',${i + 1},${i + 1},true);`).join('\n')}`);
     const output = sql(`DO $$
@@ -136,6 +137,74 @@ test('verified organizer saves and repairs are atomic and preserve protected/unc
         EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'Unscored rounds cannot%' THEN RAISE; END IF; END;
       END $$; SELECT 'unscored creation assertions completed';`);
     assert.match(unscored, /unscored creation assertions completed/);
+    const progression = sql(`DO $$
+      DECLARE result jsonb;
+      BEGIN
+        INSERT INTO tournaments(id,season,schedule_mode,schedule_generated_at,status)
+          VALUES('${uuid(500)}',1,'length',now(),'active');
+        IF has_function_privilege('service_role',
+          'public.apply_length_round_transition_unlinked_legacy(uuid,integer,uuid,uuid,jsonb,uuid)','EXECUTE') THEN
+          RAISE EXCEPTION 'legacy transition remains directly executable'; END IF;
+        INSERT INTO tournament_seasons(tournament_id,season_number,status)
+          VALUES('${uuid(500)}',1,'ongoing');
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status)
+          VALUES('${uuid(501)}','${uuid(500)}',1,1,'regular','materialized');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution,scheduled_for)
+          VALUES('${uuid(502)}','${uuid(501)}','${uuid(1)}','${uuid(2)}','misarranged',false,'pending',now()-interval '1 day');
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(501)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT TRUE
+          OR (SELECT phase_status FROM rounds WHERE id='${uuid(501)}')<>'completed'
+          OR (SELECT schedule_resolution FROM matches WHERE id='${uuid(502)}')<>'finalized_unplayed' THEN
+          RAISE EXCEPTION 'unlinked misarranged fixture blocked progression'; END IF;
+
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status)
+          VALUES('${uuid(508)}','${uuid(500)}',1,2,'regular','materialized');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution,scheduled_for)
+          VALUES('${uuid(509)}','${uuid(508)}','${uuid(1)}','${uuid(2)}','not_arranged',false,'pending',now()+interval '1 day');
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(508)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT FALSE
+          OR result->>'reason'<>'round_unresolved'
+          OR (SELECT schedule_resolution FROM matches WHERE id='${uuid(509)}')<>'pending'
+          OR (SELECT phase_status FROM rounds WHERE id='${uuid(508)}')<>'materialized' THEN
+          RAISE EXCEPTION 'future unlinked fixture was finalized early'; END IF;
+
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status)
+          VALUES('${uuid(503)}','${uuid(500)}',1,3,'regular','materialized');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution,ht_match_id)
+          VALUES('${uuid(504)}','${uuid(503)}','${uuid(1)}','${uuid(2)}','ongoing',false,'finalized_unplayed',12345);
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(503)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT FALSE
+          OR result->>'reason'<>'round_unresolved'
+          OR (SELECT phase_status FROM rounds WHERE id='${uuid(503)}')<>'materialized' THEN
+          RAISE EXCEPTION 'linked ongoing fixture did not block progression'; END IF;
+        UPDATE matches SET status='finished' WHERE id='${uuid(504)}';
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(503)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT TRUE
+          OR (SELECT schedule_resolution FROM matches WHERE id='${uuid(504)}')<>'played' THEN
+          RAISE EXCEPTION 'linked finished fixture did not resolve progression'; END IF;
+
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status)
+          VALUES('${uuid(510)}','${uuid(500)}',1,4,'regular','materialized');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution,ht_match_id)
+          VALUES('${uuid(511)}','${uuid(510)}','${uuid(1)}','${uuid(2)}','ongoing',true,'pending',12347);
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(510)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT TRUE
+          OR (SELECT status FROM matches WHERE id='${uuid(511)}')<>'finished' THEN
+          RAISE EXCEPTION 'completed linked result did not override stale ongoing status'; END IF;
+
+        INSERT INTO rounds(id,tournament_id,season_number,round_number,phase,phase_status)
+          VALUES('${uuid(505)}','${uuid(500)}',1,5,'regular','materialized');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution)
+          VALUES('${uuid(506)}','${uuid(505)}','${uuid(1)}','${uuid(2)}','misarranged',false,'pending');
+        INSERT INTO matches(id,round_id,home_team_id,away_team_id,status,completed,schedule_resolution,ht_match_id)
+          VALUES('${uuid(507)}','${uuid(505)}','${uuid(1)}','${uuid(2)}','arranged',false,'pending',12346);
+        result:=apply_length_round_transition('${uuid(500)}',1,'${uuid(505)}',NULL,'[]',NULL);
+        IF (result->>'advanced')::boolean IS NOT FALSE
+          OR (SELECT schedule_resolution FROM matches WHERE id='${uuid(506)}')<>'pending'
+          OR (SELECT phase_status FROM rounds WHERE id='${uuid(505)}')<>'materialized' THEN
+          RAISE EXCEPTION 'blocked mixed round partially finalized an unlinked fixture'; END IF;
+      END $$; SELECT 'link-based progression assertions completed';`);
+    assert.match(progression, /link-based progression assertions completed/);
     const legacy = sql(`DO $$
       DECLARE mode text; tournament uuid; roster jsonb; pairs jsonb; version text; result jsonb; rid uuid;
         verification uuid:='${uuid(401)}';
