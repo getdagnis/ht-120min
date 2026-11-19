@@ -86,6 +86,17 @@
     &:focus-visible
       outline: 3px solid #27550a
 
+  .loginButton
+    display: block
+    margin: 1rem auto
+    padding: .5rem 1rem
+    border: 0
+    border-radius: var(--radius-md)
+    color: #27550a
+    background: #fff1de
+    font-weight: 700
+    cursor: pointer
+
 .footer
   position: relative
   display: flex
@@ -133,8 +144,20 @@
   .footer
     width: 100%
     justify-content: center
-    padding: 0
-    margin: 0 0 3rem
+    min-height: 110px
+    padding: 0 88px 0 0
+    margin: auto 0 0
+    text-align: center
+
+    strong
+      font-size: clamp(1.1rem, 4.5vw, 1.5rem)
+
+    p
+      font-size: .75rem
 
     img
-      display: none
+      display: block
+      width: 100px
+      top: auto
+      right: -3px
+      bottom: -28px

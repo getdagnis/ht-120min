@@ -1,5 +1,5 @@
 import { handleFlagQuiz } from './_lib/flag-quiz.js';
-import { handleFundraiser, handleFundraiserCheckout, handleFundraiserClaim } from './_lib/fundraiser.js';
+import { handleFundraiser, handleFundraiserCheckout, handleFundraiserClaim, handleFundraiserReturn } from './_lib/fundraiser.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAppSessionSecret, verifyAppSessionCookie } from './_lib/app-session.js';
 import {
@@ -4143,7 +4143,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'fundraiser':
         return await handleFundraiser(req, res);
       case 'fundraiser-checkout':
-        return handleFundraiserCheckout(req, res);
+        return await handleFundraiserCheckout(req, res);
+      case 'fundraiser-return':
+        return handleFundraiserReturn(req, res);
       case 'fundraiser-claim':
         return await handleFundraiserClaim(req, res);
       case 'flag-quiz':

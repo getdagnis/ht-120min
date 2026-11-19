@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   emptyFundraiserProducts, FUNDRAISER_PRODUCTS, FUNDRAISER_STATUS, fundraiserProduct,
@@ -8,6 +8,7 @@ import { getAppSessionSecret, verifyAppSessionCookie } from './app-session.js';
 import { getServiceSupabase } from './supabase.js';
 
 const CLICK_MAX_AGE_SECONDS = 60 * 60;
+const RETURN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function clickCookieName(key: string): string {
   return `ht120_fundraiser_click_${key}`;
@@ -18,30 +19,32 @@ function clickCookie(key: string, value: string, maxAge: number): string {
     (process.env.NODE_ENV === 'production' ? '; Secure' : '');
 }
 
-function signedClick(managerId: number, item: string, secret: string): string {
-  const encoded = Buffer.from(JSON.stringify({ managerId, item, expiresAt: Date.now() + CLICK_MAX_AGE_SECONDS * 1000 }))
+function signToken(payload: object, secret: string, purpose: string): string {
+  const encoded = Buffer.from(JSON.stringify(payload))
     .toString('base64url');
-  const signature = createHmac('sha256', secret).update(`fundraiser-click:${encoded}`).digest('base64url');
+  const signature = createHmac('sha256', secret).update(`${purpose}:${encoded}`).digest('base64url');
   return `${encoded}.${signature}`;
 }
 
-export function clickedByManager(cookieHeader: string | undefined, item: string, managerId: number, secret: string): boolean {
+function readToken(cookieHeader: string | undefined, name: string, secret: string, purpose: string): Record<string, unknown> | null {
   const value = cookieHeader?.split(';').map((part) => part.trim())
-    .find((part) => part.startsWith(`${clickCookieName(item)}=`))?.slice(clickCookieName(item).length + 1);
-  if (!value) return false;
+    .find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
+  if (!value) return null;
   const [encoded, signature] = value.split('.');
   if (!encoded || !signature || encoded.length > 512 ||
-    !/^[A-Za-z0-9_-]+$/.test(encoded) || !/^[A-Za-z0-9_-]+$/.test(signature)) return false;
-  const expected = createHmac('sha256', secret).update(`fundraiser-click:${encoded}`).digest('base64url');
+    !/^[A-Za-z0-9_-]+$/.test(encoded) || !/^[A-Za-z0-9_-]+$/.test(signature)) return null;
+  const expected = createHmac('sha256', secret).update(`${purpose}:${encoded}`).digest('base64url');
   if (expected.length !== signature.length ||
-    !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) return false;
+    !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) return null;
   try {
-    const click = JSON.parse(Buffer.from(encoded, 'base64url').toString()) as {
-      managerId?: unknown; item?: unknown; expiresAt?: unknown;
-    };
-    return click.managerId === managerId && click.item === item &&
-      typeof click.expiresAt === 'number' && click.expiresAt >= Date.now();
-  } catch { return false; }
+    const value = JSON.parse(Buffer.from(encoded, 'base64url').toString()) as Record<string, unknown>;
+    return value && typeof value.expiresAt === 'number' && value.expiresAt >= Date.now() ? value : null;
+  } catch { return null; }
+}
+
+export function clickedByManager(cookieHeader: string | undefined, item: string, managerId: number, secret: string): boolean {
+  const click = readToken(cookieHeader, clickCookieName(item), secret, 'fundraiser-click');
+  return click?.managerId === managerId && click.item === item;
 }
 
 function signedInManager(req: VercelRequest): number | null {
@@ -84,17 +87,47 @@ export async function handleFundraiser(req: VercelRequest, res: VercelResponse) 
   return res.status(200).json(await loadState(signedInManager(req)));
 }
 
-export function handleFundraiserCheckout(req: VercelRequest, res: VercelResponse) {
+export async function handleFundraiserCheckout(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
   const product = typeof req.query?.item === 'string' ? fundraiserProduct(req.query.item) : undefined;
   if (!product || FUNDRAISER_STATUS !== 'active') return res.status(404).json({ error: 'Fundraiser unavailable.' });
   const managerId = signedInManager(req);
   const secret = getAppSessionSecret();
+  const clickId = randomUUID();
+  if (process.env.NODE_ENV !== 'development') {
+    const { error } = await getServiceSupabase().from('fundraiser_clicks').insert({
+      id: clickId, item_id: product.itemId, manager_id: managerId,
+    });
+    if (error) console.error('Could not record fundraiser click:', error.message);
+  }
   res.setHeader('Set-Cookie', managerId && secret
-    ? clickCookie(product.key, signedClick(managerId, product.key, secret), CLICK_MAX_AGE_SECONDS)
+    ? clickCookie(product.key, signToken({ clickId, managerId, item: product.key,
+      expiresAt: Date.now() + CLICK_MAX_AGE_SECONDS * 1000 }, secret, 'fundraiser-click'), CLICK_MAX_AGE_SECONDS)
     : clickCookie(product.key, '', 0));
   return res.redirect(303, product.url);
+}
+
+function returnCookieName(item: string): string { return `ht120_fundraiser_return_${item}`; }
+
+export function handleFundraiserReturn(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const product = typeof req.body?.item === 'string' ? fundraiserProduct(req.body.item) : undefined;
+  if (!product) return res.status(400).json({ error: 'Unknown product.' });
+  const secret = getAppSessionSecret();
+  if (!secret) return res.status(503).json({ error: 'Return unavailable.' });
+  const name = returnCookieName(product.key);
+  const existing = readToken(req.headers.cookie, name, secret, 'fundraiser-return');
+  const token = existing?.item === product.key && typeof existing.returnKey === 'string' &&
+    typeof existing.returnedAt === 'string' ? existing : {
+      item: product.key, returnKey: randomUUID(), returnedAt: new Date().toISOString(),
+      expiresAt: Date.now() + RETURN_MAX_AGE_SECONDS * 1000,
+    };
+  res.setHeader('Set-Cookie',
+    `${name}=${signToken(token, secret, 'fundraiser-return')}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${RETURN_MAX_AGE_SECONDS}` +
+      (process.env.NODE_ENV === 'production' ? '; Secure' : ''));
+  return res.status(200).json({ ready: true });
 }
 
 export async function handleFundraiserClaim(req: VercelRequest, res: VercelResponse) {
@@ -105,21 +138,25 @@ export async function handleFundraiserClaim(req: VercelRequest, res: VercelRespo
   const product = typeof req.body?.item === 'string' ? fundraiserProduct(req.body.item) : undefined;
   if (!product) return res.status(400).json({ error: 'Unknown product.' });
   const secret = getAppSessionSecret();
-  if (!secret || !clickedByManager(req.headers.cookie, product.key, managerId, secret)) {
-    return res.status(200).json({ matched: false });
-  }
+  const arrival = secret && readToken(req.headers.cookie, returnCookieName(product.key), secret, 'fundraiser-return');
+  if (!arrival || arrival.item !== product.key || typeof arrival.returnKey !== 'string' ||
+    typeof arrival.returnedAt !== 'string') return res.status(200).json({ matched: false });
   const db = getServiceSupabase();
   const { data: profile, error: profileError } = await db.from('profiles')
     .select('manager_name').eq('hattrick_user_id', managerId).maybeSingle();
   if (profileError) throw new Error('Manager profile is unavailable.');
   const managerName = typeof profile?.manager_name === 'string' ? profile.manager_name.trim() : '';
   if (!managerName || managerName.length > 60) return res.status(200).json({ matched: false });
-  const { data, error } = await db.rpc('claim_next_season_bmc_order', {
-    p_item_id: product.itemId, p_manager_id: managerId, p_manager_name: managerName,
+  const click = secret && readToken(req.headers.cookie, clickCookieName(product.key), secret, 'fundraiser-click');
+  const { data, error } = await db.rpc('claim_fundraiser_return', {
+    p_return_key: arrival.returnKey, p_item_id: product.itemId,
+    p_manager_id: managerId, p_manager_name: managerName, p_returned_at: arrival.returnedAt,
+    p_click_id: click?.managerId === managerId && click.item === product.key &&
+      typeof click.clickId === 'string' ? click.clickId : null,
   });
   if (error) throw new Error('Could not match Shop purchase.');
-  res.setHeader('Set-Cookie', clickCookie(product.key, '', 0));
-  return res.status(200).json({ matched: data === true, managerName: data === true ? managerName : undefined });
+  const matched = data?.[0]?.matched === true;
+  return res.status(200).json({ matched, managerName: matched ? managerName : undefined });
 }
 
 export function verifyBmcSignature(rawBody: string, secret: string, signature: unknown): boolean {

@@ -43,7 +43,7 @@ export function proxy(request: NextRequest) {
     if (/^\/(en|lv)\/supported\/?$/.test(pathname)) {
       const target = request.nextUrl.clone();
       target.pathname = `/${pathname.split('/')[1]}`;
-      target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? 'general');
+      target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? '');
       return NextResponse.rewrite(target);
     }
     if (request.nextUrl.searchParams.get('localePreview') === '1') {
@@ -57,7 +57,7 @@ export function proxy(request: NextRequest) {
   if (pathname === '/supported' || pathname === '/supported/') {
     const target = request.nextUrl.clone();
     target.pathname = `/${preferredLocale(request)}`;
-    target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? 'general');
+    target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? '');
     return NextResponse.rewrite(target);
   }
 

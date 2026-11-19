@@ -5,7 +5,7 @@ import { FUNDRAISER_PRODUCTS } from '../shared/fundraiser.ts';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { buildAppSessionCookie } from '../src/server/api/_lib/app-session.ts';
 import {
-  clickedByManager, handleBmcWebhook, handleFundraiserCheckout, handleFundraiserClaim,
+  clickedByManager, handleBmcWebhook, handleFundraiserCheckout, handleFundraiserClaim, handleFundraiserReturn,
   parseBmcShopOrder, verifyBmcSignature,
 } from '../src/server/api/_lib/fundraiser.ts';
 
@@ -44,9 +44,19 @@ test('all four Shop URLs and item IDs are mapped to the approved beer values', (
   ]);
 });
 
-test('checkout records the signed-in manager and product before redirecting to the real Shop URL', () => {
+test('checkout records the signed-in manager and product before redirecting to the real Shop URL', async () => {
   const previousSecret = process.env.APP_SESSION_SECRET;
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const previousFetch = globalThis.fetch;
   process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  process.env.SUPABASE_URL = 'https://fundraiser-test.invalid';
+  process.env.SUPABASE_SECRET_KEY = 'test-service-key';
+  let recordedClick: unknown;
+  globalThis.fetch = async (_input, init) => {
+    recordedClick = JSON.parse(String(init?.body));
+    return new Response('', { status: 201 });
+  };
   try {
     const headers = new Map<string, string>();
     let status = 200;
@@ -59,7 +69,9 @@ test('checkout records the signed-in manager and product before redirecting to t
     } as unknown as VercelResponse;
     const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
     const req = { method: 'GET', query: { item: 'hfi' }, headers: { cookie: session } } as unknown as VercelRequest;
-    handleFundraiserCheckout(req, res);
+    await handleFundraiserCheckout(req, res);
+    assert.equal((recordedClick as { item_id: number }).item_id, 599984);
+    assert.equal((recordedClick as { manager_id: number }).manager_id, 42);
     assert.equal(status, 303);
     assert.equal(location, FUNDRAISER_PRODUCTS[0].url);
     const click = headers.get('Set-Cookie') ?? '';
@@ -71,12 +83,17 @@ test('checkout records the signed-in manager and product before redirecting to t
     const altered = `${cookiePair.slice(0, -1)}${cookiePair.endsWith('x') ? 'y' : 'x'}`;
     assert.equal(clickedByManager(altered, 'hfi', 42, process.env.APP_SESSION_SECRET), false);
   } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
     if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
     else process.env.APP_SESSION_SECRET = previousSecret;
   }
 });
 
-test('return without a matching signed click cannot claim a purchase', async () => {
+test('a claim needs the signed original return even when the manager is logged in', async () => {
   const previousSecret = process.env.APP_SESSION_SECRET;
   process.env.APP_SESSION_SECRET = 'test-app-session-secret';
   try {
@@ -93,6 +110,30 @@ test('return without a matching signed click cannot claim a purchase', async () 
     } as unknown as VercelRequest, res);
     assert.equal(status, 200);
     assert.deepEqual(body, { matched: false });
+  } finally {
+    if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
+    else process.env.APP_SESSION_SECRET = previousSecret;
+  }
+});
+
+test('a return keeps its original signed context on refresh', () => {
+  const previousSecret = process.env.APP_SESSION_SECRET;
+  process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  try {
+    let cookie = '';
+    const res = {
+      setHeader(name: string, value: string) { if (name === 'Set-Cookie') cookie = value; return this; },
+      status() { return this; },
+      json() { return this; },
+    } as unknown as VercelResponse;
+    const request = (cookieHeader = '') => ({
+      method: 'POST', body: { item: 'hfi' }, headers: { cookie: cookieHeader },
+    }) as unknown as VercelRequest;
+    handleFundraiserReturn(request(), res);
+    const first = cookie.split(';')[0];
+    assert.match(first, /^ht120_fundraiser_return_hfi=/);
+    handleFundraiserReturn(request(first), res);
+    assert.equal(cookie.split(';')[0], first);
   } finally {
     if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
     else process.env.APP_SESSION_SECRET = previousSecret;

@@ -30,6 +30,8 @@ const messages = {
     thanksGeneral: 'Your support helps keep HT-120min going.',
     thanksAllBefore: 'Your name',
     thanksAllAfter: 'has been recorded among supporters of HT-120min. Additional benefits and a badge might be added when introduced!',
+    thanksPending: 'Thanks for supporting HT-120min! Your name will appear once your purchase is matched.',
+    thanksLogin: 'Log in with Hattrick to show your name',
     backHome: 'Back to HT-120min',
   },
   lobby: {

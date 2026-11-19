@@ -8,7 +8,7 @@ import { readHomePageData } from '../../../utils/public-page-data';
 import { parsePublicDataAttempt } from '../../../utils/public-data-config.js';
 import { FundraiserCampaign } from '../../../components/Fundraiser/FundraiserCampaign';
 import { SupportedThankYou } from '../../../components/Fundraiser/SupportedThankYou';
-import { FUNDRAISER_STATUS } from '../../../../shared/fundraiser';
+import { FUNDRAISER_STATUS, fundraiserProduct } from '../../../../shared/fundraiser';
 
 export const dynamic = 'auto';
 
@@ -38,7 +38,10 @@ export default async function HomePage({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const { publicDataAttempt: attemptParam, fundraiser, supported } = await searchParams;
-  if (supported !== undefined) return <SupportedThankYou item={supported} />;
+  if (supported !== undefined) {
+    if (!fundraiserProduct(supported)) notFound();
+    return <SupportedThankYou item={supported} />;
+  }
   if (fundraiser === '1') {
     if (FUNDRAISER_STATUS === 'hidden') notFound();
     return <FundraiserCampaign />;
