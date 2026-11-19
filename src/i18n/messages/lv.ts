@@ -11,6 +11,9 @@ import en from './en.js';
 
 const messages = {
   ...en,
+  Fundraiser: {
+    ...en.Fundraiser,
+  },
   lobby: {
     title: "Vestibils",
     hanging_around: "Palieku kopienā",

@@ -1,4 +1,5 @@
 import { handleFlagQuiz } from './_lib/flag-quiz.js';
+import { handleFundraiser, handleFundraiserClaim } from './_lib/fundraiser.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAppSessionSecret, verifyAppSessionCookie } from './_lib/app-session.js';
 import {
@@ -4139,6 +4140,10 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     switch (routeFor(req)) {
+      case 'fundraiser':
+        return await handleFundraiser(req, res);
+      case 'fundraiser-claim':
+        return await handleFundraiserClaim(req, res);
       case 'flag-quiz':
         return await handleFlagQuiz(req, res);
       case 'presence':

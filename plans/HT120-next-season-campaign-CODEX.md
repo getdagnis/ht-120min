@@ -1,12 +1,12 @@
-# HT-120min — Next Season: interest poll + optional community support
+# HT-120min — superseded interest-poll brief
 
-**Local Codex implementation brief · reviewed 18 November 2026 · planning only**
+**Historical brief only. The poll, donation-note consent, and donation webhook requirements below were superseded by the four-product Buy Me a Coffee Shop fundraiser on 19 November 2026. Current behavior and rollout steps: `docs/fundraiser.md`.**
 
 ## Goal and limits
 
-The organizer has paused HT-120min after a demanding first season. Determine whether people want a new season and **which competitions they would genuinely join**. Invite optional symbolic contributions without creating commitments. The owner will coordinate local implementation, testing and deployment; keep required operational attention minimal.
+The current season is still running. Ask whether managers need HT-120min to continue after it, and **which competitions they would genuinely join**. The project is running low on fuel. Invite optional contributions without creating commitments. Keep required operational attention minimal.
 
-**Important distinction:** **voting and donations are independent**. A positive competition selection is a free vote and opens Buy Me a Coffee (BMC), but the app does **not** check whether that voter donated, and donations are **not** allocated to specific competitions. **BMC webhook integration is required** for a real, automatically maintained **Supported by** section and optional overall project support total. Do not drop the integration or introduce category codes, attribution, prefilled payment forms or extra steps on the main UI.
+**Important distinction:** **voting and donations are independent**. Managers select their interests first; Buy Me a Coffee (BMC) and Revolut are separate actions in the modal. The app does **not** check whether a voter donated, and donations are **not** allocated to specific competitions. **BMC webhook integration is required** for an automatically maintained recognition line; Revolut contributions are not ingested. Do not introduce category codes, vote attribution, or extra steps on the main UI.
 
 Read `AGENTS.md`, `docs/architecture.md`, `docs/database-and-deployment.md`, and `PROJECT_STATE.md`. Use existing Next.js App Router, React/TypeScript, Supabase, signed Hattrick sessions, next-intl EN/LV, reusable components and `.module.sass`. Prepare work on an isolated feature branch for owner review. Do **not** apply production migrations, commit, push, open a PR, deploy, modify paid accounts, or alter tournaments/fixtures without the owner's authorization under `AGENTS.md`. No new general state manager, payment SDK, CRON or polling system.
 
@@ -23,10 +23,10 @@ Read `AGENTS.md`, `docs/architecture.md`, `docs/database-and-deployment.md`, and
 
 Include a very short **What's this?** expander for Bone Crushers. Do not invent rules or pretend the format is finalized.
 
-Suggested intro:
-> **What's next for HT-120min?**
+Approved question and tone:
+> **Do you think HT-120min should continue for another season?**
 >
-> I've taken a break after our first season. Before deciding what to continue, I'd like to see which competitions you actually want to play in. Choose any that interest you. If you'd also like to support further development, you can buy me a coffee — completely optional.
+> The project is running low on fuel. Your interest in participating will help decide whether HT-120min brings its tournaments back after this season. Which competitions would you like to see return? Choose the ones you'd actually play in. If you'd like to put some fuel back in the tank, you can contribute through Buy Me a Coffee or Revolut.
 
 Use natural EN/LV copy with concise tone. No artificial scarcity, pressure, obligation or promises of a tournament if a goal is met.
 
@@ -35,8 +35,8 @@ Use natural EN/LV copy with concise tone. No artificial scarcity, pressure, obli
 Keep the original attractive **four-card layout**; no checkout widgets, campaign codes, donation verification messages or sponsor directory inside each card. Each card shows:
 
 - Title, concise description, **real distinct-manager interest count**, selected visual state.
-- One immediate voting action; signed-in manager can toggle selections (multi-select). A **positive** choice opens the ordinary BMC creator page in a new tab from the user gesture while the free vote saves independently. Disclose that behavior beside the choices so voting does not feel paywalled. Deselection only removes a vote. Disable repeat clicks while a save is in flight; show an inline retryable error if saving fails. A separate small **Support HT-120min** link remains available. Anonymous choice prompts Hattrick sign-in and returns to the campaign page. A BMC click never confirms a saved vote or payment.
-- The screenshot's four `€0 / €20` bars imply donation attribution that BMC cannot provide. Retain **€20 suggested support per idea** as editorial motivation if useful, but **do not render four monetary progress bars**. A single site-wide EUR total against a combined €80 symbolic milestone is optional; omit it initially if it weakens the clean composition. Interest counts remain primary, and no target promises delivery.
+- One immediate voting action; signed-in manager can toggle selections (multi-select). **Voting never opens BMC or Revolut.** Both contribution options sit below the cards inside the modal. Disable repeat clicks while a save is in flight; show an inline retryable error if saving fails. Anonymous choice prompts Hattrick sign-in and returns to the campaign page. A contribution click never confirms a saved vote or payment.
+- The screenshot's four `€0 / €20` bars imply donation attribution that BMC cannot provide. Retain **€20 suggested support per idea** as editorial motivation if useful, but **do not render four monetary progress bars**. This implementation omits monetary totals entirely; interest counts remain primary, and no target promises delivery.
 
 Below the cards, one compact **Supported by** line/strip (for example: “Supported by · @manager1 · @manager2 · +3 others”). Supporter names are verified contributors **to BMC**, but their Hattrick usernames are self-reported, **not verified Hattrick account ownership**. No ranking, donor amounts, supporter avatars, spotlight cards, separate donation form or intrusive animation. Hide gracefully if no publicly consenting supporters yet. Show unique opted-in names, not one row per tip. A minimal thank-you sentence is enough.
 
@@ -46,7 +46,7 @@ Below the cards, one compact **Supported by** line/strip (for example: “Suppor
 
 - One locale-aware, shareable, responsive public campaign page, following existing routes.
 - One concise banner by the Home tournament listing, dismissible per browser; the existing Home component is also the tournament listing, so do not duplicate promotion. Keep an ordinary route link accessible while active.
-- One small automatic modal on Home for **signed-in, unanswered managers**, at most **once per rolling 24 h per browser**, never over the existing welcome modal. “Not now” snoozes; “Don't show again” turns off prompts permanently; a saved answer suppresses it. Logged-out visitors find the page through the banner. The modal only needs a short message and campaign-page CTA.
+- One image-free WelcomeModal on Home for **guests and unanswered signed-in managers**, at most **once per rolling 24 h per browser**. It asks whether HT-120min should continue and contains all four choices, BMC, and Revolut. “Not now” snoozes; “Don't show again” turns off automatic prompts; a saved answer suppresses them. Show the small banner after dismissal or on later visits; it reopens the modal. Pause the other welcome prompts and BeerBanner while the campaign is active.
 - Campaign configurable active/closed/hidden without admin UI. Closed hides prompts and voting, retains public results/supporter thanks. Hidden hides all campaign promotion. EN/LV strings, keyboard/Escape/focus and mobile support.
 
 ## Voting data — small and robust
@@ -57,7 +57,7 @@ Below the cards, one compact **Supported by** line/strip (for example: “Suppor
 
 ## Buy Me a Coffee — simple UI, real server integration
 
-Use one real creator URL (config or `NEXT_PUBLIC_BMC_URL`). No guessed category/referral query parameters or nonexistent BMC goal/checkout APIs. Link to BMC from voting cards or the separate support link; **do not infer a payment from a click**, do not attempt cross-site checkout matching, and **do not associate a donor to the user's vote**.
+Reuse the existing `https://buymeacoffee.com/dagnis` creator URL already used by `BeerBanner`. No guessed category/referral query parameters or nonexistent BMC goal/checkout APIs. Link to BMC only from the prominent support action; **do not infer a payment from a click**, attempt cross-site checkout matching, or associate a donor with the user's vote.
 
 Official documentation:
 - Webhooks: https://help.buymeacoffee.com/en/articles/15743173-how-to-setup-and-use-buy-me-a-coffee-webhooks
@@ -67,10 +67,9 @@ Official documentation:
 
 - Route `POST /api/integrations/buymeacoffee` **through `src/app/api/[[...path]]/route.ts`**. Its current `invoke()` parses JSON before forwarding, so preserve the exact bounded raw body for this route before parsing. Verify `x-signature-sha256` using `HMAC-SHA256(rawBody, BMC_WEBHOOK_SECRET)` and fixed-length constant-time comparison. Reject invalid signatures, malformed or oversized bodies. No client-visible secret, OAuth keys or raw private payload logs. Do not add another Vercel function.
 - Listen for `donation.created` and `donation.refunded` only (one-time support). Provider event envelope includes `live_mode`; acknowledge but **never write `live_mode:false`** test events. Verify payment ID, success/refund state, amount, currency, and event type. Acknowledge unknown signed event types without mutation. Webhook retries must be idempotent; one payment counts once regardless of deliveries, and refund cannot be resurrected by late/replayed `donation.created` event. Use one atomic refund-dominant database insert/update; a refund received first must still reserve the payment ID as refunded. BMC expects 2xx within 15 seconds and can disable a webhook after repeated failures.
-- Store minimal private ledger: provider payment ID unique, original money amount in integer minor units, currency, refunded state, optional **publicly opted-in HT display name** parsed from the note, timestamps. No payer email, raw note or vote identity matching. Never expose raw ledger to anon/authenticated browsers. Constrain/max length and validate display names; provide a private operator correction/removal procedure for withdrawn consent. Deduplicate public names without requiring a new supporter table.
-- Only verified **EUR** payments count toward a displayed €80 site-wide total; non-EUR record separately without guessing exchange conversion. Disclose gross before provider fees if publishing euros. Supporter name display can be independent of payment currency if the signed donation is valid and non-refunded.
-- Public summary endpoint returns only a bounded, deduplicated set of opted-in display names and, if actually displayed, safe aggregate EUR cents. No client polling or event-stream infrastructure. Payment/read failure must not affect votes. Hide `Supported by` until valid consenting supporters exist.
-- Avoid the false claim of “four separate €20 funded milestones”: absent verified per-option attribution, only the **combined €80 symbolic milestone** has a truthful aggregate progress value.
+- Store a minimal private ledger: unique provider payment ID, refunded state, optional **publicly opted-in HT display name** parsed from the note, and timestamps. Validate payment amount, currency and success state on intake, but do not store amounts when no monetary total is displayed. Store no payer email, raw note or vote identity matching. Never expose the raw ledger to anon/authenticated browsers. Constrain display names and provide a private operator correction/removal procedure for withdrawn consent.
+- Public summary returns only a bounded, deduplicated set of opted-in names. No client polling or event-stream infrastructure. Webhook/read failure must not affect votes. Hide `Supported by` until valid consenting supporters exist.
+- Do not show four funded milestones or a combined monetary total without a real need and an accurate attribution/aggregation model.
 
 ## Tests / acceptance
 
@@ -91,7 +90,7 @@ Implementation order for local Codex:
 
 ## Owner setup (minimal)
 
-1. Create/login at https://buymeacoffee.com, configure payout account, set EUR if offered, and copy the public creator URL into app config/Vercel env.
+1. Sign in to the existing `https://buymeacoffee.com/dagnis` creator account and confirm its payout settings. The app already uses this public URL, so no new URL setup is needed unless the account changes.
 2. After owner review, apply the migration and deploy the matching code. In Buy Me a Coffee Dashboard → **Integrations → New webhook**, enter `https://<actual-production-domain>/api/integrations/buymeacoffee` and select only `donation.created` + `donation.refunded`. Copy its **Signing Secret** into server-only Vercel env `BMC_WEBHOOK_SECRET`, redeploy, then enable deliveries. Never paste the secret into GitHub or chat.
 3. Use **Send test event** in BMC and inspect its delivery result for 2xx; test events must add neither money nor supporters. A real donation with `HT:YourName #public` should appear once under Supported by. A donation without consent or with a hidden note must not reveal a public name. A real donation is required for this final integration test; local mocks do not prove it.
 

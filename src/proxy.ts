@@ -34,12 +34,31 @@ export function proxy(request: NextRequest) {
   }
 
   if (hasLocale(pathname)) {
+    if (/^\/(en|lv)\/fundraiser\/?$/.test(pathname)) {
+      const target = request.nextUrl.clone();
+      target.pathname = `/${pathname.split('/')[1]}`;
+      target.searchParams.set('fundraiser', '1');
+      return NextResponse.rewrite(target);
+    }
+    if (/^\/(en|lv)\/supported\/?$/.test(pathname)) {
+      const target = request.nextUrl.clone();
+      target.pathname = `/${pathname.split('/')[1]}`;
+      target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? 'general');
+      return NextResponse.rewrite(target);
+    }
     if (request.nextUrl.searchParams.get('localePreview') === '1') {
       const headers = new Headers(request.headers);
       headers.set('x-locale-preview', '1');
       return NextResponse.next({ request: { headers } });
     }
     return NextResponse.next();
+  }
+
+  if (pathname === '/supported' || pathname === '/supported/') {
+    const target = request.nextUrl.clone();
+    target.pathname = `/${preferredLocale(request)}`;
+    target.searchParams.set('supported', request.nextUrl.searchParams.get('item') ?? 'general');
+    return NextResponse.rewrite(target);
   }
 
   return localeRedirect(request);

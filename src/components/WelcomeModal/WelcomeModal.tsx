@@ -4,9 +4,7 @@ import { X } from 'phosphor-react';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import styles from './WelcomeModal.module.sass';
-
-// Temporary global switch: set to true to restore every welcome modal.
-const WELCOME_MODALS_ENABLED = true;
+import { WELCOME_MODALS_ENABLED } from '../../utils/welcome-modals';
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -40,6 +38,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
       onClose={onClose}
       maxWidth="720px"
       showHeader={false}
+      ariaLabel={title}
       modalClassName={[styles.modal, variant === 'tinder' ? styles.tinderModal : ''].filter(Boolean).join(' ')}
       contentClassName={styles.modalContent}
       useContentPanel={false}

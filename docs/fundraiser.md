@@ -1,0 +1,24 @@
+# HT-120min fundraiser
+
+The HT-120min campaign is a Buy Me a Coffee Shop fundraiser, not an interest poll. The approved artwork is in `plans/support-modal-whole-1.png` and `plans/support-modal-whole-2.png`. The modal uses the parchment, grass, badge, beer button, tank, and pump assets in `public/alus/`; the headline, introduction, product copy, supporter names, and beer total are HTML text. Its pump illustration holds each trophy/pump view before switching quickly and stops under reduced motion. Home and tournament pages show the modal on visits until it is dismissed; that dismissal suppresses it for the current browser session. A signed-in manager with a matched verified purchase no longer gets the automatic modal. A BMC thank-you return also suppresses it only for the current browser session while verification may still be pending. The dismissible fundraiser banner remains on Home and tournament pages regardless of modal eligibility; its action opens the modal on the current page. The modal closes from its close button or Escape. Visitors can view the fundraiser and purchase without an HT login. The campaign uses English copy on both site locales.
+
+| Product | BMC Shop item | URL | Beer value |
+| --- | ---: | --- | ---: |
+| Exotic HFI Series | 599984 | https://buymeacoffee.com/dagnis/e/599984 | 1 |
+| Around the World — Flag Chasers | 599987 | https://buymeacoffee.com/dagnis/e/599987 | 1 |
+| 120min Strictly | 599986 | https://buymeacoffee.com/dagnis/e/599986 | 1 |
+| HT-120min Supporter | 599982 | https://buymeacoffee.com/dagnis/e/599982 | 2 |
+
+The public campaign page is `/<locale>/fundraiser` (or `/fundraiser` with locale redirect). The combined display is beers supported out of a symbolic 20, not euros and not four separate goals. All four Shop products contribute, including purchases made directly on BMC. The public campaign API returns only product aggregates and matched Hattrick names. No sample names from the artwork are published.
+
+## Purchase and name flow
+
+`POST /api/integrations/buymeacoffee` stays inside the consolidated Next.js API function. Configure a BMC webhook for `extra_purchase.created`, `extra_purchase.updated`, and `extra_purchase.refunded`, and set server-only `BMC_WEBHOOK_SECRET` in Vercel. The handler verifies `x-signature-sha256` against the untouched request body and ignores `live_mode: false` events. It attributes products by `data.extras[].id`, records EUR unit cents and quantities, and uses BMC payment ID plus item ID for idempotency. Refunds remove their beer and name contribution, including when they arrive before a create event. Unrelated donation events do not affect this fundraiser.
+
+BMC redirects each product to `/supported?item=hfi|flags|120min|general`. The page thanks the visitor and, if a Hattrick session is present, records that manager's return. A return matches the nearest unmatched, signed-webhook-verified order for the same product when the purchase was within 20 minutes. Returns received before the webhook wait privately for a later event. A matched return is the owner's chosen consent signal for displaying the manager's Hattrick name under every product in that order. Timing is intentionally approximate; a direct visit can be misattributed, and no return is proof of payment or changes totals. The return's session-only modal suppression has no effect on totals or names. There is no form or admin interface.
+
+Migrations 169 and 170 are owner-marked applied and immutable. Migration 170 extends 169's private payment ledger with Shop item and return records; it does not remove historical vote rows. The payment, item, and return tables and RPCs are service-role-only. Their `next_season_*` names are retained because migration 169 is applied; app-facing component names and URLs use `fundraiser`. The old vote API and UI are no longer used. `NEXT_PUBLIC_FUNDRAISER_STATUS` controls active, closed, and hidden display. Closed retains totals without purchase buttons; hidden removes the fundraiser.
+
+## Activation and checks
+
+The owner marked migrations 169 and 170 applied. The agent's read-only `supabase migration list --linked` check reached the remote database but failed password authentication, so live state is not independently verified. Confirm the live 169 and 170 schema and migration history; apply 170 only if genuinely absent, and do not deploy code that calls 170's RPCs before they exist. Then deploy with `BMC_WEBHOOK_SECRET`, enable the three Shop event subscriptions, and inspect a signed test event followed by a real Shop purchase. Dashboard test events must not change totals. Confirm the real webhook's `data.extras[].id`, EUR amount, quantity, return redirect, supporter name, duplicate delivery, and refund behavior. Local unit tests and disposable PostgreSQL checks do not prove live BMC, Supabase, or deployment behavior.

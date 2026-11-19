@@ -1,3 +1,8 @@
+import { FUNDRAISER_STATUS } from '../../shared/fundraiser';
+
+// Pause existing welcome prompts while the fundraiser is active.
+export const WELCOME_MODALS_ENABLED = FUNDRAISER_STATUS !== 'active';
+
 export const HOME_WELCOME_KEY = 'ht120_welcome_home_v1';
 export const TINDER_WELCOME_KEY = 'ht120_welcome_tinder_v1';
 export const TOURNAMENT_CREATED_WELCOME = 'created';

@@ -17,13 +17,14 @@ import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
+import { FundraiserModal } from '../../components/Fundraiser/FundraiserModal';
 import { GlobalChatWidget } from '../../components/GlobalChatWidget/GlobalChatWidget';
 import { GlobalActivityWidget } from '../../components/GlobalActivityWidget/GlobalActivityWidget';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { getMatchDateForRound } from '../../utils/match-schedule';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { getPublishedFaqSections } from '../../constants/faq-essential';
-import { dismissWelcome, hasDismissedWelcome, HOME_WELCOME_KEY } from '../../utils/welcome-modals';
+import { dismissWelcome, hasDismissedWelcome, HOME_WELCOME_KEY, WELCOME_MODALS_ENABLED } from '../../utils/welcome-modals';
 import { Trophy, Heartbeat, CaretLeft, ArrowRight, Star, FolderOpen, ChatText } from 'phosphor-react';
 import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
@@ -392,6 +393,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   }, [exoticHfiTournaments.length]);
 
   useEffect(() => {
+    if (!WELCOME_MODALS_ENABLED) return;
     const id = setTimeout(() => {
       if (!hasDismissedWelcome(HOME_WELCOME_KEY)) {
         setShowWelcome(true);
@@ -752,6 +754,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </section>
           </HeroCard>
         </div>
+        <FundraiserModal />
         <MottoWidget />
         <Element name="opentours" />
         <div className={styles.mainGrid}>

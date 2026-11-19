@@ -44,3 +44,23 @@ test('disables the Forge testing shortcut unless Forge is explicitly enabled', (
 
   assert.equal(response.status, 404);
 });
+
+test('serves the fundraiser URL from the existing localized Home function', () => {
+  const response = proxy(new NextRequest('https://ht-120min.test/lv/fundraiser'));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-middleware-rewrite'), 'https://ht-120min.test/lv?fundraiser=1');
+});
+
+test('serves BMC return URLs from the existing Home function without losing the product', () => {
+  const response = proxy(new NextRequest('https://ht-120min.test/supported?item=flags'));
+  assert.equal(response.status, 200);
+  const target = new URL(response.headers.get('x-middleware-rewrite')!);
+  assert.equal(target.pathname, '/en');
+  assert.equal(target.searchParams.get('supported'), 'flags');
+
+  const localized = proxy(new NextRequest('https://ht-120min.test/lv/supported?item=hfi'));
+  assert.equal(localized.status, 200);
+  const localizedTarget = new URL(localized.headers.get('x-middleware-rewrite')!);
+  assert.equal(localizedTarget.pathname, '/lv');
+  assert.equal(localizedTarget.searchParams.get('supported'), 'hfi');
+});

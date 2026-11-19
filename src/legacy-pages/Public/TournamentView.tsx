@@ -26,6 +26,7 @@ import {
 } from '../../app/_data/tournament-actions';
 import { readRemainingTournamentSpotlights } from '../../app/_data/spotlight-actions';
 import { useLocale } from '../../i18n/LocaleProvider';
+import { FundraiserModal } from '../../components/Fundraiser/FundraiserModal';
 import { toLocalePath } from '../../next/locale-path';
 
 import adminStyles from './TournamentAdmin.module.sass';
@@ -6464,6 +6465,7 @@ export const TournamentView: React.FC<{
 
   return (
     <div className={styles.view}>
+      <FundraiserModal />
       {tournament && <ManagerSurveyMock key={tournament.id} tournamentId={tournament.id} />}
       {loadError && (
         <div className={styles.refreshError} role="alert">

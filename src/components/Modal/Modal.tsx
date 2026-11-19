@@ -7,6 +7,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  ariaLabel?: string;
   children: React.ReactNode;
   maxWidth?: string;
   showHeader?: boolean;
@@ -16,12 +17,14 @@ interface ModalProps {
   contentClassName?: string;
   useContentPanel?: boolean;
   appearance?: 'grass' | 'plain';
+  closeOnOverlayClick?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  ariaLabel,
   children,
   maxWidth = '600px',
   showHeader = true,
@@ -31,6 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
   contentClassName = '',
   useContentPanel = true,
   appearance = 'grass',
+  closeOnOverlayClick = true,
 }) => {
   const uiText = useTranslations('PublicUI.Modal');
   const titleId = useId();
@@ -61,12 +65,13 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={closeOnOverlayClick ? onClose : undefined}>
         <div
           className={[styles.modal, appearance === 'plain' ? styles.plain : '', modalClassName].filter(Boolean).join(' ')}
           style={{ maxWidth }}
           role="dialog"
           aria-modal="true"
+          aria-label={ariaLabel}
           aria-labelledby={title && showHeader ? titleId : undefined}
           onClick={(e) => e.stopPropagation()}
         >

@@ -1,0 +1,87 @@
+.banner
+  width: 100%
+  box-sizing: border-box
+  display: flex
+  align-items: center
+  gap: 1rem
+  margin: 0 0 1.5rem
+  padding: .75rem 1rem
+  border: 1px solid rgba(255, 255, 255, .25)
+  border-radius: var(--radius-md)
+  background: var(--heroBg) url('/grass2.png') center / 30% repeat
+  color: white
+  text-align: left
+
+.bannerCopy
+  flex: 1
+
+  strong
+    font-family: var(--heading)
+    font-size: 1.25rem
+    line-height: 1.1
+
+  p
+    margin: .1rem 0 0
+    color: rgba(255, 255, 255, .88)
+    font-size: .84rem
+
+.dismiss
+  flex: 0 0 auto
+  border: 0
+  background: none
+  color: rgba(255, 255, 255, .8)
+  cursor: pointer
+  font-size: 1.3rem
+
+  &:hover, &:focus-visible
+    color: white
+
+@media (max-width: 620px)
+  .banner
+    align-items: flex-start
+    flex-wrap: wrap
+    margin-bottom: 1rem
+
+  .bannerCopy
+    flex-basis: calc(100% - 2.5rem)
+
+  .dismiss
+    order: 1
+
+  .banner > button:not(.dismiss)
+    order: 2
+
+.modalShell
+  position: relative
+  padding: 0
+  background: transparent !important
+  border: 0 !important
+  border-radius: 0 !important
+  box-shadow: none !important
+  overflow: visible !important
+  max-height: none !important
+  margin: auto
+
+.modalContent
+  padding: 0 !important
+  overflow: visible !important
+
+.modalClose
+  position: absolute
+  z-index: 5
+  top: 24px
+  right: 25px
+  display: grid
+  place-items: center
+  width: 34px
+  height: 34px
+  border: 0
+  border-radius: 50%
+  background: #f6e8cd
+  color: #2b2119
+  font-size: 1.5rem
+  line-height: 1
+  cursor: pointer
+
+  &:focus-visible
+    outline: 3px solid #2b2119

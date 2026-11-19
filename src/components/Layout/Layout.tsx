@@ -428,7 +428,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
         <footer className={styles.footer}>
           <div className={styles.container}>
-            {visitCount >= 3 && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
+            {visitCount >= 0 && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
             <p>
               © {new Date().getFullYear()}
               <span className="mr-sm" />

@@ -16,6 +16,26 @@ import testingHandler from '../../../server/api/testing/index.js';
 import forgeMatchesHandler from '../../../server/api/forge/matches.js';
 import autoBookingCronHandler from '../../../server/api/cron/auto-booking.js';
 import { invalidatePublicTournament } from '../../../server/api/_lib/tournament-cache.js';
+import { handleBmcWebhook } from '../../../server/api/_lib/fundraiser.js';
+
+async function readBoundedBody(request: NextRequest, maxBytes: number) {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) throw new Error('Body too large');
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
 
 const cookieHeaderToObject = (value: string | null) => {
   const cookies: Record<string, string> = {};
@@ -45,6 +65,8 @@ function selectHandler(request: NextRequest, query: Record<string, string | stri
       return homeSnapshotHandler;
     case 'app':
       return appHandler;
+    case 'integrations/buymeacoffee':
+      return handleBmcWebhook;
     case 'presence':
       query.route = 'presence';
       return appHandler;
@@ -100,8 +122,16 @@ async function invoke(request: NextRequest) {
   const contentType = request.headers.get('content-type') || '';
   let body: unknown;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    const rawBody = await request.text();
-    if (contentType.includes('application/json') && rawBody) {
+    const webhook = request.nextUrl.pathname === '/api/integrations/buymeacoffee';
+    let rawBody: string;
+    try {
+      rawBody = webhook ? await readBoundedBody(request, 64 * 1024) : await request.text();
+    } catch {
+      return Response.json({ error: 'Request body too large.' }, { status: 413 });
+    }
+    if (webhook) {
+      body = rawBody;
+    } else if (contentType.includes('application/json') && rawBody) {
       try {
         body = JSON.parse(rawBody);
       } catch {

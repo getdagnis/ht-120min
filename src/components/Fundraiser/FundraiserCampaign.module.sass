@@ -1,0 +1,262 @@
+.frame
+  position: relative
+  width: min(660px, calc(100vw - 16px))
+  max-width: calc(100vw - 16px)
+  box-sizing: border-box
+  margin: 0 auto 2rem
+  overflow: visible
+  color: #2b2119
+  background: transparent
+  font-family: var(--sans)
+
+.paper
+  position: absolute
+  z-index: 0
+  inset: 0
+  display: flex
+  flex-direction: column
+  pointer-events: none
+
+  > img
+    display: block
+    flex: 0 0 auto
+    width: 100%
+    height: auto
+
+.paperMiddle
+  flex: 1 1 auto
+  min-height: 0
+  background: url('/alus/support-modal-middle.png') center top / 100% auto repeat-y
+
+.page
+  margin-top: 2rem
+  margin-bottom: 4rem
+
+.inModal
+  width: 100%
+  max-width: 100%
+
+.header
+  position: relative
+  height: 208px
+  overflow: hidden
+
+  h1
+    position: relative
+    z-index: 1
+    width: 68%
+    margin: 0 auto
+    padding-top: 51px
+    color: white
+    font-family: var(--heading)
+    font-size: clamp(1.7rem, 5vw, 2.4rem)
+    font-size: 2.5rem
+    font-weight: 700
+    letter-spacing: -0.3px
+    line-height: .9
+    text-align: center
+    text-transform: uppercase
+    text-shadow: 0 2px 2px rgba(0, 0, 0, .25)
+
+.pumpWindow
+  position: absolute
+  inset: 0
+  overflow: hidden
+
+.pump
+  position: absolute
+  left: 2%
+  bottom: -1rem
+  width: 130%
+  max-width: none
+  height: auto
+  animation: pumpSwitch 4.4s ease-in-out infinite
+
+@keyframes pumpSwitch
+  0%, 40%
+    transform: translateX(0)
+  45%, 95%
+    transform: translateX(-26%)
+  100%
+    transform: translateX(0)
+
+.content
+  position: relative
+  z-index: 1
+  padding: 10px 3rem 18px
+
+.intro
+  text-align: center
+
+  h2
+    margin: 2rem 0 0.5rem
+    color: #2b2119 !important
+    font-family: var(--heading)
+    font-size: 2rem
+    font-weight: 700
+    line-height: 1.1
+    letter-spacing: -0.3px
+
+  p
+    margin: 0
+    line-height: 1.4
+    font-size: .94rem
+
+    strong
+      font-weight: 800
+
+.products
+  margin-top: 1rem
+
+.product
+  display: grid
+  grid-template-columns: 92px minmax(0, 1fr) 155px
+  margin-top: 1rem
+  align-items: center
+  column-gap: 10px
+  min-height: 94px
+
+.badge
+  width: 5rem
+  height: 5rem
+  object-fit: contain
+
+.productCopy
+  min-width: 0
+  text-align: left
+
+  h3
+    margin: 0 0 0.25rem
+    color: #2b2119 !important
+    font-family: var(--heading)
+    font-size: 1.5rem
+    font-weight: 700
+    line-height: 1.05
+
+  p
+    margin: 0
+    font-size: 0.85rem
+    line-height: 1.3
+
+  .supporters
+    margin-top: 8px
+    color: #594533
+    font-size: .7rem
+    font-style: italic
+
+    svg
+      vertical-align: -2px
+
+    strong
+      color: #332820
+      font-style: normal
+
+.purchase
+  display: block
+  width: 155px
+  border-radius: 28px
+
+  img
+    display: block
+    width: 100%
+    height: auto
+
+  &:focus-visible
+    outline: 3px solid #2b2119
+    outline-offset: 2px
+
+.footer
+  position: relative
+  display: flex
+  align-items: center
+  justify-content: center
+  min-height: 130px
+  padding-right: 150px
+
+  strong
+    font-family: var(--heading)
+    font-size: 2rem
+    font-weight: 700 !important
+    letter-spacing: -0.3px
+    white-space: nowrap
+
+  span
+    color: #e27516
+
+  img
+    position: absolute
+    right: -3px
+    bottom: -2.5rem
+    width: 175px
+    height: auto
+
+.message
+  margin: 30px 0 100px
+  text-align: center
+
+@media (prefers-reduced-motion: reduce)
+  .pump
+    animation: none
+
+@media (max-width: 600px)
+  .page
+    margin: 4rem auto 2rem
+
+  .header
+    height: clamp(145px, 31vw, 205px)
+
+    h1
+      padding-top: clamp(36px, 8vw, 51px)
+      font-size: clamp(1.1rem, 4.8vw, 2rem)
+
+  .content
+    padding: 8px 7% 18px
+
+  .intro h2
+    font-size: clamp(1.1rem, 4.5vw, 1.4rem)
+
+  .intro p
+    font-size: .82rem
+
+  .product
+    grid-template-columns: 65px minmax(0, 1fr) 100px
+    gap: 6px
+    min-height: 78px
+
+  .badge
+    width: 64px
+    height: 64px
+
+  .productCopy h3
+    font-size: .98rem
+
+  .productCopy p
+    font-size: .68rem
+
+  .productCopy .supporters
+    font-size: .62rem
+
+  .purchase
+    width: 100px
+
+  .footer
+    min-height: 100px
+    padding-right: 82px
+
+    strong
+      font-size: 1.2rem
+
+    img
+      width: 100px
+      bottom: -28px
+
+@media (max-width: 400px)
+  .product
+    grid-template-columns: 55px minmax(0, 1fr) 85px
+
+  .badge
+    width: 54px
+    height: 54px
+
+  .purchase
+    width: 85px

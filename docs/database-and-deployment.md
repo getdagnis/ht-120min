@@ -31,6 +31,8 @@ Important tables used by current code:
 - `tournament_announcements`
 - `tournament_announcement_dismissals`
 - `tournament_seasons`
+- `next_season_votes` and `next_season_bmc_payments` (169 owner-marked applied; historical votes remain, payment ledger extended by 170)
+- `next_season_bmc_items` and `next_season_bmc_returns` (170 owner-marked applied: private Shop attribution and signed-in return matching; live state not independently verified)
 - `tournament_team_auto_arrange_preferences`
 - `tournament_season_auto_booking_settings` (161 prepared: private Forge setting keyed by tournament and season; absent row is OFF; real worker actions require it ON)
 - `forge_booking_worker_runs` (162 prepared: private Forge worker audit and per-tournament-season overlap guard, shared by manual and cron invocations)
@@ -51,7 +53,7 @@ Team planning checks are tournament-owned snapshots in `tournament_team_planning
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migrations are `163_extend_generated_round_with_verified_pairs.sql` and `164_admin_team_context.sql`; 164 is prepared locally and required before deploying its admin UI and API. Migration 162 remains required before using the manual booking worker endpoint. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
+- The latest active migration is `170_fundraiser_shop.sql`. Both 169 and 170 have owner-added applied markers, but read-only remote migration inspection failed database password authentication; confirm live schema and migration history before any deployment or migration action. Migration 164 remains required before deploying its admin UI and API; 162 remains required before using the manual booking worker endpoint. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -146,6 +148,7 @@ inspected or changed in this work.
 - Frontend Supabase access uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Service-role and CHPP secrets must stay server-side.
 - `SUPABASE_SECRET_KEY` is required for server-authorized writes such as immutable season yearbook comments. Never expose it to browser code.
+- `BMC_WEBHOOK_SECRET` is required server-side for signed Buy Me a Coffee Shop purchase events. `NEXT_PUBLIC_FUNDRAISER_STATUS` can close or hide the fundraiser at deployment time. See [fundraiser operation](fundraiser.md).
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
 - `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin.
 - `ANALYTICS_EXCLUDED_HT_USER_ID` is optional server-only configuration. When its Hattrick ID matches a verified app session, Vercel Web Analytics, Counter.dev, and internal Forge activity tracking are excluded for that visitor. The verified Forge superadmin identity, localhost/loopback hosts, and the project's generated Vercel preview hosts are also excluded from internal Forge tracking. Existing raw preview events are filtered when Forge reads them; older aggregate-only trend data cannot be corrected from raw events after retention expires.

@@ -8,6 +8,8 @@ matchmaker, tournament, telemetry, and deferred Forge operations.
 | Route | Owner | Rendering boundary |
 | --- | --- | --- |
 | `/en`, `/lv` | `src/app/(public)/[locale]/page.tsx` | Server-loaded Home snapshot plus client interactions |
+| `/[locale]/fundraiser` | `src/proxy.ts` rewrite to `src/app/(public)/[locale]/page.tsx?fundraiser=1` | Campaign view in existing Home function; no added Vercel function |
+| `/supported?item=...` and `/[locale]/supported?item=...` | `src/proxy.ts` rewrite to the localized Home function | Product-specific BMC thank-you and signed-in return matching; no added Vercel function |
 | `/[locale]/t/[slug]` | `src/app/(public)/[locale]/t/[slug]/page.tsx` | Server-loaded Tournament snapshot plus client tabs/forms |
 | `/[locale]/collection/[slug]` | `src/app/(public)/[locale]/collection/[slug]/page.tsx` | Published Home directory collection projection plus existing tournament cards |
 | `/[locale]/create` | `src/app/(public)/[locale]/create/page.tsx` | Client-only parity screen |
