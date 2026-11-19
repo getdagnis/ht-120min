@@ -12,6 +12,7 @@ export function SupportedThankYou({ item }: { item: string }) {
   const t = useTranslations('Fundraiser');
   const product = fundraiserProduct(item);
   const [state, setState] = useState<FundraiserState | null>(null);
+  const [matchedManagerName, setMatchedManagerName] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -42,6 +43,13 @@ export function SupportedThankYou({ item }: { item: string }) {
       body: JSON.stringify({ item: product.key }),
       signal: controller.signal,
     })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const result = (await response.json()) as { matched?: boolean; managerName?: string };
+        if (result.matched && result.managerName && !controller.signal.aborted) {
+          setMatchedManagerName(result.managerName);
+        }
+      })
       .catch(() => {
         // The thank-you remains visible if this optional name match cannot complete.
       })
@@ -66,7 +74,8 @@ export function SupportedThankYou({ item }: { item: string }) {
       <div className={styles.message}>
         <h1>{t('thanksTitle')}</h1>
         <p>
-          <strong>{product?.key === 'hfi' ? t('thanksHfi') : ''}</strong> {t('thanksAll')}
+          <strong>{product?.key === 'hfi' ? `${t('thanksHfi')} ` : ''}</strong>
+          {t('thanksAllBefore')} <strong>{matchedManagerName ?? ''}</strong> {t('thanksAllAfter')}
         </p>
         <Link href="/">{t('backHome')}</Link>
       </div>

@@ -75,8 +75,12 @@
 
   a
     display: block
-    margin: 2rem 0
+    margin: 2rem auto
+    width: fit-content
+    padding: 0.25rem 1rem
+    border-radius: var(--radius-md)
     color: #27550a
+    background: #fff1de
     font-weight: 700
 
     &:focus-visible
@@ -126,11 +130,11 @@
       grid-template-columns: 65px minmax(0, 1fr)
       gap: 6px
 
-.footer
-  width: 100%
-  justify-content: center
-  padding: 0
-  margin: 0 0 3rem
+  .footer
+    width: 100%
+    justify-content: center
+    padding: 0
+    margin: 0 0 3rem
 
-  img
-    display: none
+    img
+      display: none

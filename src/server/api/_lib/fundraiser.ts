@@ -119,7 +119,7 @@ export async function handleFundraiserClaim(req: VercelRequest, res: VercelRespo
   });
   if (error) throw new Error('Could not match Shop purchase.');
   res.setHeader('Set-Cookie', clickCookie(product.key, '', 0));
-  return res.status(200).json({ matched: data === true });
+  return res.status(200).json({ matched: data === true, managerName: data === true ? managerName : undefined });
 }
 
 export function verifyBmcSignature(rawBody: string, secret: string, signature: unknown): boolean {
