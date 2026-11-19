@@ -3,19 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { UsersThree } from 'phosphor-react';
-import { emptyFundraiserProducts, FUNDRAISER_PRODUCTS, FUNDRAISER_STATUS, type FundraiserState } from '../../../shared/fundraiser';
+import { FUNDRAISER_PRODUCTS, type FundraiserState } from '../../../shared/fundraiser';
 import styles from './FundraiserCampaign.module.sass';
 
 const CAMPAIGN_API = '/api/app?route=fundraiser';
-
-function localPreviewState(): FundraiserState {
-  return {
-    status: FUNDRAISER_STATUS,
-    beers: 0,
-    hasSupported: false,
-    products: emptyFundraiserProducts(),
-  };
-}
 
 export function FundraiserCampaign({ variant = 'page' }: { variant?: 'page' | 'modal' }) {
   const t = useTranslations('Fundraiser');
@@ -23,10 +14,6 @@ export function FundraiserCampaign({ variant = 'page' }: { variant?: 'page' | 'm
   const [error, setError] = useState<'load' | null>(null);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      const timer = window.setTimeout(() => setState(localPreviewState()), 0);
-      return () => window.clearTimeout(timer);
-    }
     const controller = new AbortController();
     void fetch(CAMPAIGN_API, { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
@@ -38,6 +25,7 @@ export function FundraiserCampaign({ variant = 'page' }: { variant?: 'page' | 'm
   }, []);
 
   const Container = variant === 'modal' ? 'div' : 'main';
+  const tankFill = state ? Math.min(5, Math.ceil(state.beers / 5)) : 0;
   return (
     <Container className={`${styles.frame} ${variant === 'modal' ? styles.inModal : styles.page}`}>
       <div className={styles.paper} aria-hidden="true">
@@ -86,7 +74,8 @@ export function FundraiserCampaign({ variant = 'page' }: { variant?: 'page' | 'm
             </div>
             <footer className={styles.footer}>
               <strong>{t('total')} <span>{state.beers} / 20!</span></strong>
-              <img src="/alus/beer-tank-0c.png" alt="" aria-hidden="true" />
+              <img src={tankFill === 0 ? '/alus/beer-tank-0c.png' : `/alus/beer-tank-${tankFill}of4.png`}
+                alt="" aria-hidden="true" />
             </footer>
           </>
         )}
