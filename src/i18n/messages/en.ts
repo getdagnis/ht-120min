@@ -29,7 +29,7 @@ const messages = {
     thanks120min: 'Your support helps keep true 120-minute football going.',
     thanksGeneral: 'Your support helps keep HT-120min going.',
     thanksAllBefore: 'Your name',
-    thanksAllAfter: 'has been recorded among supporters of HT-120min. Additional benefits and a badge might be added when introduced!',
+    thanksAllAfter: 'has been recorded among supporters of HT-120min. Additional benefits coming!',
     thanksPending: 'Thanks for supporting HT-120min! Your name will appear once your purchase is matched.',
     thanksLogin: 'Log in with Hattrick to show your name',
     backHome: 'Back to HT-120min',
@@ -231,7 +231,7 @@ const messages = {
   notFound: {
     title: 'Page not found',
     description: 'This page doesn’t exist or may have moved.',
-    homeLink: 'Back to home',
+    homeLink: 'Back to HT-120min',
   },
   fixtures: {
     autoArrangeMyFixtures: 'Auto-arrange my matches', // Do not auto-arrange my matches

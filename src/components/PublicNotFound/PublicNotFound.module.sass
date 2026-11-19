@@ -2,20 +2,16 @@
   max-width: 62rem
   margin: clamp(2rem, 6vw, 4rem) auto
   padding: 0 1rem
-
-.content
-  padding: clamp(1.25rem, 4vw, 3rem) 1rem
   text-align: center
 
-.code
-  color: var(--text60)
-  font-family: var(--mono)
-  font-size: 1rem
-  font-weight: 700
-  letter-spacing: 0.12em
+.illustration
+  display: block
+  width: 70%
+  height: auto
+  margin: 6rem auto 1.5rem
 
 .title
-  margin-top: 0.5rem
+  margin: 0
   color: var(--text-h)
   font-family: var(--heading)
   font-size: clamp(1.75rem, 4vw, 2.5rem)
@@ -28,18 +24,17 @@
 .homeLink
   display: inline-flex
   margin-top: 1.5rem
-  padding: 0.65rem 0.9rem
-  border: 1px solid var(--border)
-  border-radius: var(--radius-xs)
-  color: var(--text-h)
-  font-family: var(--mono)
-  font-weight: 600
-  text-decoration: underline
-  text-underline-offset: 0.2em
+  padding: 0.75rem 1.25rem
+  border: 1px solid var(--accent)
+  border-radius: var(--radius-md)
+  background: var(--accent-3)
+  color: white
+  font-weight: 700
+  text-decoration: none
 
   &:hover
-    border-color: var(--accent)
-    color: var(--accent)
+    background: var(--accent-2)
+    color: white
 
   &:focus-visible
     outline: 2px solid var(--accent)
