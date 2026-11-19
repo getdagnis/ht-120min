@@ -33,3 +33,5 @@ REVOKE ALL ON FUNCTION public.next_season_fundraiser_summary()
 GRANT EXECUTE ON FUNCTION public.next_season_fundraiser_summary() TO service_role;
 
 COMMIT;
+
+-- applied!

@@ -52,7 +52,6 @@ export function SupportedThankYou({ item }: { item: string }) {
   }, [product]);
 
   const tankFill = state ? Math.min(5, Math.ceil(state.beers / 5)) : 1;
-  const supporters = product ? (state?.products[product.key].supporters ?? []) : [];
 
   return (
     <main className={styles.frame}>
@@ -67,7 +66,7 @@ export function SupportedThankYou({ item }: { item: string }) {
       <div className={styles.message}>
         <h1>{t('thanksTitle')}</h1>
         <p>
-          {product?.key === 'hfi' ? t('thanksHfi') : ''} {t('thanksAll')}
+          <strong>{product?.key === 'hfi' ? t('thanksHfi') : ''}</strong> {t('thanksAll')}
         </p>
         <Link href="/">{t('backHome')}</Link>
       </div>
