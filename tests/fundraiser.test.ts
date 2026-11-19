@@ -3,7 +3,11 @@ import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
 import { FUNDRAISER_PRODUCTS } from '../shared/fundraiser.ts';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleBmcWebhook, parseBmcShopOrder, verifyBmcSignature } from '../src/server/api/_lib/fundraiser.ts';
+import { buildAppSessionCookie } from '../src/server/api/_lib/app-session.ts';
+import {
+  clickedByManager, handleBmcWebhook, handleFundraiserCheckout, handleFundraiserClaim,
+  parseBmcShopOrder, verifyBmcSignature,
+} from '../src/server/api/_lib/fundraiser.ts';
 
 function shopEvent(overrides: Record<string, unknown> = {}) {
   return {
@@ -38,6 +42,61 @@ test('all four Shop URLs and item IDs are mapped to the approved beer values', (
     { key: '120min', itemId: 599986, url: 'https://buymeacoffee.com/dagnis/e/599986', beers: 1 },
     { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 2 },
   ]);
+});
+
+test('checkout records the signed-in manager and product before redirecting to the real Shop URL', () => {
+  const previousSecret = process.env.APP_SESSION_SECRET;
+  process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  try {
+    const headers = new Map<string, string>();
+    let status = 200;
+    let location = '';
+    const res = {
+      setHeader(name: string, value: string) { headers.set(name, value); return this; },
+      status(value: number) { status = value; return this; },
+      json: () => undefined,
+      redirect(value: number, url: string) { status = value; location = url; return this; },
+    } as unknown as VercelResponse;
+    const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
+    const req = { method: 'GET', query: { item: 'hfi' }, headers: { cookie: session } } as unknown as VercelRequest;
+    handleFundraiserCheckout(req, res);
+    assert.equal(status, 303);
+    assert.equal(location, FUNDRAISER_PRODUCTS[0].url);
+    const click = headers.get('Set-Cookie') ?? '';
+    assert.match(click, /HttpOnly; SameSite=Lax/);
+    assert.equal(clickedByManager(`${session}; ${click.split(';')[0]}`, 'hfi', 42, process.env.APP_SESSION_SECRET), true);
+    assert.equal(clickedByManager(click, 'hfi', 43, process.env.APP_SESSION_SECRET), false);
+    assert.equal(clickedByManager(click, 'flags', 42, process.env.APP_SESSION_SECRET), false);
+    const cookiePair = click.split(';')[0];
+    const altered = `${cookiePair.slice(0, -1)}${cookiePair.endsWith('x') ? 'y' : 'x'}`;
+    assert.equal(clickedByManager(altered, 'hfi', 42, process.env.APP_SESSION_SECRET), false);
+  } finally {
+    if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
+    else process.env.APP_SESSION_SECRET = previousSecret;
+  }
+});
+
+test('return without a matching signed click cannot claim a purchase', async () => {
+  const previousSecret = process.env.APP_SESSION_SECRET;
+  process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  try {
+    const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
+    let status = 200;
+    let body: unknown;
+    const res = {
+      setHeader: () => undefined,
+      status(value: number) { status = value; return this; },
+      json(value: unknown) { body = value; return this; },
+    } as unknown as VercelResponse;
+    await handleFundraiserClaim({
+      method: 'POST', headers: { cookie: session }, body: { item: 'hfi' },
+    } as unknown as VercelRequest, res);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { matched: false });
+  } finally {
+    if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
+    else process.env.APP_SESSION_SECRET = previousSecret;
+  }
 });
 
 test('Shop order uses extra item IDs, quantities, and integer EUR cents', () => {

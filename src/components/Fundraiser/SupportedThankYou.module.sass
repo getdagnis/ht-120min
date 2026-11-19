@@ -1,5 +1,7 @@
 .frame
   position: relative
+  display: flex
+  flex-direction: column
   width: min(100% - 1rem, 660px)
   min-height: 750px
   margin: 5rem auto 4rem
@@ -45,7 +47,7 @@
   position: relative
   z-index: 1
   width: 100%
-  padding: 2rem 5rem 6rem
+  padding: 2rem 2rem
   text-align: center
 
   h1
@@ -63,6 +65,14 @@
     margin-bottom: 20px
     font-weight: 700
 
+  .product
+    width: min(100%, 520px)
+    margin: 1.5rem auto
+    grid-template-columns: 92px minmax(0, 1fr)
+
+    h3
+      font-size: 1.35rem
+
   a
     color: #27550a
     font-weight: 700
@@ -79,6 +89,16 @@
   height: auto
   pointer-events: none
 
+.footer
+  z-index: 1
+  margin-top: auto
+  text-align: center
+
+.loadError
+  position: relative
+  z-index: 1
+  text-align: center
+
 @media (max-width: 600px)
   .frame
     min-height: 450px
@@ -88,7 +108,11 @@
     height: clamp(145px, 34vw, 225px)
 
   .message
-    padding: 25px 25px 70px
+    padding: 25px 25px 20px
+
+    .product
+      grid-template-columns: 65px minmax(0, 1fr)
+      gap: 6px
 
   .tank
     width: 100px

@@ -62,7 +62,8 @@ export function FundraiserCampaign({ variant = 'page' }: { variant?: 'page' | 'm
                         <strong>{t('supportedBy')}:</strong> {supporters.join(', ')}
                       </p>}
                     </div>
-                    {state.status === 'active' && <a className={styles.purchase} href={product.url}
+                    {state.status === 'active' && <a className={styles.purchase}
+                      href={`/api/app?route=fundraiser-checkout&item=${encodeURIComponent(product.key)}`}
                       target="_blank" rel="noopener noreferrer"
                       aria-label={t('purchaseLabel', { product: t(`${product.key}.title`), price: product.price })}>
                       <img src={product.key === 'general' ? '/alus/support-btn-beer.png' : '/alus/support-btn-chipin5.png'}
