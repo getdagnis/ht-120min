@@ -3,7 +3,7 @@
   width: min(100% - 1rem, 660px)
   min-height: 750px
   margin: 5rem auto 4rem
-  overflow: hidden
+  overflow: visible
   color: #2b2119
   background: transparent
 
@@ -59,12 +59,25 @@
   p
     margin: 0 0 30px
 
+  .fuelNote
+    margin-bottom: 20px
+    font-weight: 700
+
   a
     color: #27550a
     font-weight: 700
 
     &:focus-visible
       outline: 3px solid #27550a
+
+.tank
+  position: absolute
+  z-index: 2
+  right: -3px
+  bottom: -2.5rem
+  width: 175px
+  height: auto
+  pointer-events: none
 
 @media (max-width: 600px)
   .frame
@@ -76,3 +89,7 @@
 
   .message
     padding: 25px 25px 70px
+
+  .tank
+    width: 100px
+    bottom: -28px

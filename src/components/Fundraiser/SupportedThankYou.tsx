@@ -40,11 +40,13 @@ export function SupportedThankYou({ item }: { item: string }) {
     </div>
     <div className={styles.message}>
       <h1>{t('thanksTitle')}</h1>
+      <p className={styles.fuelNote}>{t('thanksFuelNote')}</p>
       <p>
         {detail}
         {product?.key === 'hfi' && <><br />{t('hfi.description')}</>}
       </p>
       <a href="/">{t('backHome')}</a>
     </div>
+    <img className={styles.tank} src="/alus/beer-tank-1of4.png" alt="" aria-hidden="true" />
   </main>;
 }

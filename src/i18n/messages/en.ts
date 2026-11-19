@@ -23,6 +23,7 @@ const messages = {
     dismissBanner: 'Dismiss invitation',
     close: 'Close fundraiser',
     thanksTitle: 'Thanks for putting fuel back in HT-120min!',
+    thanksFuelNote: 'One is already ENOUGH to keep going!',
     thanksHfi: 'Your support helps bring Exotic HFI Series back.',
     thanksFlags: 'Your support helps bring Flag Chasers back.',
     thanks120min: 'Your support helps keep true 120-minute football going.',
