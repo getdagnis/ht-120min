@@ -36,11 +36,14 @@ export function SupportedThankYou({ item }: { item: string }) {
       <img src="/alus/support-modal-bottom.png" alt="" />
     </div>
     <div className={styles.header} aria-hidden="true">
-      <img src="/alus/beer-pump-5x1-transparent.png" alt="" />
+      <img src="/alus/thank-you.png" alt="" />
     </div>
     <div className={styles.message}>
       <h1>{t('thanksTitle')}</h1>
-      <p>{detail}</p>
+      <p>
+        {detail}
+        {product?.key === 'hfi' && <><br />{t('hfi.description')}</>}
+      </p>
       <a href="/">{t('backHome')}</a>
     </div>
   </main>;

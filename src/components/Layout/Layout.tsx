@@ -95,6 +95,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   const isTinderPage = pathname.endsWith('/matchmaker') || pathname.endsWith('/tinder');
   const isMockMatchmakerRoute = isTinderPage && process.env.NEXT_PUBLIC_MATCHMAKER_MOCK_DATA === 'true';
   const searchParams = useSearchParams();
+  const isSupportedPage = /(^|\/)supported\/?$/.test(pathname) || searchParams.has('supported');
   const { locale } = useLocale();
   const isAuthCallback = pathname.endsWith('/auth/callback');
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
@@ -428,7 +429,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
         <footer className={styles.footer}>
           <div className={styles.container}>
-            {visitCount >= 0 && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
+            {visitCount >= 0 && !isSupportedPage && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
             <p>
               © {new Date().getFullYear()}
               <span className="mr-sm" />
