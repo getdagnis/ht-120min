@@ -3,7 +3,7 @@
   display: flex
   flex-direction: column
   width: min(100% - 1rem, 660px)
-  min-height: 750px
+  min-height: 70vh
   margin: 5rem auto 4rem
   overflow: visible
   color: #2b2119
@@ -47,11 +47,11 @@
   position: relative
   z-index: 1
   width: 100%
-  padding: 2rem 2rem
+  padding: 2rem 5rem
   text-align: center
 
   h1
-    margin: 0 0 15px
+    margin: 0 0 1rem
     color: #2b2119 !important
     font-family: var(--heading)
     font-size: clamp(2rem, 5vw, 2.6rem)
@@ -59,7 +59,7 @@
     line-height: 1.05
 
   p
-    margin: 0 0 30px
+    margin: 3rem 0
 
   .fuelNote
     margin-bottom: 20px
@@ -68,31 +68,43 @@
   .product
     width: min(100%, 520px)
     margin: 1.5rem auto
-    grid-template-columns: 92px minmax(0, 1fr)
+    grid-template-columns: 6rem minmax(0, 1fr)
 
     h3
       font-size: 1.35rem
 
   a
+    display: block
+    margin: 2rem 0
     color: #27550a
     font-weight: 700
 
     &:focus-visible
       outline: 3px solid #27550a
 
-.tank
-  position: absolute
-  z-index: 2
-  right: -3px
-  bottom: -2.5rem
-  width: 175px
-  height: auto
-  pointer-events: none
-
 .footer
-  z-index: 1
-  margin-top: auto
-  text-align: center
+  position: relative
+  display: flex
+  justify-content: flex-start
+  padding: 0 5rem
+  align-items: center
+  margin: 5rem 0 2rem
+
+  strong
+    font-family: var(--heading)
+    font-size: 2rem
+    font-weight: 700 !important
+    letter-spacing: -0.3px
+    white-space: nowrap
+
+  span
+    color: #e27516
+
+  img
+    width: 8rem
+    top: 0
+    right: 3rem
+    height: auto
 
 .loadError
   position: relative

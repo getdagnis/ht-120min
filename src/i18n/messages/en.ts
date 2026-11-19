@@ -28,6 +28,7 @@ const messages = {
     thanksFlags: 'Your support helps bring Flag Chasers back.',
     thanks120min: 'Your support helps keep true 120-minute football going.',
     thanksGeneral: 'Your support helps keep HT-120min going.',
+    thanksAll: 'Your name has been recorded among supporters of HT-120min. Benefits and a badge will be applied as soon as introduced.',
     backHome: 'Back to HT-120min',
   },
   lobby: {
