@@ -909,7 +909,7 @@ function ForgeStatsSidebar({
               <div className={styles.breakdownList}>
                 {rows.map((row) => (
                   <div key={row.value} className={styles.breakdownRow}>
-                    <span className={styles.breakdownName}>
+                    <span className={`${styles.breakdownName} ${card.key === 'referrers' ? styles.sourceName : ''}`}>
                       {card.flags && <span className={styles.countryFlag}>{countryFlag(row.value)}</span>}
                       {row.value}
                     </span>

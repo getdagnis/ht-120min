@@ -6,7 +6,7 @@ import appHandler from '../src/server/api/app.ts';
 import { buildForgeSessionCookie } from '../src/server/api/_lib/forge-session.ts';
 import { trackActivity } from '../src/hooks/useActivityTracking.ts';
 
-test('browser sends the initial document referrer origin with its first activity event', async (t) => {
+test('browser sends the available full document referrer with its first activity event', async (t) => {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const previousFetch = globalThis.fetch;
@@ -25,13 +25,15 @@ test('browser sends the initial document referrer origin with its first activity
     return Response.json({ ok: true });
   };
   await trackActivity('page_view', { route: '/en' });
-  assert.equal(bodies[0]?.entryReferrer, 'https://www.hattrick.org');
+  assert.equal(bodies[0]?.entryReferrer, 'https://www.hattrick.org/Club/?TeamID=42');
 });
 
-test('entry source keeps only external origins and treats internal navigation as unknown', () => {
+test('entry source retains external paths and queries but drops credentials and fragments', () => {
   const host = 'ht-120min.vercel.app';
-  assert.equal(normalizeEntryReferrer('https://www.hattrick.org/Club/?TeamID=42', host), 'https://www.hattrick.org');
-  assert.equal(normalizeEntryReferrer('https://www.google.com/search?q=ht120', host), 'https://www.google.com');
+  assert.equal(normalizeEntryReferrer('https://www.hattrick.org/Club/?TeamID=42', host), 'https://www.hattrick.org/Club/?TeamID=42');
+  assert.equal(normalizeEntryReferrer('https://www.google.com/search?q=ht120', host), 'https://www.google.com/search?q=ht120');
+  assert.equal(normalizeEntryReferrer('https://user:secret@stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0#post', host),
+    'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0');
   assert.equal(normalizeEntryReferrer('https://ht-120min.vercel.app/en/t/cup', host), null);
   assert.equal(normalizeEntryReferrer('https://120min.vercel.app/en', host), null);
   assert.equal(normalizeEntryReferrer('', host), null);
@@ -71,10 +73,10 @@ test('activity stores browser entry source instead of the same-origin API Refere
 
   await recordActivity(request, response, { eventType: 'page_view', route: '/en', entryReferrer: 'https://www.hattrick.org/Club/' });
   await recordActivity(request, response, { eventType: 'page_view', route: '/en/t/cup', entryReferrer: 'https://ht-120min.vercel.app/en' });
-  assert.deepEqual(inserted.map((row) => row.referrer), ['https://www.hattrick.org', null]);
+  assert.deepEqual(inserted.map((row) => row.referrer), ['https://www.hattrick.org/Club/', null]);
 });
 
-test('Forge fills an unknown visit source on a later external page entry without counting login callbacks', async (t) => {
+test('Forge keeps exact visit URLs and groups production Hattrick hosts by forum page', async (t) => {
   const envKeys = ['FORGE_ENABLED', 'APP_SESSION_SECRET', 'FORGE_SUPERADMIN_HT_ID', 'SUPABASE_URL', 'SUPABASE_SECRET_KEY'];
   const previousEnv = envKeys.map((key) => process.env[key]);
   const previousFetch = globalThis.fetch;
@@ -97,10 +99,13 @@ test('Forge fills an unknown visit source on a later external page entry without
     language: null, platform: null, browser: null, metadata: {},
   });
   const rows = [
+    ...['www82', 'www86', 'www89', 'www90', 'www91'].map((host, index) =>
+      event(`prod-${index}`, `prod-visit-${index}`, `2026-11-20T10:${String(6 + index).padStart(2, '0')}:00Z`,
+        'page_view', `https://${host}.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0`)),
     event('6', 'google-visit', '2026-11-20T10:05:00Z', 'control_click', 'https://ht-120min.vercel.app/en'),
     event('5', 'google-visit', '2026-11-20T10:04:00Z', 'page_view', 'https://www.google.com/search'),
-    event('4', 'hattrick-visit', '2026-11-20T10:03:00Z', 'page_exit', 'https://stage.hattrick.org'),
-    event('3', 'hattrick-visit', '2026-11-20T10:02:00Z', 'page_view', 'https://stage.hattrick.org'),
+    event('4', 'hattrick-visit', '2026-11-20T10:03:00Z', 'page_exit', 'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0'),
+    event('3', 'hattrick-visit', '2026-11-20T10:02:00Z', 'page_view', 'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0'),
     event('2', 'hattrick-visit', '2026-11-20T10:01:00Z', 'page_view', null),
     event('1', 'direct-visit', '2026-11-20T10:00:00Z', 'page_view', null),
     event('0', 'direct-visit', '2026-11-20T10:00:30Z', 'login', 'https://chpp.hattrick.org/oauth'),
@@ -122,12 +127,21 @@ test('Forge fills an unknown visit source on a later external page entry without
   await appHandler(request, response);
   const visits = result.visits as Array<{ visitId: string; referrer: string | null }>;
   assert.equal(visits.find((visit) => visit.visitId === 'direct-visit')?.referrer, null);
-  assert.equal(visits.find((visit) => visit.visitId === 'hattrick-visit')?.referrer, 'https://stage.hattrick.org');
-  assert.equal(visits.find((visit) => visit.visitId === 'google-visit')?.referrer, 'https://www.google.com');
-  const sources = (result.breakdowns as { referrers: Array<{ value: string }> }).referrers.map((row) => row.value);
-  assert.deepEqual(new Set(sources), new Set(['Direct / unknown', 'https://stage.hattrick.org', 'https://www.google.com']));
+  assert.equal(visits.find((visit) => visit.visitId === 'hattrick-visit')?.referrer,
+    'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0');
+  assert.equal(visits.find((visit) => visit.visitId === 'prod-visit-0')?.referrer,
+    'https://www82.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0');
+  assert.equal(visits.find((visit) => visit.visitId === 'google-visit')?.referrer, 'https://www.google.com/search');
+  const sources = (result.breakdowns as { referrers: Array<{ value: string; count: number }> }).referrers;
+  assert.equal(sources.find((row) => row.value === 'https://www*.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0')?.count, 5);
+  assert.equal(sources.find((row) => row.value === 'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0')?.count, 1);
+  assert.deepEqual(new Set(sources.map((row) => row.value)), new Set([
+    'Direct / unknown', 'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0',
+    'https://www*.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0', 'https://www.google.com/search',
+  ]));
   const actions = result.recentActivity as Array<{ visit_id: string; referrer: string | null }>;
   assert.equal(actions.find((action) => action.visit_id === 'direct-visit')?.referrer, null);
-  assert.equal(actions.find((action) => action.visit_id === 'hattrick-visit')?.referrer, 'https://stage.hattrick.org');
-  assert.equal(actions.find((action) => action.visit_id === 'google-visit')?.referrer, 'https://www.google.com');
+  assert.equal(actions.find((action) => action.visit_id === 'hattrick-visit')?.referrer,
+    'https://stage.hattrick.org/Forum/Read.aspx?t=17699364&n=1&v=0');
+  assert.equal(actions.find((action) => action.visit_id === 'google-visit')?.referrer, 'https://www.google.com/search');
 });

@@ -22,7 +22,7 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
       try {
         const returnFlow = /\/(?:auth\/callback|supported)\/?$/.test(window.location.pathname)
           || new URLSearchParams(window.location.search).has('supported');
-        initialDocumentReferrer = !returnFlow && document.referrer ? new URL(document.referrer).origin : '';
+        initialDocumentReferrer = !returnFlow ? document.referrer : '';
       } catch {
         initialDocumentReferrer = '';
       }

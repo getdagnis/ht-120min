@@ -71,7 +71,9 @@ export function normalizeEntryReferrer(value: string | null | undefined, request
     const ownHost = host ? new URL(`http://${host}`).hostname.toLowerCase() : '';
     const hostname = url.hostname.toLowerCase();
     if (hostname === ownHost || ['ht-120min.vercel.app', '120min.vercel.app'].includes(hostname)) return null;
-    return url.origin;
+    // The browser may provide a full external URL; retain its path and query
+    // without forwarding credentials or a fragment into private telemetry.
+    return `${url.origin}${url.pathname === '/' && !url.search ? '' : url.pathname}${url.search}`;
   } catch {
     return null;
   }

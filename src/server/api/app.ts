@@ -4123,7 +4123,13 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       browsers: breakdown(sortedVisits.map((visit) => visit.browser)),
       languages: breakdown(sortedVisits.map((visit) => visit.language)),
       routes: breakdown(events.map((event) => event.route)),
-      referrers: breakdown(sortedVisits.map((visit) => visit.referrer || 'Direct / unknown')),
+      referrers: breakdown(sortedVisits.map((visit) => {
+        if (!visit.referrer) return 'Direct / unknown';
+        const url = new URL(visit.referrer);
+        return /^www\d*\.hattrick\.org$/i.test(url.hostname)
+          ? `https://www*.hattrick.org${url.pathname === '/' && !url.search ? '' : url.pathname}${url.search}`
+          : visit.referrer;
+      })),
       themes: breakdown(sortedVisits.flatMap((visit) => visit.pages.map((page) => page.theme)))
         .map((row) => ({ ...row, uniqueCount: themeVisitors.get(row.value)?.size || 0 })),
       screens: breakdown(metadataValues('screen')),
