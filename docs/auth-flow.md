@@ -53,6 +53,7 @@ This document outlines the three primary Hattrick OAuth-based flows in the appli
 - **Logic**: No `tournament_id` is passed. The user is redirected to the localized App Router
   page `/[locale]/auth/callback`, which immediately calls `/api/auth/complete`.
 - **UI**: Header updates from "Login" to "Manager Name".
+- **Hattrick referral invitation**: On initial arrival from a `*.hattrick.org` page, visitors without remembered main-app manager details see a CHPP invitation only after the existing session-status endpoint confirms they are anonymous. Dismissal lasts for the current browser session. The invitation reuses standalone login and its current-page return URL, and yields to expired-session recovery.
 
 ### B. Join Tournament Flow
 

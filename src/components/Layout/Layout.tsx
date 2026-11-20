@@ -22,6 +22,8 @@ import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import { AuthRecoveryContext } from './AuthRecoveryContext';
+import { isHattrickReferral } from '../../utils/hattrick-referral';
+import { MAIN_AUTH_MANAGER_NAME_KEY, MAIN_AUTH_TEAM_NAME_KEY, MAIN_AUTH_USER_ID_KEY } from '../../utils/auth-storage';
 import { useAuth } from '../../hooks/useAuth';
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
@@ -126,6 +128,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   const [recoveryDismissed, setRecoveryDismissed] = useState(
     () => typeof window === 'undefined' || sessionStorage.getItem('ht120_session_recovery_dismissed') === 'true',
   );
+  const [hattrickInviteOpen, setHattrickInviteOpen] = useState(false);
+  const [hattrickInviteDismissed, setHattrickInviteDismissed] = useState(
+    () => typeof window === 'undefined' || sessionStorage.getItem('ht120_hattrick_invite_dismissed') === 'true',
+  );
   const visitCount = useSyncExternalStore(subscribeToVisitCount, getVisitCount, getServerVisitCount);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isProfileModalOpen = !!searchParams.get('profileId');
@@ -135,6 +141,30 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   useEffect(() => {
     applyCurrentTheme();
   }, [theme]);
+
+  useEffect(() => {
+    if (!authReady || managerName || recoveryManagerName || isAuthCallback || isSupportedPage ||
+      excludeAnalytics || hattrickInviteDismissed || !isHattrickReferral(document.referrer)) return;
+    try {
+      if (localStorage.getItem(MAIN_AUTH_USER_ID_KEY) || localStorage.getItem(MAIN_AUTH_MANAGER_NAME_KEY) ||
+        localStorage.getItem(MAIN_AUTH_TEAM_NAME_KEY)) return;
+    } catch {
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetch('/api/auth/complete', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'session_status' }),
+      signal: controller.signal,
+    }).then((response) => response.ok ? response.json() as Promise<{ userId: number | null }> : null)
+      .then((session) => {
+        if (!controller.signal.aborted && session?.userId === null) setHattrickInviteOpen(true);
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [authReady, managerName, recoveryManagerName, isAuthCallback, isSupportedPage, excludeAnalytics, hattrickInviteDismissed]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -180,9 +210,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   };
 
   const recoveryOpen = authReady && !!recoveryManagerName && !recoveryDismissed && !isAuthCallback;
+  const inviteOpen = hattrickInviteOpen && !managerName && !recoveryManagerName;
   const dismissRecovery = () => {
     sessionStorage.setItem('ht120_session_recovery_dismissed', 'true');
     setRecoveryDismissed(true);
+  };
+  const dismissHattrickInvite = () => {
+    sessionStorage.setItem('ht120_hattrick_invite_dismissed', 'true');
+    setHattrickInviteDismissed(true);
+    setHattrickInviteOpen(false);
   };
 
   const dismissAuthError = () => {
@@ -195,7 +231,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
   return (
     <ToastProvider>
-      <AuthRecoveryContext.Provider value={!authReady || !!recoveryManagerName}>
+      <AuthRecoveryContext.Provider value={!authReady || !!recoveryManagerName || inviteOpen}>
         <div className={styles.wrapper}>
           <header className={styles.header}>
             <div className={styles.container}>
@@ -502,6 +538,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
             <Button variant="secondaryYellow" onClick={handleLogin}>
               {t('sessionRecoveryAction')}
             </Button>
+          </Modal>
+
+          <Modal
+            isOpen={inviteOpen}
+            onClose={dismissHattrickInvite}
+            title={t('hattrickInviteTitle')}
+          >
+            <p className="mb-1">{t('hattrickInviteDescription')}</p>
+            <div className={styles.authPromptActions}>
+              <Button variant="outlineModal" onClick={dismissHattrickInvite}>
+                {t('hattrickInviteLater')}
+              </Button>
+              <Button variant="secondaryYellow" onClick={handleLogin}>
+                {t('hattrickInviteConnect')}
+              </Button>
+            </div>
           </Modal>
 
           {!excludeAnalytics && !isAuthCallback && (
