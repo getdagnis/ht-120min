@@ -19,7 +19,7 @@ import { fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
 import { buildTournamentJoinStory } from '../_lib/join-story.js';
 
 interface CompleteAuthBody {
-  action?: 'claim_teams' | 'create_session' | 'clear_session';
+  action?: 'claim_teams' | 'create_session' | 'clear_session' | 'session_status';
   forgeAuth?: boolean;
   selection_token?: string;
   team_id?: string | number;
@@ -87,6 +87,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
     res.setHeader('Set-Cookie', clearAppSessionCookie(secureCookie));
     return res.status(200).json({ cleared: true });
+  }
+
+  if (action === 'session_status') {
+    const secret = getAppSessionSecret();
+    if (!secret) return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
+    const session = verifyAppSessionCookie(req.headers.cookie, secret);
+    if (!session) return res.status(200).json({ userId: null });
+    const host = String(req.headers.host || '').split(':')[0].toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
+    res.setHeader('Set-Cookie', buildAppSessionCookie(session.userId, secret, secureCookie));
+    return res.status(200).json({ userId: session.userId });
   }
 
   let supabase: ReturnType<typeof getServiceSupabase>;

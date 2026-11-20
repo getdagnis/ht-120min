@@ -20,6 +20,8 @@ import {
 } from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
+import { Modal } from '../Modal/Modal';
+import { AuthRecoveryContext } from './AuthRecoveryContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
@@ -108,6 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
     logout,
     refreshProfile,
     authReady,
+    recoveryManagerName,
   } = useAuth();
   usePresenceHeartbeat(!!managerName, currentUrl, !isMockMatchmakerRoute && !excludeAnalytics && !isAuthCallback);
   useActivityTracking(currentUrl, !isMockMatchmakerRoute && !excludeAnalytics && !isAuthCallback);
@@ -120,6 +123,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(
+    () => typeof window === 'undefined' || sessionStorage.getItem('ht120_session_recovery_dismissed') === 'true',
+  );
   const visitCount = useSyncExternalStore(subscribeToVisitCount, getVisitCount, getServerVisitCount);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isProfileModalOpen = !!searchParams.get('profileId');
@@ -169,8 +175,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
   const handleLogin = () => {
     // Pure login: no tournament_id, no is_creation
-    document.cookie = `auth_return_url=${encodeURIComponent(currentUrl)}; path=/; max-age=300`;
+    document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
+  };
+
+  const recoveryOpen = authReady && !!recoveryManagerName && !recoveryDismissed && !isAuthCallback;
+  const dismissRecovery = () => {
+    sessionStorage.setItem('ht120_session_recovery_dismissed', 'true');
+    setRecoveryDismissed(true);
   };
 
   const dismissAuthError = () => {
@@ -183,104 +195,105 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
   return (
     <ToastProvider>
-      <div className={styles.wrapper}>
-        <header className={styles.header}>
-          <div className={styles.container}>
-            <div className={styles.headerContent}>
-              <Link href={toLocalePath(locale, '/')} className={styles.logo}>
-                <img
-                  src="/logo-dark.svg"
-                  alt={uiText('hT120min')}
-                  width={170}
-                  height={42}
-                  className={`${styles.logoImage} ${styles.lightLogo}`}
-                />
-                <img
-                  src="/logo-white.svg"
-                  alt={uiText('hT120min')}
-                  width={170}
-                  height={42}
-                  className={`${styles.logoImage} ${styles.darkLogo}`}
-                />
-              </Link>
+      <AuthRecoveryContext.Provider value={!authReady || !!recoveryManagerName}>
+        <div className={styles.wrapper}>
+          <header className={styles.header}>
+            <div className={styles.container}>
+              <div className={styles.headerContent}>
+                <Link href={toLocalePath(locale, '/')} className={styles.logo}>
+                  <img
+                    src="/logo-dark.svg"
+                    alt={uiText('hT120min')}
+                    width={170}
+                    height={42}
+                    className={`${styles.logoImage} ${styles.lightLogo}`}
+                  />
+                  <img
+                    src="/logo-white.svg"
+                    alt={uiText('hT120min')}
+                    width={170}
+                    height={42}
+                    className={`${styles.logoImage} ${styles.darkLogo}`}
+                  />
+                </Link>
 
-              <div className={styles.actions}>
-                <LocaleSwitcher />
-                <Button
-                  size="sm"
-                  onClick={toggleTheme}
-                  className={styles.themeToggle}
-                  aria-label={t('toggleTheme')}
-                  variant="zero"
-                >
-                  {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
-                </Button>
-
-                <div className="hideOnMobile">
-                  <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
-                    {isCreatePage ? (
-                      <>
-                        <ArrowRight size={18} weight="bold" />{' '}
-                        <span className={styles.hideMobile}>{t('joinTournament')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={18} weight="bold" />{' '}
-                        <span className={styles.hideMobile}>{t('createTournament')}</span>
-                      </>
-                    )}
+                <div className={styles.actions}>
+                  <LocaleSwitcher />
+                  <Button
+                    size="sm"
+                    onClick={toggleTheme}
+                    className={styles.themeToggle}
+                    aria-label={t('toggleTheme')}
+                    variant="zero"
+                  >
+                    {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
                   </Button>
-                </div>
 
-                <div className={styles.userContainer} ref={dropdownRef}>
-                  {!authReady ? (
-                    <div className={styles.authPlaceholder} aria-hidden="true" />
-                  ) : managerName ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="zero"
-                        className={styles.userBtn}
-                        onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                      >
-                        <User size={18} weight="bold" />
-                        <span className={styles.hideMobile}>{managerName}</span>
-                        <CaretDown size={14} weight="bold" />
-                      </Button>
+                  <div className="hideOnMobile">
+                    <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
+                      {isCreatePage ? (
+                        <>
+                          <ArrowRight size={18} weight="bold" />{' '}
+                          <span className={styles.hideMobile}>{t('joinTournament')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={18} weight="bold" />{' '}
+                          <span className={styles.hideMobile}>{t('createTournament')}</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
 
-                      {isUserDropdownOpen && (
-                        <div className={styles.dropdown}>
-                          {activeTournaments.length > 0 && (
-                            <div className={styles.dropdownInfo}>
-                              <span>{t('active')}</span>
-                              <div className={styles.activeTournamentsList}>
-                                {activeTournaments.map((tournament) => (
-                                  <div key={tournament.id} className={styles.tourItem}>
-                                    <Link
-                                      href={toLocalePath(locale, `/t/${tournament.slug}`)}
-                                      className={styles.dropdownLink}
-                                      onClick={() => setIsUserDropdownOpen(false)}
-                                    >
-                                      {tournament.name}
-                                    </Link>
-                                    {tournament.nextMatchDate && (
-                                      <div className={styles.tourNextMatch} title={t('nextMatch')}>
-                                        <Clock size={12} weight="bold" />
-                                        {tournament.nextMatchDate.toLocaleDateString('lv-LV', {
-                                          day: '2-digit',
-                                          month: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                          timeZone: 'Europe/Riga',
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                  <div className={styles.userContainer} ref={dropdownRef}>
+                    {!authReady ? (
+                      <div className={styles.authPlaceholder} aria-hidden="true" />
+                    ) : managerName ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="zero"
+                          className={styles.userBtn}
+                          onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                        >
+                          <User size={18} weight="bold" />
+                          <span className={styles.hideMobile}>{managerName}</span>
+                          <CaretDown size={14} weight="bold" />
+                        </Button>
+
+                        {isUserDropdownOpen && (
+                          <div className={styles.dropdown}>
+                            {activeTournaments.length > 0 && (
+                              <div className={styles.dropdownInfo}>
+                                <span>{t('active')}</span>
+                                <div className={styles.activeTournamentsList}>
+                                  {activeTournaments.map((tournament) => (
+                                    <div key={tournament.id} className={styles.tourItem}>
+                                      <Link
+                                        href={toLocalePath(locale, `/t/${tournament.slug}`)}
+                                        className={styles.dropdownLink}
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                      >
+                                        {tournament.name}
+                                      </Link>
+                                      {tournament.nextMatchDate && (
+                                        <div className={styles.tourNextMatch} title={t('nextMatch')}>
+                                          <Clock size={12} weight="bold" />
+                                          {tournament.nextMatchDate.toLocaleDateString('lv-LV', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            timeZone: 'Europe/Riga',
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          {/* {finishedTournaments.length > 0 && (
+                            )}
+                            {/* {finishedTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
                               <span>Finished:</span>
                               <div className={styles.activeTournamentsList}>
@@ -298,198 +311,212 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                               </div>
                             </div>
                           )} */}
-                          {visibleOrganizerTournaments.length > 0 && (
-                            <div className={styles.dropdownInfo}>
-                              <span>{t('organizer')}</span>
-                              <div className={styles.activeTournamentsList}>
-                                {organizerPreview.map((t) => (
-                                  <div key={t.id} className={styles.tourItem}>
-                                    <Link
-                                      href={toLocalePath(locale, `/t/${t.slug}`)}
-                                      className={styles.dropdownLink}
-                                      onClick={() => setIsUserDropdownOpen(false)}
-                                    >
-                                      {t.name}
-                                    </Link>
-                                    {t.status && <div className={styles.tourStatus}>{t.status}</div>}
-                                  </div>
-                                ))}
+                            {visibleOrganizerTournaments.length > 0 && (
+                              <div className={styles.dropdownInfo}>
+                                <span>{t('organizer')}</span>
+                                <div className={styles.activeTournamentsList}>
+                                  {organizerPreview.map((t) => (
+                                    <div key={t.id} className={styles.tourItem}>
+                                      <Link
+                                        href={toLocalePath(locale, `/t/${t.slug}`)}
+                                        className={styles.dropdownLink}
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                      >
+                                        {t.name}
+                                      </Link>
+                                      {t.status && <div className={styles.tourStatus}>{t.status}</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                                <Link
+                                  href={`${toLocalePath(locale, '/profile')}#organized-tournaments`}
+                                  className={styles.dropdownItem}
+                                  onClick={() => setIsUserDropdownOpen(false)}
+                                >
+                                  <ArrowRight size={18} weight="bold" />
+                                  {t('showAllTournaments')}
+                                </Link>
                               </div>
-                              <Link
-                                href={`${toLocalePath(locale, '/profile')}#organized-tournaments`}
-                                className={styles.dropdownItem}
-                                onClick={() => setIsUserDropdownOpen(false)}
-                              >
-                                <ArrowRight size={18} weight="bold" />
-                                {t('showAllTournaments')}
-                              </Link>
-                            </div>
-                          )}
-                          {testTournaments.length > 0 && (
-                            <div className={styles.dropdownInfo}>
-                              <span>{t('testTournaments')}</span>
-                              <div className={styles.activeTournamentsList}>
-                                {testTournaments.map((t) => (
-                                  <div key={t.id} className={styles.tourItem}>
-                                    <Link
-                                      href={toLocalePath(locale, `/t/${t.slug}`)}
-                                      className={styles.dropdownLink}
-                                      onClick={() => setIsUserDropdownOpen(false)}
-                                    >
-                                      {t.name}
-                                    </Link>
-                                    {t.status && <div className={styles.tourStatus}>{t.status}</div>}
-                                  </div>
-                                ))}
+                            )}
+                            {testTournaments.length > 0 && (
+                              <div className={styles.dropdownInfo}>
+                                <span>{t('testTournaments')}</span>
+                                <div className={styles.activeTournamentsList}>
+                                  {testTournaments.map((t) => (
+                                    <div key={t.id} className={styles.tourItem}>
+                                      <Link
+                                        href={toLocalePath(locale, `/t/${t.slug}`)}
+                                        className={styles.dropdownLink}
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                      >
+                                        {t.name}
+                                      </Link>
+                                      {t.status && <div className={styles.tourStatus}>{t.status}</div>}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          <button
-                            className={styles.dropdownItem}
-                            onClick={() => {
-                              router.push(toLocalePath(locale, '/tinder'));
-                              setIsUserDropdownOpen(false);
-                            }}
-                          >
-                            <Handshake size={18} />
-                            {t('tinder')}
-                          </button>
-                          <button
-                            className={styles.dropdownItem}
-                            onClick={() => {
-                              router.push(toLocalePath(locale, '/profile'));
-                              setIsUserDropdownOpen(false);
-                            }}
-                          >
-                            <IdentificationCard size={18} />
-                            {t('myProfile')}
-                          </button>
-                          <button
-                            className={styles.dropdownItem}
-                            onClick={() => {
-                              logout();
-                              setIsUserDropdownOpen(false);
-                              router.refresh();
-                            }}
-                          >
-                            <SignOut size={18} />
-                            {t('logout')}
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
-                      <User size={18} weight="bold" />
-                      <span className={styles.hideMobile}>{t('loginChpp')}</span> <ArrowRight size={18} />
-                    </Button>
-                  )}
+                            )}
+                            <button
+                              className={styles.dropdownItem}
+                              onClick={() => {
+                                router.push(toLocalePath(locale, '/tinder'));
+                                setIsUserDropdownOpen(false);
+                              }}
+                            >
+                              <Handshake size={18} />
+                              {t('tinder')}
+                            </button>
+                            <button
+                              className={styles.dropdownItem}
+                              onClick={() => {
+                                router.push(toLocalePath(locale, '/profile'));
+                                setIsUserDropdownOpen(false);
+                              }}
+                            >
+                              <IdentificationCard size={18} />
+                              {t('myProfile')}
+                            </button>
+                            <button
+                              className={styles.dropdownItem}
+                              onClick={() => {
+                                logout();
+                                setIsUserDropdownOpen(false);
+                                router.refresh();
+                              }}
+                            >
+                              <SignOut size={18} />
+                              {t('logout')}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
+                        <User size={18} weight="bold" />
+                        <span className={styles.hideMobile}>{t('loginChpp')}</span> <ArrowRight size={18} />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className={styles.main}>
-          <NavigationFeedback />
-          {authError && (
-            <section className={styles.authFailure} role="alert">
-              <div>
-                <h2>{t('authUnavailableTitle')}</h2>
-                <p>
-                  {t('authUnavailableDescription')}
-                  {authErrorReference && (
-                    <>
-                      {' '}
-                      {t('reference')} <code>{authErrorReference}</code>
-                    </>
-                  )}
-                </p>
-              </div>
-              <div className={styles.authFailureActions}>
-                <Button size="sm" variant="primary" onClick={handleLogin}>
-                  <User size={18} weight="bold" /> {t('tryLoginAgain')}
-                </Button>
-                <a
-                  className={styles.authFailureLink}
-                  href={`https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t('reportProblem')}
+          <main className={styles.main}>
+            <NavigationFeedback />
+            {authError && (
+              <section className={styles.authFailure} role="alert">
+                <div>
+                  <h2>{t('authUnavailableTitle')}</h2>
+                  <p>
+                    {t('authUnavailableDescription')}
+                    {authErrorReference && (
+                      <>
+                        {' '}
+                        {t('reference')} <code>{authErrorReference}</code>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className={styles.authFailureActions}>
+                  <Button size="sm" variant="primary" onClick={handleLogin}>
+                    <User size={18} weight="bold" /> {t('tryLoginAgain')}
+                  </Button>
+                  <a
+                    className={styles.authFailureLink}
+                    href={`https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t('reportProblem')}
+                  </a>
+                  <button type="button" className={styles.authFailureDismiss} onClick={dismissAuthError}>
+                    {t('dismiss')}
+                  </button>
+                </div>
+              </section>
+            )}
+            {children}
+          </main>
+
+          <footer className={styles.footer}>
+            <div className={styles.container}>
+              {visitCount >= 0 && !isSupportedPage && (
+                <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />
+              )}
+              <p>
+                © {new Date().getFullYear()}
+                <span className="mr-sm" />
+                <a href="http://getdagnis.vercel.app" target="_blank">
+                  {uiText('mrBotsAKAGetdagnis')}
                 </a>
-                <button type="button" className={styles.authFailureDismiss} onClick={dismissAuthError}>
-                  {t('dismiss')}
-                </button>
-              </div>
-            </section>
-          )}
-          {children}
-        </main>
-
-        <footer className={styles.footer}>
-          <div className={styles.container}>
-            {visitCount >= 0 && !isSupportedPage && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
-            <p>
-              © {new Date().getFullYear()}
-              <span className="mr-sm" />
-              <a href="http://getdagnis.vercel.app" target="_blank">
-                {uiText('mrBotsAKAGetdagnis')}
-              </a>
-              <span style={{ marginRight: '0.25rem' }}>🇱🇻</span>
-              {t('managerOf')}{' '}
-              <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
-                {uiText('thisBotTeamIsABot')}
-              </a>
-              <span style={{ marginRight: '0.25rem' }}>🇱🇻</span> {uiText('and')}{' '}
-              <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
-                {uiText('guåhanGoddesses')}
-              </a>
-              <b />
-            </p>
+                <span style={{ marginRight: '0.25rem' }}>🇱🇻</span>
+                {t('managerOf')}{' '}
+                <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
+                  {uiText('thisBotTeamIsABot')}
+                </a>
+                <span style={{ marginRight: '0.25rem' }}>🇱🇻</span> {uiText('and')}{' '}
+                <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
+                  {uiText('guåhanGoddesses')}
+                </a>
+                <b />
+              </p>
+              <a
+                href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
+                target="_blank"
+              >
+                {t('sendAuthorMessage')}
+              </a>{' '}
+              💌
+              <p className={styles.affiliated}>{t('notAffiliated')}</p>
+            </div>
+            <h3>{t('rateOnHattrick')}</h3>
             <a
-              href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
+              href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
               target="_blank"
             >
-              {t('sendAuthorMessage')}
-            </a>{' '}
-            💌
-            <p className={styles.affiliated}>{t('notAffiliated')}</p>
-          </div>
-          <h3>{t('rateOnHattrick')}</h3>
-          <a
-            href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
-            target="_blank"
+              <div className={styles.chpp}>
+                <img src="/svg/chpp.svg" alt={t('chppProductPageAlt')} width={80} />
+              </div>
+            </a>
+          </footer>
+
+          <ProfileModal
+            isOpen={isProfileModalOpen}
+            onClose={() => router.replace(pathname)}
+            profileId={searchParams.get('profileId') ? Number(searchParams.get('profileId')) : null}
+            ownProfile={profile}
+            activeTournaments={activeTournaments}
+            maxWidth="620px"
+          />
+
+          <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
+
+          <Modal
+            isOpen={recoveryOpen}
+            onClose={dismissRecovery}
+            title={t('sessionRecoveryTitle', { manager: recoveryManagerName || '' })}
           >
-            <div className={styles.chpp}>
-              <img src="/svg/chpp.svg" alt={t('chppProductPageAlt')} width={80} />
-            </div>
-          </a>
-        </footer>
+            <p className="mb-1">{t('sessionRecoveryDescription')}</p>
+            <Button variant="secondaryYellow" onClick={handleLogin}>
+              {t('sessionRecoveryAction')}
+            </Button>
+          </Modal>
 
-        <ProfileModal
-          isOpen={isProfileModalOpen}
-          onClose={() => router.replace(pathname)}
-          profileId={searchParams.get('profileId') ? Number(searchParams.get('profileId')) : null}
-          ownProfile={profile}
-          activeTournaments={activeTournaments}
-          maxWidth="620px"
-        />
-
-        <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
-
-        {!excludeAnalytics && !isAuthCallback && (
-          <>
-            <Script
-              src="https://cdn.counter.dev/script.js"
-              data-id="b00ddeff-7e76-4ab9-864b-fb21b6a22fa3"
-              data-utcoffset="2"
-              strategy="afterInteractive"
-            />
-            <Analytics beforeSend={excludeLocalAnalytics} />
-          </>
-        )}
-      </div>
+          {!excludeAnalytics && !isAuthCallback && (
+            <>
+              <Script
+                src="https://cdn.counter.dev/script.js"
+                data-id="b00ddeff-7e76-4ab9-864b-fb21b6a22fa3"
+                data-utcoffset="2"
+                strategy="afterInteractive"
+              />
+              <Analytics beforeSend={excludeLocalAnalytics} />
+            </>
+          )}
+        </div>
+      </AuthRecoveryContext.Provider>
     </ToastProvider>
   );
 };

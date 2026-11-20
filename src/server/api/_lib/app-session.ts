@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
-const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 60 * 24 * 60 * 60;
 const DEV_FALLBACK_SECRET = 'ht-120min-dev-app-session-secret';
 
 export interface AppSessionPayload {

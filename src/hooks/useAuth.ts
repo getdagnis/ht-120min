@@ -178,6 +178,8 @@ export const useAuth = () => {
   const [testTournaments, setTestTournaments] = useState<TestTournament[]>([]);
   const [loading, setLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [recoveryManagerName, setRecoveryManagerName] = useState<string | null>(null);
+  const [authenticatedUserId, setAuthenticatedUserId] = useState<number | null>(null);
 
   const fetchProfile = useCallback(async (uid: number) => {
     setLoading(true);
@@ -191,10 +193,8 @@ export const useAuth = () => {
 
       if (profileData) {
         setProfile(profileData as UserProfile);
-        if (profileData.manager_name !== managerName) {
-          setManagerName(profileData.manager_name);
-          localStorage.setItem('my_ht_manager_name', profileData.manager_name);
-        }
+        setManagerName(profileData.manager_name);
+        localStorage.setItem('my_ht_manager_name', profileData.manager_name);
       }
 
       // #2 fetch user's active tournaments
@@ -393,7 +393,7 @@ export const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  }, [managerName]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -406,9 +406,29 @@ export const useAuth = () => {
 
     let active = true;
     const timer = setTimeout(() => {
-      void fetchProfile(hattrickUserId).finally(() => {
-        if (active) setAuthReady(true);
-      });
+      void (async () => {
+        try {
+          const response = await fetch('/api/auth/complete', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'session_status' }),
+          });
+          if (!response.ok) throw new Error('Session check failed');
+          const session = await response.json() as { userId: number | null };
+          if (!active) return;
+          if (session.userId !== hattrickUserId) {
+            setRecoveryManagerName(localStorage.getItem('my_ht_manager_name') || 'manager');
+            return;
+          }
+          setAuthenticatedUserId(hattrickUserId);
+          await fetchProfile(hattrickUserId);
+        } catch (error) {
+          console.error('Could not verify manager session:', error);
+        } finally {
+          if (active) setAuthReady(true);
+        }
+      })();
     }, 0);
     return () => {
       active = false;
@@ -418,15 +438,16 @@ export const useAuth = () => {
 
   useEffect(() => {
     const refreshMembership = () => {
-      const uid = localStorage.getItem('my_ht_user_id');
-      if (uid) void fetchProfile(Number(uid));
+      if (authenticatedUserId) void fetchProfile(authenticatedUserId);
     };
     window.addEventListener('ht120:tournament-membership-changed', refreshMembership);
     return () => window.removeEventListener('ht120:tournament-membership-changed', refreshMembership);
-  }, [fetchProfile]);
+  }, [fetchProfile, authenticatedUserId]);
 
   const logout = () => {
     clearMainAuthSession();
+    setAuthenticatedUserId(null);
+    setRecoveryManagerName(null);
     setManagerName(null);
     setProfile(null);
     setActiveTournaments([]);
@@ -446,11 +467,10 @@ export const useAuth = () => {
     testTournaments,
     loading,
     authReady,
+    recoveryManagerName,
     logout,
     refreshProfile: () => {
-      if (typeof window === 'undefined') return;
-      const uid = localStorage.getItem('my_ht_user_id');
-      if (uid) void fetchProfile(Number(uid));
+      if (authenticatedUserId) void fetchProfile(authenticatedUserId);
     },
   };
 };

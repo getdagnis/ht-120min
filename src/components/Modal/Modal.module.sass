@@ -52,38 +52,41 @@
     color: var(--text-h)
 
 .header
+  position: relative
   display: flex
   justify-content: space-between
   align-items: center
   padding: 1.25rem 1.5rem
-  border-bottom: 1px solid white
+  border-bottom: 1px solid #fff3
+  background: #0002
 
 .title
   margin: 0
-  font-size: 1.25rem
-  font-weight: 700
+  font-size: 1.35rem
+  font-weight: 600
   color: white
 
 .closeBtn
   background: none
+  position: absolute
+  top: 0.35rem
+  right: 0.35rem
   border: none
   color: white
   cursor: pointer
-  padding: 0.5rem
-  margin: -0.5rem
-  opacity: 0.6
+  padding: 1rem
+  opacity: 0.5
   transform: rotate(0deg)
-  transition: opacity 0.2s
+  transition: opacity 0.2s, transform 0.3s ease
 
   &:hover
     opacity: 1
-    transform: rotate(360deg)
+    transform: rotate(180deg)
 
 .content
   padding: 1.5rem
   overflow-y: auto
   min-height: 0
-  gap: 0.5rem
 
   @media (max-width: 620px)
     padding: 0.75rem
