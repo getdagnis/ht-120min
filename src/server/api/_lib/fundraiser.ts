@@ -9,6 +9,7 @@ import { getServiceSupabase } from './supabase.js';
 
 const CLICK_MAX_AGE_SECONDS = 60 * 60;
 const RETURN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const PROMPT_MIN_AGE_MS = 10 * 24 * 60 * 60 * 1000;
 
 function clickCookieName(key: string): string {
   return `ht120_fundraiser_click_${key}`;
@@ -52,8 +53,31 @@ function signedInManager(req: VercelRequest): number | null {
   return secret ? verifyAppSessionCookie(req.headers.cookie, secret)?.userId ?? null : null;
 }
 
-async function loadState(managerId: number | null): Promise<FundraiserState> {
-  const db = getServiceSupabase();
+export function oldEnoughForFundraiserPrompt(createdAt: string | null | undefined, now = Date.now()): boolean {
+  const createdTime = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(createdTime) && now - createdTime >= PROMPT_MIN_AGE_MS;
+}
+
+async function eligibleForFundraiserPrompt(db: ReturnType<typeof getServiceSupabase>, managerId: number): Promise<boolean> {
+  const signal = AbortSignal.timeout(3_000);
+  const { data: profile, error: profileError } = await db.from('profiles')
+    .select('created_at').eq('hattrick_user_id', managerId).abortSignal(signal).maybeSingle();
+  if (profileError) throw new Error('Manager age is unavailable.');
+  if (!oldEnoughForFundraiserPrompt(profile?.created_at)) return false;
+
+  const { data: registrations, error: registrationError } = await db.from('teams')
+    .select('id').eq('hattrick_user_id', managerId)
+    .not('tournament_id', 'is', null).not('is_placeholder', 'is', true).limit(1).abortSignal(signal);
+  if (registrationError) throw new Error('Tournament registration is unavailable.');
+  if (registrations?.length) return true;
+
+  const { data: tournaments, error: tournamentError } = await db.from('tournaments')
+    .select('id').eq('organizer_id', managerId).limit(1).abortSignal(signal);
+  if (tournamentError) throw new Error('Tournament ownership is unavailable.');
+  return Boolean(tournaments?.length);
+}
+
+async function loadState(db: ReturnType<typeof getServiceSupabase>, managerId: number | null): Promise<FundraiserState> {
   const { data, error } = await db.rpc('next_season_fundraiser_summary');
   if (error) throw new Error('Fundraiser totals are unavailable.');
   let hasSupported = false;
@@ -85,7 +109,15 @@ export async function handleFundraiser(req: VercelRequest, res: VercelResponse) 
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
   if (FUNDRAISER_STATUS === 'hidden') return res.status(404).json({ error: 'Fundraiser unavailable.' });
   const managerId = signedInManager(req);
-  return res.status(200).json({ ...await loadState(managerId), authenticated: managerId !== null });
+  const db = getServiceSupabase();
+  const state = await loadState(db, managerId);
+  const promptEligible = req.query?.prompt === '1' && managerId !== null && !state.hasSupported
+    ? await eligibleForFundraiserPrompt(db, managerId).catch((error) => {
+      console.warn('Fundraiser prompt eligibility unavailable:', error);
+      return false;
+    })
+    : false;
+  return res.status(200).json({ ...state, authenticated: managerId !== null, promptEligible });
 }
 
 export async function handleFundraiserCheckout(req: VercelRequest, res: VercelResponse) {

@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { buildAppSessionCookie } from '../src/server/api/_lib/app-session.ts';
 import {
   clickedByManager, handleBmcWebhook, handleFundraiser, handleFundraiserCheckout, handleFundraiserClaim, handleFundraiserReturn,
-  parseBmcShopOrder, verifyBmcSignature,
+  oldEnoughForFundraiserPrompt, parseBmcShopOrder, verifyBmcSignature,
 } from '../src/server/api/_lib/fundraiser.ts';
 
 function shopEvent(overrides: Record<string, unknown> = {}) {
@@ -73,6 +73,114 @@ test('fundraiser state distinguishes a verified manager from an anonymous visito
     const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
     await handleFundraiser(request(session), res);
     assert.equal(state?.authenticated, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
+    if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
+    else process.env.APP_SESSION_SECRET = previousSecret;
+  }
+});
+
+test('fundraiser prompt requires ten full days and tournament involvement', async () => {
+  const now = Date.now();
+  assert.equal(oldEnoughForFundraiserPrompt(new Date(now - 10 * 24 * 60 * 60 * 1000 + 1).toISOString(), now), false);
+  assert.equal(oldEnoughForFundraiserPrompt(new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString(), now), true);
+  assert.equal(oldEnoughForFundraiserPrompt(null, now), false);
+
+  const previousSecret = process.env.APP_SESSION_SECRET;
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  process.env.SUPABASE_URL = 'https://fundraiser-test.invalid';
+  process.env.SUPABASE_SECRET_KEY = 'test-service-key';
+  const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
+  let ageDays = 11;
+  let registered = false;
+  let organized = false;
+  let supported = false;
+  let profileUnavailable = false;
+  let paths: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    assert.equal(url.hostname, 'fundraiser-test.invalid');
+    paths.push(url.pathname);
+    if (url.pathname === '/rest/v1/rpc/next_season_fundraiser_summary') return Response.json([]);
+    if (url.pathname === '/rest/v1/next_season_bmc_payments') return Response.json(supported ? [{ payment_id: 'paid' }] : []);
+    if (url.pathname === '/rest/v1/profiles') return profileUnavailable
+      ? Response.json({ message: 'Unavailable' }, { status: 503 })
+      : Response.json({ created_at: new Date(now - ageDays * 24 * 60 * 60 * 1000).toISOString() });
+    if (url.pathname === '/rest/v1/teams') {
+      assert.equal(url.searchParams.get('hattrick_user_id'), 'eq.42');
+      assert.equal(url.searchParams.get('tournament_id'), 'not.is.null');
+      assert.equal(url.searchParams.get('is_placeholder'), 'not.is.true');
+      return Response.json(registered ? [{ id: 'registration' }] : []);
+    }
+    if (url.pathname === '/rest/v1/tournaments') return Response.json(organized ? [{ id: 'owned' }] : []);
+    assert.fail(`Unexpected query: ${url.pathname}`);
+  };
+  try {
+    let result: { authenticated: boolean; promptEligible: boolean } | null = null;
+    const response = {
+      setHeader() { return this; },
+      status(code: number) { assert.equal(code, 200); return this; },
+      json(value: { authenticated: boolean; promptEligible: boolean }) { result = value; return this; },
+    } as unknown as VercelResponse;
+    const request = (cookie?: string, prompt = '1') => ({ method: 'GET', query: { prompt }, headers: { cookie } }) as unknown as VercelRequest;
+
+    await handleFundraiser(request(session), response);
+    assert.equal(result?.promptEligible, false);
+    assert.ok(paths.includes('/rest/v1/tournaments'));
+
+    paths = [];
+    registered = true;
+    await handleFundraiser(request(session), response);
+    assert.equal(result?.promptEligible, true);
+    assert.ok(!paths.includes('/rest/v1/tournaments'));
+
+    paths = [];
+    registered = false;
+    organized = true;
+    await handleFundraiser(request(session), response);
+    assert.equal(result?.promptEligible, true);
+
+    paths = [];
+    ageDays = 9;
+    await handleFundraiser(request(session), response);
+    assert.equal(result?.promptEligible, false);
+    assert.ok(!paths.includes('/rest/v1/teams'));
+
+    paths = [];
+    ageDays = 11;
+    supported = true;
+    await handleFundraiser(request(session), response);
+    assert.equal(result?.promptEligible, false);
+    assert.ok(!paths.includes('/rest/v1/profiles'));
+
+    paths = [];
+    supported = false;
+    await handleFundraiser(request(), response);
+    assert.equal(result?.promptEligible, false);
+    assert.ok(!paths.includes('/rest/v1/profiles'));
+
+    paths = [];
+    await handleFundraiser(request(session, '0'), response);
+    assert.equal(result?.promptEligible, false);
+    assert.ok(!paths.includes('/rest/v1/profiles'));
+
+    profileUnavailable = true;
+    const previousWarn = console.warn;
+    console.warn = () => {};
+    try {
+      await handleFundraiser(request(session), response);
+    } finally {
+      console.warn = previousWarn;
+    }
+    assert.equal(result?.authenticated, true);
+    assert.equal(result?.promptEligible, false);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousUrl === undefined) delete process.env.SUPABASE_URL;
