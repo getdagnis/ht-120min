@@ -547,7 +547,7 @@ const messages = {
       teamsAreRankedFirstBy: "Teams are primarly ranked by",
       '120minAchievements': "120min achievements",
       thenPointsGoalDifferenceGoalsScoredAndFinallyFewer: " (both teams earn one 120m point). After that — victory points, goal difference, goals scored — all counted only in matches that reached 120 minutes. If still tied — more minutes achieved or who joined tournament first. Winning a 120 minute match earns the team 3 secondary points. Reaching extra time alone earns the losing team 2 secondary points. Regular-time winner on the contrary gets 0 points, while regular-time loser still earns 2 points if they didn't score, scoring at least one reduces that to 1 point. Normal Rules matches award no points.",
-      victoryPointsMode: "Victory points mode",
+      victoryPointsMode: "90 min regular points mode",
       standardCompetitiveTournamentTeamsEarn3PointsForA: "Standard competitive tournament. Teams earn 3 points for a win and 1 point for a regular-time tie.. When cup rules are on – 2 points for an extra time or shootout win. Standings are ranked by",
       totalPoints: "Total Points",
       thenGoalDifferenceAndGoalsScored120minGamesMean: ", then goal difference and goals scored. 120min games mean nothing here.",

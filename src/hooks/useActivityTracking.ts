@@ -20,7 +20,9 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
     if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.startsWith('127.') || hostname === '::1' || hostname === '[::1]') return;
     if (initialDocumentReferrer === undefined) {
       try {
-        initialDocumentReferrer = document.referrer ? new URL(document.referrer).origin : '';
+        const returnFlow = /\/(?:auth\/callback|supported)\/?$/.test(window.location.pathname)
+          || new URLSearchParams(window.location.search).has('supported');
+        initialDocumentReferrer = !returnFlow && document.referrer ? new URL(document.referrer).origin : '';
       } catch {
         initialDocumentReferrer = '';
       }

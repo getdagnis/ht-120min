@@ -5,7 +5,7 @@ import { FUNDRAISER_PRODUCTS } from '../shared/fundraiser.ts';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { buildAppSessionCookie } from '../src/server/api/_lib/app-session.ts';
 import {
-  clickedByManager, handleBmcWebhook, handleFundraiserCheckout, handleFundraiserClaim, handleFundraiserReturn,
+  clickedByManager, handleBmcWebhook, handleFundraiser, handleFundraiserCheckout, handleFundraiserClaim, handleFundraiserReturn,
   parseBmcShopOrder, verifyBmcSignature,
 } from '../src/server/api/_lib/fundraiser.ts';
 
@@ -42,6 +42,46 @@ test('all four Shop URLs and item IDs are mapped to the approved beer values', (
     { key: '120min', itemId: 599986, url: 'https://buymeacoffee.com/dagnis/e/599986', beers: 1 },
     { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 1 },
   ]);
+});
+
+test('fundraiser state distinguishes a verified manager from an anonymous visitor', async () => {
+  const previousSecret = process.env.APP_SESSION_SECRET;
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.APP_SESSION_SECRET = 'test-app-session-secret';
+  process.env.SUPABASE_URL = 'https://fundraiser-test.invalid';
+  process.env.SUPABASE_SECRET_KEY = 'test-service-key';
+  globalThis.fetch = async (input) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    assert.equal(url.hostname, 'fundraiser-test.invalid');
+    assert.ok(url.pathname === '/rest/v1/rpc/next_season_fundraiser_summary' ||
+      url.pathname === '/rest/v1/next_season_bmc_payments');
+    return Response.json([]);
+  };
+  try {
+    let state: { authenticated: boolean; hasSupported: boolean } | null = null;
+    const res = {
+      setHeader() { return this; },
+      status(code: number) { assert.equal(code, 200); return this; },
+      json(value: { authenticated: boolean; hasSupported: boolean }) { state = value; return this; },
+    } as unknown as VercelResponse;
+    const request = (cookie?: string) => ({ method: 'GET', headers: { cookie } }) as VercelRequest;
+    await handleFundraiser(request(), res);
+    assert.equal(state?.authenticated, false);
+    assert.equal(state?.hasSupported, false);
+    const session = buildAppSessionCookie(42, process.env.APP_SESSION_SECRET, false).split(';')[0];
+    await handleFundraiser(request(session), res);
+    assert.equal(state?.authenticated, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
+    if (previousSecret === undefined) delete process.env.APP_SESSION_SECRET;
+    else process.env.APP_SESSION_SECRET = previousSecret;
+  }
 });
 
 test('checkout records the signed-in manager and product before redirecting to the real Shop URL', async () => {

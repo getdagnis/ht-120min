@@ -4016,7 +4016,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       language: event.language,
       platform: event.platform,
       browser: event.browser,
-      referrer: entrySource,
+      referrer: event.event_type === 'page_view' ? entrySource : null,
       pages: [],
       actions: [],
     };
@@ -4028,6 +4028,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     visit.language ||= event.language;
     visit.platform ||= event.platform;
     visit.browser ||= event.browser;
+    if (event.event_type === 'page_view') visit.referrer ||= entrySource;
     if (event.event_type === 'page_view' && event.route) {
       visit.pages.push({
         route: event.route,

@@ -84,7 +84,8 @@ export async function handleFundraiser(req: VercelRequest, res: VercelResponse) 
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
   if (FUNDRAISER_STATUS === 'hidden') return res.status(404).json({ error: 'Fundraiser unavailable.' });
-  return res.status(200).json(await loadState(signedInManager(req)));
+  const managerId = signedInManager(req);
+  return res.status(200).json({ ...await loadState(managerId), authenticated: managerId !== null });
 }
 
 export async function handleFundraiserCheckout(req: VercelRequest, res: VercelResponse) {
