@@ -220,7 +220,7 @@ const messages = {
     sessionRecoveryDescription: 'We remember you, but Hattrick doesn\'t... Please take a few seconds to log in with CHPP again!',
     sessionRecoveryAction: 'Reconnect with CHPP',
     hattrickInviteTitle: 'Welcome to HT-120min!',
-    hattrickInviteDescription: 'For the best experience, please connect with your Hattrick account!',
+    hattrickInviteDescription: 'You just came here from Hattrick! That\'s an extra-terristrial site! To get personalized content, please connect with your Hattrick account!',
     hattrickInviteConnect: 'Connect with CHPP',
     hattrickInviteLater: 'Later',
     managerOf: 'manager of',
