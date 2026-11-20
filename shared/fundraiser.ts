@@ -6,7 +6,7 @@ export const FUNDRAISER_PRODUCTS = [
   { key: 'hfi', itemId: 599984, url: 'https://buymeacoffee.com/dagnis/e/599984', beers: 1, price: 5, badge: '/alus/badge-exotic.png' },
   { key: 'flags', itemId: 599987, url: 'https://buymeacoffee.com/dagnis/e/599987', beers: 1, price: 5, badge: '/alus/badge-flags.png' },
   { key: '120min', itemId: 599986, url: 'https://buymeacoffee.com/dagnis/e/599986', beers: 1, price: 5, badge: '/alus/badge-120.png' },
-  { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 2, price: 10, badge: '/alus/badge-120-beer.png' },
+  { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 1, price: 10, badge: '/alus/badge-120-beer.png' },
 ] as const;
 
 export type FundraiserProductKey = (typeof FUNDRAISER_PRODUCTS)[number]['key'];

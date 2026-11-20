@@ -7,7 +7,7 @@ The HT-120min campaign is a Buy Me a Coffee Shop fundraiser, not an interest pol
 | Exotic HFI Series | 599984 | https://buymeacoffee.com/dagnis/e/599984 | 1 |
 | Around the World — Flag Chasers | 599987 | https://buymeacoffee.com/dagnis/e/599987 | 1 |
 | 120min Strictly | 599986 | https://buymeacoffee.com/dagnis/e/599986 | 1 |
-| HT-120min Supporter | 599982 | https://buymeacoffee.com/dagnis/e/599982 | 2 |
+| HT-120min Supporter | 599982 | https://buymeacoffee.com/dagnis/e/599982 | 1 |
 
 The public campaign page is `/<locale>/fundraiser` (or `/fundraiser` with locale redirect). The combined display is beers supported out of a symbolic 20, not euros and not four separate goals. All four Shop products contribute, including purchases made directly on BMC. The public campaign API returns only product aggregates and matched Hattrick names. No sample names from the artwork are published.
 

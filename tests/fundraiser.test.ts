@@ -40,7 +40,7 @@ test('all four Shop URLs and item IDs are mapped to the approved beer values', (
     { key: 'hfi', itemId: 599984, url: 'https://buymeacoffee.com/dagnis/e/599984', beers: 1 },
     { key: 'flags', itemId: 599987, url: 'https://buymeacoffee.com/dagnis/e/599987', beers: 1 },
     { key: '120min', itemId: 599986, url: 'https://buymeacoffee.com/dagnis/e/599986', beers: 1 },
-    { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 2 },
+    { key: 'general', itemId: 599982, url: 'https://buymeacoffee.com/dagnis/e/599982', beers: 1 },
   ]);
 });
 
