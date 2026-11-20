@@ -1,10 +1,11 @@
 import { useTranslations } from 'next-intl';
-import React, { useEffect, useId } from 'react';
+import React, { useCallback, useEffect, useId, useState, useSyncExternalStore } from 'react';
 import styles from './Modal.module.sass';
 import { X } from 'phosphor-react';
 
 interface ModalProps {
   isOpen: boolean;
+  openLocal?: boolean;
   onClose: () => void;
   title?: string;
   ariaLabel?: string;
@@ -20,8 +21,14 @@ interface ModalProps {
   closeOnOverlayClick?: boolean;
 }
 
+const subscribeToHostname = () => () => {};
+const getLocalHostname = () =>
+  ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname.toLowerCase());
+const getServerHostname = () => false;
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
+  openLocal = false,
   onClose,
   title,
   ariaLabel,
@@ -38,8 +45,18 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const uiText = useTranslations('PublicUI.Modal');
   const titleId = useId();
+  const isLocalHost = useSyncExternalStore(subscribeToHostname, getLocalHostname, getServerHostname);
+  const [localDismissed, setLocalDismissed] = useState(false);
+
+  const locallyForcedOpen = openLocal && isLocalHost && !localDismissed;
+  const open = isOpen || locallyForcedOpen;
+  const handleClose = useCallback(() => {
+    if (locallyForcedOpen) setLocalDismissed(true);
+    onClose();
+  }, [locallyForcedOpen, onClose]);
+
   useEffect(() => {
-    if (isOpen) {
+    if (open) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -47,47 +64,57 @@ export const Modal: React.FC<ModalProps> = ({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [open]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [open, handleClose]);
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
-    <div className={styles.overlay} onClick={closeOnOverlayClick ? onClose : undefined}>
-        <div
-          className={[styles.modal, appearance === 'plain' ? styles.plain : '', modalClassName].filter(Boolean).join(' ')}
-          style={{ maxWidth }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={ariaLabel}
-          aria-labelledby={title && showHeader ? titleId : undefined}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {showHeader && (
+    <div className={styles.overlay} onClick={closeOnOverlayClick ? handleClose : undefined}>
+      <div
+        className={[styles.modal, appearance === 'plain' ? styles.plain : '', modalClassName].filter(Boolean).join(' ')}
+        style={{ maxWidth }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        aria-labelledby={title && showHeader ? titleId : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {showHeader && (
           <div className={[styles.header, headerClassName].filter(Boolean).join(' ')}>
-            {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
+            {title && (
+              <h2 id={titleId} className={styles.title}>
+                {title}
+              </h2>
+            )}
             <button
               className={[styles.closeBtn, closeButtonClassName].filter(Boolean).join(' ')}
-              onClick={onClose}
+              onClick={handleClose}
               aria-label={uiText('close')}
             >
               <X size={24} weight="bold" />
             </button>
           </div>
         )}
-        <div className={[styles.content, useContentPanel ? styles.contentPanel : '', contentClassName].filter(Boolean).join(' ')}>{children}</div>
+        <div
+          className={[styles.content, useContentPanel ? styles.contentPanel : '', contentClassName]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

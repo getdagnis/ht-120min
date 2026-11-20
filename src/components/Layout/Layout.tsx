@@ -143,11 +143,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   }, [theme]);
 
   useEffect(() => {
-    if (!authReady || managerName || recoveryManagerName || isAuthCallback || isSupportedPage ||
-      excludeAnalytics || hattrickInviteDismissed || !isHattrickReferral(document.referrer)) return;
+    if (
+      !authReady ||
+      managerName ||
+      recoveryManagerName ||
+      isAuthCallback ||
+      isSupportedPage ||
+      excludeAnalytics ||
+      hattrickInviteDismissed ||
+      !isHattrickReferral(document.referrer)
+    )
+      return;
     try {
-      if (localStorage.getItem(MAIN_AUTH_USER_ID_KEY) || localStorage.getItem(MAIN_AUTH_MANAGER_NAME_KEY) ||
-        localStorage.getItem(MAIN_AUTH_TEAM_NAME_KEY)) return;
+      if (
+        localStorage.getItem(MAIN_AUTH_USER_ID_KEY) ||
+        localStorage.getItem(MAIN_AUTH_MANAGER_NAME_KEY) ||
+        localStorage.getItem(MAIN_AUTH_TEAM_NAME_KEY)
+      )
+        return;
     } catch {
       return;
     }
@@ -159,12 +172,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'session_status' }),
       signal: controller.signal,
-    }).then((response) => response.ok ? response.json() as Promise<{ userId: number | null }> : null)
+    })
+      .then((response) => (response.ok ? (response.json() as Promise<{ userId: number | null }>) : null))
       .then((session) => {
         if (!controller.signal.aborted && session?.userId === null) setHattrickInviteOpen(true);
-      }).catch(() => {});
+      })
+      .catch(() => {});
     return () => controller.abort();
-  }, [authReady, managerName, recoveryManagerName, isAuthCallback, isSupportedPage, excludeAnalytics, hattrickInviteDismissed]);
+  }, [
+    authReady,
+    managerName,
+    recoveryManagerName,
+    isAuthCallback,
+    isSupportedPage,
+    excludeAnalytics,
+    hattrickInviteDismissed,
+  ]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -540,11 +563,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
             </Button>
           </Modal>
 
-          <Modal
-            isOpen={inviteOpen}
-            onClose={dismissHattrickInvite}
-            title={t('hattrickInviteTitle')}
-          >
+          <Modal isOpen={inviteOpen} onClose={dismissHattrickInvite} title={t('hattrickInviteTitle')}>
             <p className="mb-1">{t('hattrickInviteDescription')}</p>
             <div className={styles.authPromptActions}>
               <Button variant="outlineModal" onClick={dismissHattrickInvite}>
