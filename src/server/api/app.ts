@@ -9,7 +9,7 @@ import {
   verifyForgeSessionCookie,
 } from './_lib/forge-session.js';
 import { getAnalyticsExcludedHtUserId, isExcludedAnalyticsReferrer } from './_lib/analytics.js';
-import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
+import { cleanupActivityEvents, normalizeEntryReferrer, recordActivity } from './_lib/activity.js';
 import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
@@ -3302,6 +3302,7 @@ async function handleActivity(req: VercelRequest, res: VercelResponse) {
       route: readString(req.body?.route) || null,
       tournamentId: readString(req.body?.tournamentId) || null,
       teamId: readString(req.body?.teamId) || null,
+      entryReferrer: readString(req.body?.entryReferrer) || null,
       metadata: typeof req.body?.metadata === 'object' && req.body.metadata ? req.body.metadata : {},
     });
     return res.status(201).json({ ok: true, userId: result.userId });
@@ -3997,9 +3998,12 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     pages: Array<{ route: string; visitedAt: string; theme: string | null; durationSeconds: number | null; maxScrollPercent: number | null }>;
     actions: string[];
   }>();
+  const visitKey = (event: ForgeActivityRow) => event.visit_id ||
+    `legacy:${event.visitor_id}:${Math.floor(Date.parse(event.occurred_at) / (30 * 60 * 1000))}`;
   const chronologicalEvents = [...events].sort((left, right) => left.occurred_at.localeCompare(right.occurred_at));
   for (const event of chronologicalEvents) {
-    const visitId = event.visit_id || `legacy:${event.visitor_id}:${Math.floor(Date.parse(event.occurred_at) / (30 * 60 * 1000))}`;
+    const visitId = visitKey(event);
+    const entrySource = normalizeEntryReferrer(event.referrer, req.headers.host);
     const existing = visitGroups.get(visitId);
     const visit = existing || {
       visitId,
@@ -4012,7 +4016,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       language: event.language,
       platform: event.platform,
       browser: event.browser,
-      referrer: event.referrer,
+      referrer: entrySource,
       pages: [],
       actions: [],
     };
@@ -4024,7 +4028,6 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     visit.language ||= event.language;
     visit.platform ||= event.platform;
     visit.browser ||= event.browser;
-    visit.referrer ||= event.referrer;
     if (event.event_type === 'page_view' && event.route) {
       visit.pages.push({
         route: event.route,
@@ -4088,7 +4091,8 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       || (event.occurred_at === activityCursor.occurred_at && event.id < activityCursor.id))
     : 0;
   const safeActivityStart = activityCursor && activityStart < 0 ? sortedActivity.length : activityStart;
-  const recentActivity = sortedActivity.slice(safeActivityStart, safeActivityStart + 30);
+  const recentActivity = sortedActivity.slice(safeActivityStart, safeActivityStart + 30)
+    .map((event) => ({ ...event, referrer: visitGroups.get(visitKey(event))?.referrer || null }));
   const hasMoreActivity = safeActivityStart + recentActivity.length < sortedActivity.length;
   const lastActivity = recentActivity[recentActivity.length - 1];
 
@@ -4118,7 +4122,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       browsers: breakdown(sortedVisits.map((visit) => visit.browser)),
       languages: breakdown(sortedVisits.map((visit) => visit.language)),
       routes: breakdown(events.map((event) => event.route)),
-      referrers: breakdown(sortedVisits.map((visit) => visit.referrer)),
+      referrers: breakdown(sortedVisits.map((visit) => visit.referrer || 'Direct / unknown')),
       themes: breakdown(sortedVisits.flatMap((visit) => visit.pages.map((page) => page.theme)))
         .map((row) => ({ ...row, uniqueCount: themeVisitors.get(row.value)?.size || 0 })),
       screens: breakdown(metadataValues('screen')),

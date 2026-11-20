@@ -4,6 +4,7 @@ import { resolveEffectiveTheme } from '../utils/theme';
 // Keep low-volume visits and explicit product actions enabled. Generic controls
 // are opt-in via data-track so analytics cannot become a high-volume event stream.
 const ACTIVITY_TRACKING_PAUSED = false;
+let initialDocumentReferrer: string | undefined;
 
 export interface ActivityEventPayload {
   route?: string;
@@ -17,6 +18,13 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname.toLowerCase();
     if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.startsWith('127.') || hostname === '::1' || hostname === '[::1]') return;
+    if (initialDocumentReferrer === undefined) {
+      try {
+        initialDocumentReferrer = document.referrer ? new URL(document.referrer).origin : '';
+      } catch {
+        initialDocumentReferrer = '';
+      }
+    }
   }
 
   try {
@@ -24,7 +32,7 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventType, ...payload }),
+      body: JSON.stringify({ eventType, ...payload, entryReferrer: initialDocumentReferrer }),
       keepalive: true,
     });
   } catch {

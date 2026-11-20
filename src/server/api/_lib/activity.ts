@@ -21,6 +21,7 @@ export interface ActivityInput {
   tournamentId?: string | null;
   teamId?: string | null;
   metadata?: Record<string, unknown>;
+  entryReferrer?: string | null;
   userId?: number | null;
   managerName?: string | null;
 }
@@ -61,18 +62,22 @@ function parseUserAgent(userAgent: string) {
   return { browser, platform };
 }
 
-function normalizedReferrer(request: VercelRequest) {
-  const value = firstHeader(request.headers.referer) || firstHeader(request.headers.referrer);
-  if (!value) return null;
+export function normalizeEntryReferrer(value: string | null | undefined, requestHost: string | string[] | undefined) {
+  if (!value || value.length > 2048) return null;
   try {
     const url = new URL(value);
-    return `${url.origin}${url.pathname}`;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const host = firstHeader(requestHost);
+    const ownHost = host ? new URL(`http://${host}`).hostname.toLowerCase() : '';
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === ownHost || ['ht-120min.vercel.app', '120min.vercel.app'].includes(hostname)) return null;
+    return url.origin;
   } catch {
     return null;
   }
 }
 
-function requestContext(request: VercelRequest) {
+function requestContext(request: VercelRequest, entryReferrer: string | null | undefined) {
   const cookieHeader = request.headers.cookie;
   const visitorId = parseCookie(cookieHeader, VISITOR_COOKIE) || createVisitorId();
   const visitId = parseCookie(cookieHeader, VISIT_COOKIE) || randomUUID();
@@ -92,7 +97,7 @@ function requestContext(request: VercelRequest) {
     ip,
     country: firstHeader(request.headers['x-vercel-ip-country']) || null,
     language: firstHeader(request.headers['accept-language'])?.split(',')[0]?.trim() || null,
-    referrer: normalizedReferrer(request),
+    referrer: normalizeEntryReferrer(entryReferrer, request.headers.host),
   };
 }
 
@@ -104,7 +109,7 @@ function setTrackingCookies(response: VercelResponse, visitorId: string, visitId
 }
 
 export async function recordActivity(request: VercelRequest, response: VercelResponse, input: ActivityInput) {
-  const context = requestContext(request);
+  const context = requestContext(request, input.entryReferrer);
   const forgeAdminId = getForgeSuperadminId();
   const excludedUserIds = [getAnalyticsExcludedHtUserId(), forgeAdminId].filter((id): id is number => Boolean(id));
   if (
