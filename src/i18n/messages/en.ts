@@ -6,7 +6,7 @@ const messages = {
     fuelTitle: 'HT-120min is running low on fuel...',
     fuelLead: "Should we go on? That's up to you! If you'd like these competitions to return, chip in for any project goal of your choice!",
     fuelEmphasis: 'One beer chipped in is already ENOUGH to keep going!',
-    hfi: { title: 'Exotic HFI Series 🌴', description: 'Saint Kitts? Tahiti? San Marino? These tournaments support domestic HFI friendlies that are auto-scheduled and auto-booked for small league HFI teams.' },
+    hfi: { title: 'Exotic HFI Series 🌴', description: 'Saint Kitts? Tahiti? San Marino? Gibraltar? These and more tournaments support domestic HFI friendlies that are auto-scheduled and auto-booked for small league HFI teams. Let\'s continue with them!' },
     flags: { title: 'Around the World — Flag Chasers', description: 'Collect missing flags from small exotic countries worldwide, with opponents found, games scheduled and friendlies auto-booked for you.' },
     '120min': { title: '120min Strictly ⏱️', description: '90 minutes not enough? Compete with managers who take 120 min friendlies seriously. Cup Rules friendlies auto-booked, so you can focus on tactics and training.' },
     general: { title: 'HT-120min Supporter 🍻', description: 'General support for the project, maintenance and upcoming features.' },
