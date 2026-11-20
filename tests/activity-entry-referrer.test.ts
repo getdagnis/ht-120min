@@ -6,7 +6,7 @@ import appHandler from '../src/server/api/app.ts';
 import { buildForgeSessionCookie } from '../src/server/api/_lib/forge-session.ts';
 import { trackActivity } from '../src/hooks/useActivityTracking.ts';
 
-test('browser sends the available full document referrer with its first activity event', async (t) => {
+test('concurrent first events share browser-assigned visitor and visit IDs', async (t) => {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const previousFetch = globalThis.fetch;
@@ -17,15 +17,31 @@ test('browser sends the available full document referrer with its first activity
     else delete (globalThis as { document?: Document }).document;
     globalThis.fetch = previousFetch;
   });
-  Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hostname: 'ht-120min.vercel.app', pathname: '/en', search: '' } } });
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { referrer: 'https://www.hattrick.org/Club/?TeamID=42' } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hostname: 'ht-120min.vercel.app', pathname: '/en', search: '', protocol: 'https:' } } });
+  const cookies = new Map<string, string>();
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+    referrer: 'https://www.hattrick.org/Club/?TeamID=42',
+    get cookie() { return Array.from(cookies, ([key, value]) => `${key}=${value}`).join('; '); },
+    set cookie(value: string) {
+      const [key, id] = value.split(';')[0].split('=');
+      cookies.set(key, id);
+    },
+  } });
   const bodies: Array<{ entryReferrer?: string }> = [];
+  const requestCookies: string[] = [];
   globalThis.fetch = async (_input, init) => {
     bodies.push(JSON.parse(String(init?.body)) as { entryReferrer?: string });
+    requestCookies.push(document.cookie);
     return Response.json({ ok: true });
   };
-  await trackActivity('page_view', { route: '/en' });
+  await Promise.all([
+    trackActivity('page_view', { route: '/en' }),
+    trackActivity('page_exit', { route: '/en' }),
+  ]);
   assert.equal(bodies[0]?.entryReferrer, 'https://www.hattrick.org/Club/?TeamID=42');
+  assert.equal(bodies[1]?.entryReferrer, bodies[0]?.entryReferrer);
+  assert.equal(requestCookies[0], requestCookies[1]);
+  assert.match(requestCookies[0], /ht_visitor=[^;]+; ht_visit=[^;]+/);
 });
 
 test('entry source retains external paths and queries but drops credentials and fragments', () => {

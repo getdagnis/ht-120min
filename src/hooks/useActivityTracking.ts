@@ -27,6 +27,17 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
         initialDocumentReferrer = '';
       }
     }
+    try {
+      const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+      if (!/(?:^|;\s*)ht_visitor=/.test(document.cookie)) {
+        document.cookie = `ht_visitor=${crypto.randomUUID()}; Path=/; Max-Age=${60 * 60 * 24 * 365 * 2}; SameSite=Lax${secure}`;
+      }
+      if (!/(?:^|;\s*)ht_visit=/.test(document.cookie)) {
+        document.cookie = `ht_visit=${crypto.randomUUID()}; Path=/; Max-Age=${60 * 30}; SameSite=Lax${secure}`;
+      }
+    } catch {
+      // The server can still assign IDs when browser cookies are unavailable.
+    }
   }
 
   try {
